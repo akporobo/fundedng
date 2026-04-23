@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: 'Space Mono', monospace;
-  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Montserrat', sans-serif;
+  --font-body: 'Poppins', sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -101,12 +101,13 @@
   html, body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
   .font-display {
-    font-family: 'Space Mono', monospace;
+    font-family: 'Montserrat', sans-serif;
+    letter-spacing: -0.01em;
   }
 
   /* Slim scrollbar */
