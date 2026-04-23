@@ -22,6 +22,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authenticated/community.index'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
 
 const SetupAdminRoute = SetupAdminRouteImport.update({
@@ -88,6 +89,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCommunityIndexRoute =
+  AuthenticatedCommunityIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedCommunityRoute,
+  } as any)
 const AuthenticatedCommunitySlugRoute =
   AuthenticatedCommunitySlugRouteImport.update({
     id: '/$slug',
@@ -109,13 +116,13 @@ export interface FileRoutesByFullPath {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/community/': typeof AuthenticatedCommunityIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/buy': typeof BuyRoute
   '/setup-admin': typeof SetupAdminRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/community': typeof AuthenticatedCommunityRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/community': typeof AuthenticatedCommunityIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,13 +167,13 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/community/$slug'
+    | '/community/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/buy'
     | '/setup-admin'
     | '/admin'
-    | '/community'
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
@@ -173,6 +182,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/community/$slug'
+    | '/community'
   id:
     | '__root__'
     | '/'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/_authenticated/community/$slug'
+    | '/_authenticated/community/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -296,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/community/': {
+      id: '/_authenticated/community/'
+      path: '/'
+      fullPath: '/community/'
+      preLoaderRoute: typeof AuthenticatedCommunityIndexRouteImport
+      parentRoute: typeof AuthenticatedCommunityRoute
+    }
     '/_authenticated/community/$slug': {
       id: '/_authenticated/community/$slug'
       path: '/$slug'
@@ -308,11 +326,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedCommunityRouteChildren {
   AuthenticatedCommunitySlugRoute: typeof AuthenticatedCommunitySlugRoute
+  AuthenticatedCommunityIndexRoute: typeof AuthenticatedCommunityIndexRoute
 }
 
 const AuthenticatedCommunityRouteChildren: AuthenticatedCommunityRouteChildren =
   {
     AuthenticatedCommunitySlugRoute: AuthenticatedCommunitySlugRoute,
+    AuthenticatedCommunityIndexRoute: AuthenticatedCommunityIndexRoute,
   }
 
 const AuthenticatedCommunityRouteWithChildren =
