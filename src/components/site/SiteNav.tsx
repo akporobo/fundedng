@@ -10,7 +10,7 @@ export function SiteNav() {
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <Brand />
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
           <ThemeToggle />
           {isAuthenticated ? (
             <>
@@ -19,6 +19,9 @@ export function SiteNav() {
                   <Button variant="ghost" size="sm">Admin</Button>
                 </Link>
               )}
+              <Link to="/community">
+                <Button variant="ghost" size="sm">Community</Button>
+              </Link>
               <Link to="/dashboard">
                 <Button variant="outline" size="sm">Dashboard</Button>
               </Link>
@@ -28,6 +31,9 @@ export function SiteNav() {
             </>
           ) : (
             <>
+              <Link to="/community">
+                <Button variant="ghost" size="sm">Community</Button>
+              </Link>
               <Link to="/auth/login">
                 <Button variant="ghost" size="sm">Login</Button>
               </Link>
@@ -36,6 +42,9 @@ export function SiteNav() {
               </Link>
             </>
           )}
+        </div>
+        <div className="md:hidden">
+          <ThemeToggle />
         </div>
       </div>
     </nav>

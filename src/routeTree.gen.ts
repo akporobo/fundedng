@@ -18,8 +18,11 @@ import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
 
 const SetupAdminRoute = SetupAdminRouteImport.update({
   id: '/setup-admin',
@@ -65,9 +68,19 @@ const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
   path: '/api/deliver-account',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCommunityRoute = AuthenticatedCommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -75,30 +88,42 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCommunitySlugRoute =
+  AuthenticatedCommunitySlugRouteImport.update({
+    id: '/$slug',
+    path: '/$slug',
+    getParentRoute: () => AuthenticatedCommunityRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/buy': typeof BuyRoute
   '/setup-admin': typeof SetupAdminRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/community': typeof AuthenticatedCommunityRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/community/$slug': typeof AuthenticatedCommunitySlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/buy': typeof BuyRoute
   '/setup-admin': typeof SetupAdminRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/community': typeof AuthenticatedCommunityRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/community/$slug': typeof AuthenticatedCommunitySlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,12 +132,15 @@ export interface FileRoutesById {
   '/buy': typeof BuyRoute
   '/setup-admin': typeof SetupAdminRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/community': typeof AuthenticatedCommunityRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,24 +149,30 @@ export interface FileRouteTypes {
     | '/buy'
     | '/setup-admin'
     | '/admin'
+    | '/community'
     | '/dashboard'
+    | '/profile'
     | '/api/deliver-account'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
     | '/auth/reset-password'
+    | '/community/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/buy'
     | '/setup-admin'
     | '/admin'
+    | '/community'
     | '/dashboard'
+    | '/profile'
     | '/api/deliver-account'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
     | '/auth/reset-password'
+    | '/community/$slug'
   id:
     | '__root__'
     | '/'
@@ -146,12 +180,15 @@ export interface FileRouteTypes {
     | '/buy'
     | '/setup-admin'
     | '/_authenticated/admin'
+    | '/_authenticated/community'
     | '/_authenticated/dashboard'
+    | '/_authenticated/profile'
     | '/api/deliver-account'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
     | '/auth/reset-password'
+    | '/_authenticated/community/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -231,11 +268,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDeliverAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/community': {
+      id: '/_authenticated/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof AuthenticatedCommunityRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin': {
@@ -245,17 +296,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/community/$slug': {
+      id: '/_authenticated/community/$slug'
+      path: '/$slug'
+      fullPath: '/community/$slug'
+      preLoaderRoute: typeof AuthenticatedCommunitySlugRouteImport
+      parentRoute: typeof AuthenticatedCommunityRoute
+    }
   }
 }
 
+interface AuthenticatedCommunityRouteChildren {
+  AuthenticatedCommunitySlugRoute: typeof AuthenticatedCommunitySlugRoute
+}
+
+const AuthenticatedCommunityRouteChildren: AuthenticatedCommunityRouteChildren =
+  {
+    AuthenticatedCommunitySlugRoute: AuthenticatedCommunitySlugRoute,
+  }
+
+const AuthenticatedCommunityRouteWithChildren =
+  AuthenticatedCommunityRoute._addFileChildren(
+    AuthenticatedCommunityRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedCommunityRoute: typeof AuthenticatedCommunityRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedCommunityRoute: AuthenticatedCommunityRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
