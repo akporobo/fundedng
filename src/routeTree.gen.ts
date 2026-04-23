@@ -9,16 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SetupAdminRouteImport } from './routes/setup-admin'
 import { Route as BuyRouteImport } from './routes/buy'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
+import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/_admin'
-import { Route as AuthenticatedAdminAdminRouteImport } from './routes/_authenticated/_admin/admin'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
+const SetupAdminRoute = SetupAdminRouteImport.update({
+  id: '/setup-admin',
+  path: '/setup-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BuyRoute = BuyRouteImport.update({
   id: '/buy',
   path: '/buy',
@@ -33,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
   id: '/auth/register',
   path: '/auth/register',
@@ -41,6 +53,11 @@ const AuthRegisterRoute = AuthRegisterRouteImport.update({
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/auth/login',
   path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/auth/forgot-password',
+  path: '/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
@@ -54,88 +71,110 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/_admin',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedAdminAdminRoute = AuthenticatedAdminAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
-  getParentRoute: () => AuthenticatedAdminRoute,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/buy': typeof BuyRoute
+  '/setup-admin': typeof SetupAdminRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
-  '/admin': typeof AuthenticatedAdminAdminRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/buy': typeof BuyRoute
+  '/setup-admin': typeof SetupAdminRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
-  '/admin': typeof AuthenticatedAdminAdminRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/buy': typeof BuyRoute
-  '/_authenticated/_admin': typeof AuthenticatedAdminRouteWithChildren
+  '/setup-admin': typeof SetupAdminRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
-  '/_authenticated/_admin/admin': typeof AuthenticatedAdminAdminRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/buy'
+    | '/setup-admin'
+    | '/admin'
     | '/dashboard'
     | '/api/deliver-account'
+    | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
-    | '/admin'
+    | '/auth/reset-password'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/buy'
+    | '/setup-admin'
+    | '/admin'
     | '/dashboard'
     | '/api/deliver-account'
+    | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
-    | '/admin'
+    | '/auth/reset-password'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/buy'
-    | '/_authenticated/_admin'
+    | '/setup-admin'
+    | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/api/deliver-account'
+    | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
-    | '/_authenticated/_admin/admin'
+    | '/auth/reset-password'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   BuyRoute: typeof BuyRoute
+  SetupAdminRoute: typeof SetupAdminRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/setup-admin': {
+      id: '/setup-admin'
+      path: '/setup-admin'
+      fullPath: '/setup-admin'
+      preLoaderRoute: typeof SetupAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/buy': {
       id: '/buy'
       path: '/buy'
@@ -157,6 +196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/auth/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/register': {
       id: '/auth/register'
       path: '/auth/register'
@@ -169,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/login'
       fullPath: '/auth/login'
       preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/forgot-password': {
+      id: '/auth/forgot-password'
+      path: '/auth/forgot-password'
+      fullPath: '/auth/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/deliver-account': {
@@ -185,41 +238,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/_admin': {
-      id: '/_authenticated/_admin'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/_admin/admin': {
-      id: '/_authenticated/_admin/admin'
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
       path: '/admin'
       fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminAdminRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
-interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminAdminRoute: typeof AuthenticatedAdminAdminRoute
-}
-
-const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminAdminRoute: AuthenticatedAdminAdminRoute,
-}
-
-const AuthenticatedAdminRouteWithChildren =
-  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
-
 interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
 }
 
@@ -231,19 +266,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   BuyRoute: BuyRoute,
+  SetupAdminRoute: SetupAdminRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

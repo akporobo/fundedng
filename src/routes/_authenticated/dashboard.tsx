@@ -79,11 +79,11 @@ function DashboardPage() {
       user_id: user!.id,
       trader_account_id: selected.id,
       amount_naira: amount,
-      profit_percent: ((profit / selected.starting_balance) * 100).toFixed(4),
+      profit_percent: Number(((profit / selected.starting_balance) * 100).toFixed(4)),
       payment_method: payoutMethod,
       wallet_address: payoutMethod === "usdt" ? walletInput : null,
       bank_details: payoutMethod === "bank_transfer" ? { account: walletInput } : null,
-    });
+    } as never);
     setSubmitting(false);
     if (error) return toast.error(error.message);
     toast.success(`Payout of ${formatNaira(amount)} requested!`);
