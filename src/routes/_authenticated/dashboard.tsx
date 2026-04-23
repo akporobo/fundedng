@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -45,6 +45,17 @@ function DashboardPage() {
   const [payoutMethod, setPayoutMethod] = useState<"usdt" | "bank_transfer">("usdt");
   const [walletInput, setWalletInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+
+  const seedDemo = async () => {
+    setSeeding(true);
+    const { error } = await supabase.rpc("seed_demo_data");
+    setSeeding(false);
+    if (error) return toast.error(error.message);
+    toast.success("Demo data loaded.");
+    setSelected(null);
+    load();
+  };
 
   const load = async () => {
     if (!user) return;
@@ -110,6 +121,9 @@ function DashboardPage() {
             <p className="text-sm text-muted-foreground">Welcome back, {profile?.full_name || user?.email}</p>
           </div>
           <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={seedDemo} disabled={seeding}>
+              <Sparkles className="mr-1 h-4 w-4"/>{seeding ? "Loading…" : "Load demo data"}
+            </Button>
             <Link to="/buy"><Button size="sm" className="font-display"><Plus className="mr-1 h-4 w-4"/>New Challenge</Button></Link>
             <Button size="sm" variant="outline" onClick={signOut}><LogOut className="mr-1 h-4 w-4"/>Sign out</Button>
           </div>
@@ -120,7 +134,12 @@ function DashboardPage() {
             <Trophy className="mx-auto h-12 w-12 text-primary" />
             <h2 className="font-display mt-4 text-2xl font-bold">No challenges yet</h2>
             <p className="mt-2 text-muted-foreground">Buy your first challenge to get an MT5 account in seconds.</p>
-            <Link to="/buy"><Button className="font-display mt-6">Get Funded →</Button></Link>
+            <div className="mt-6 flex justify-center gap-2">
+              <Link to="/buy"><Button className="font-display">Get Funded →</Button></Link>
+              <Button variant="outline" onClick={seedDemo} disabled={seeding}>
+                <Sparkles className="mr-1 h-4 w-4"/>{seeding ? "Loading…" : "Load demo data"}
+              </Button>
+            </div>
           </div>
         ) : (
           <Tabs defaultValue="overview" className="mt-8">
