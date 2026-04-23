@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
 import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, Sparkles, ShieldCheck, ShieldAlert, Landmark } from "lucide-react";
+import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -41,6 +42,7 @@ function DashboardPage() {
   const [snapshots, setSnapshots] = useState<{ snapshot_time: string; equity: number }[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
@@ -87,15 +89,17 @@ function DashboardPage() {
 
   const load = async () => {
     if (!user) return;
-    const [a, p, n] = await Promise.all([
+    const [a, p, n, c] = await Promise.all([
       supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases)").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      supabase.from("certificates").select("*").eq("user_id", user.id).order("issued_at", { ascending: false }),
     ]);
     const list = (a.data as Account[]) ?? [];
     setAccounts(list);
     setPayouts((p.data as Payout[]) ?? []);
     setNotifications((n.data as Notification[]) ?? []);
+    setCertificates((c.data as Certificate[]) ?? []);
     if (!selected && list.length) setSelected(list[0]);
   };
 
@@ -179,6 +183,9 @@ function DashboardPage() {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
               <TabsTrigger value="payouts">Payouts</TabsTrigger>
+              <TabsTrigger value="certificates">
+                <Trophy className="mr-1 h-3 w-3"/>Certificates {certificates.length > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{certificates.length}</span>}
+              </TabsTrigger>
               <TabsTrigger value="notifications">
                 <Bell className="mr-1 h-3 w-3"/>Notifications {unread > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{unread}</span>}
               </TabsTrigger>
