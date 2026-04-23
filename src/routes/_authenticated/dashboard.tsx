@@ -255,28 +255,59 @@ function DashboardPage() {
                     </div>
                   </div>
 
+                  {/* KYC: bank account on file (only KYC field) */}
+                  <div className={`rounded-xl border p-6 ${profile?.kyc_verified ? "border-primary/30 bg-primary/5" : "border-warning/40 bg-warning/5"}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-display flex items-center gap-2 text-base font-semibold">
+                          {profile?.kyc_verified ? <ShieldCheck className="h-4 w-4 text-primary"/> : <ShieldAlert className="h-4 w-4 text-warning"/>}
+                          KYC — Payout Bank Account
+                        </h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          The account holder name must match the name registered on your trader account. Payouts are sent only to this account.
+                        </p>
+                      </div>
+                      <Badge className={`font-display ${profile?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
+                        {profile?.kyc_verified ? "VERIFIED" : "PENDING"}
+                      </Badge>
+                    </div>
+                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                      <div>
+                        <Label htmlFor="bank-acct">Account number</Label>
+                        <Input id="bank-acct" inputMode="numeric" maxLength={10} placeholder="10-digit NUBAN" className="mt-1 font-mono" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value.replace(/\D/g, ""))} />
+                      </div>
+                      <div>
+                        <Label htmlFor="bank-name">Bank</Label>
+                        <Input id="bank-name" placeholder="e.g. GTBank" className="mt-1" value={bankName} onChange={(e) => setBankName(e.target.value)} maxLength={60} />
+                      </div>
+                      <div>
+                        <Label htmlFor="acct-name">Account holder name</Label>
+                        <Input id="acct-name" placeholder="As registered on trader account" className="mt-1" value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} maxLength={120} />
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" className="mt-4" onClick={saveBankDetails} disabled={savingKyc}>
+                      <Landmark className="mr-1 h-4 w-4"/>{savingKyc ? "Saving…" : "Save bank details"}
+                    </Button>
+                  </div>
+
                   {(selected.status === "passed" || selected.status === "funded") && (
                     <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                       <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">Get 80% of your profits within 24 hours.</p>
-                      {!profile?.kyc_verified && <Alert variant="destructive" className="mt-3"><AlertDescription>KYC verification required before payout.</AlertDescription></Alert>}
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <div>
-                          <Label>Method</Label>
-                          <Select value={payoutMethod} onValueChange={(v) => setPayoutMethod(v as "usdt" | "bank_transfer")}>
-                            <SelectTrigger className="mt-1"><SelectValue/></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="usdt">USDT (TRC20)</SelectItem>
-                              <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      <p className="mt-1 text-sm text-muted-foreground">80% of profits paid to your verified bank account within 24 hours.</p>
+                      {!profile?.kyc_verified && (
+                        <Alert variant="destructive" className="mt-3">
+                          <AlertDescription>Your bank account is awaiting admin verification before payouts are released.</AlertDescription>
+                        </Alert>
+                      )}
+                      {profile?.kyc_verified && profile.bank_account_number && (
+                        <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
+                          <div className="text-[11px] text-muted-foreground">Payout destination</div>
+                          <div className="font-display mt-1 text-primary">
+                            {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
+                          </div>
                         </div>
-                        <div>
-                          <Label>{payoutMethod === "usdt" ? "Wallet address" : "Account number"}</Label>
-                          <Input value={walletInput} onChange={(e)=>setWalletInput(e.target.value)} className="mt-1" />
-                        </div>
-                      </div>
-                      <Button className="font-display mt-4" onClick={requestPayout} disabled={submitting || !walletInput}>
+                      )}
+                      <Button className="font-display mt-4" onClick={requestPayout} disabled={submitting || !profile?.kyc_verified}>
                         {submitting ? "Submitting…" : "Request payout →"}
                       </Button>
                     </div>
