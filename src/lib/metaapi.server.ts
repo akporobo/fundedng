@@ -4,10 +4,14 @@ const PROVISIONING_BASE = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtr
 const CLIENT_API_BASE = "https://mt-client-api-v1.new-york.agiliumtrade.ai";
 const ACCOUNT_INFO_BASE = "https://metaapi-v1.new-york.agiliumtrade.ai";
 
-// Exness demo defaults via custom MetaApi provisioning profile.
-const PRIMARY_SERVER = "Exness-MT5Trial3";
-const FALLBACK_SERVER = "Exness-MT5Trial9";
+// IC Markets demo defaults via custom MetaApi provisioning profile.
+// Exness blocks programmatic demo account creation on all their Trial servers
+// ("Demo account generation is not allowed on server Exness-MT5Trial..."),
+// so we use IC Markets which MetaApi fully supports for automated provisioning.
+const PRIMARY_SERVER = "ICMarketsSC-Demo";
 const DEFAULT_LEVERAGE = 200;
+const DEFAULT_ACCOUNT_TYPE = "hedged";
+const DEFAULT_KEYWORDS = ["Raw Trading Ltd"];
 
 function token(): string {
   const t = process.env.METAAPI_TOKEN;
@@ -44,71 +48,60 @@ export interface MetaApiCreateResult {
 }
 
 /**
- * Create an Exness MT5 demo account via MetaApi using the operator's
- * custom provisioning profile (METAAPI_PROFILE_ID). Tries Exness-MT5Trial3 first,
- * falls back to Exness-MT5Trial9, polls 202 responses with a stable transaction id.
+ * Create an IC Markets MT5 demo account via MetaApi using the operator's
+ * custom provisioning profile (METAAPI_PROFILE_ID). Polls 202 responses with
+ * a stable transaction id until the account is provisioned (201) or fails.
  */
 export async function createMt5DemoAccount(
   input: MetaApiCreateInput,
 ): Promise<MetaApiCreateResult> {
-  const servers = input.serverName ? [input.serverName] : [PRIMARY_SERVER, FALLBACK_SERVER];
+  const serverName = input.serverName ?? PRIMARY_SERVER;
   const url = `${PROVISIONING_BASE}/users/current/provisioning-profiles/${profileId()}/mt5-demo-accounts`;
-  // Exness account types — try in order. `standard` is the default Exness demo type.
-  const accountTypes = ["standard", "raw_spread", "zero", "pro"];
+
+  const body = {
+    accountType: DEFAULT_ACCOUNT_TYPE,
+    balance: input.balance,
+    email: input.email,
+    leverage: input.leverage ?? DEFAULT_LEVERAGE,
+    name: input.name,
+    phone: input.phone || "+2348000000000",
+    serverName,
+    keywords: DEFAULT_KEYWORDS,
+  };
+  const txId = randomTransactionId();
+  const maxAttempts = 12;
+  const delayMs = 2500;
 
   let lastError = "";
-  for (const serverName of servers) {
-    for (const accountType of accountTypes) {
-      const body = {
-        accountType,
-        balance: input.balance,
-        email: input.email,
-        leverage: input.leverage ?? DEFAULT_LEVERAGE,
-        name: input.name,
-        phone: input.phone || "+2348000000000",
-        serverName,
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "auth-token": token(),
+        "transaction-id": txId,
+      },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 201) {
+      const data = (await res.json()) as Partial<MetaApiCreateResult>;
+      return {
+        login: String(data.login ?? ""),
+        password: data.password ?? "",
+        investorPassword: data.investorPassword ?? "",
+        serverName: data.serverName ?? serverName,
       };
-      const txId = randomTransactionId();
-      const maxAttempts = 12;
-      const delayMs = 2500;
-
-      let advanceCombo = false;
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            "auth-token": token(),
-            "transaction-id": txId,
-          },
-          body: JSON.stringify(body),
-        });
-        if (res.status === 201) {
-          const data = (await res.json()) as Partial<MetaApiCreateResult>;
-          return {
-            login: String(data.login ?? ""),
-            password: data.password ?? "",
-            investorPassword: data.investorPassword ?? "",
-            serverName: data.serverName ?? serverName,
-          };
-        }
-        if (res.status === 202) {
-          await new Promise((r) => setTimeout(r, delayMs));
-          continue;
-        }
-        lastError = `${res.status}: ${await res.text()}`;
-        console.warn(`[metaapi] ${serverName}/${accountType} failed (${lastError})`);
-        advanceCombo = true;
-        break; // try next accountType / server
-      }
-      if (!advanceCombo) {
-        // Hit the polling cap without 201 — record and move on.
-        lastError = `${serverName}/${accountType}: still pending after polling`;
-      }
     }
+    if (res.status === 202) {
+      await new Promise((r) => setTimeout(r, delayMs));
+      continue;
+    }
+    lastError = `${res.status}: ${await res.text()}`;
+    console.warn(`[metaapi] ${serverName}/${DEFAULT_ACCOUNT_TYPE} failed (${lastError})`);
+    break;
   }
-  throw new Error(`MetaApi provisioning failed on all Exness server/accountType combos — ${lastError || "timeout"}`);
+  throw new Error(`MetaApi provisioning failed on ${serverName} — ${lastError || "still pending after polling"}`);
 }
 
 /**
