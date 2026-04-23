@@ -12,7 +12,10 @@ const ACCOUNT_INFO_BASE = "https://metaapi-v1.new-york.agiliumtrade.ai";
 // no broker branding is shown either way.
 const PRIMARY_SERVER = "MetaQuotes-Demo";
 const DEFAULT_LEVERAGE = 200;
-const DEFAULT_ACCOUNT_TYPE = "hedged";
+// MetaQuotes-Demo requires a broker-specific account-type string rather than
+// the generic "hedged". USD-denominated hedged accounts give us the standard
+// MT5 demo behavior we want.
+const DEFAULT_ACCOUNT_TYPE = "Forex Hedged USD";
 const DEFAULT_KEYWORDS = ["MetaQuotes Software Corp."];
 
 function token(): string {
