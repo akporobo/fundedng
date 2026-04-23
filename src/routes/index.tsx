@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatNaira } from "@/lib/utils";
 import { Check, Zap, ShieldCheck, Trophy, ArrowRight } from "lucide-react";
+import tradingChartHero from "@/assets/trading-chart-hero.jpg";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -29,8 +30,15 @@ function Index() {
 
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
-        <div className="absolute inset-0 grid-bg" />
-        <div className="absolute inset-0 gradient-radial-primary opacity-50" />
+        <img
+          src={tradingChartHero}
+          alt="Live trading candlestick chart with upward trend"
+          width={1920}
+          height={1080}
+          className="absolute inset-0 h-full w-full object-cover opacity-60"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
+        <div className="absolute inset-0 gradient-radial-primary opacity-40" />
         <div className="relative mx-auto max-w-5xl px-6 py-24 text-center md:py-32">
           <div className="font-display mb-6 text-xs tracking-[0.4em] text-primary opacity-80">
             NIGERIA'S PROP TRADING FIRM
