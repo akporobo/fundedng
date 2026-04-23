@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site/SiteNav";
@@ -7,10 +7,31 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
 function AdminPage() {
+  const { isAdmin, isLoading } = useAuth();
+  if (isLoading) {
+    return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
+  }
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen">
+        <SiteNav />
+        <div className="mx-auto max-w-xl px-6 py-16 text-center">
+          <h1 className="font-display text-3xl font-bold">Admins only</h1>
+          <p className="mt-2 text-muted-foreground">You don't have admin access. If you're setting up this platform for the first time, claim admin below.</p>
+          <Link to="/setup-admin"><Button className="mt-6">Claim admin (one-time)</Button></Link>
+        </div>
+      </div>
+    );
+  }
+  return <AdminConsole />;
+}
+
+function AdminConsole() {
   const [stats, setStats] = useState({ traders: 0, accounts: 0, active: 0, passed: 0, breached: 0, pending: 0, revenue: 0, paid: 0 });
   const [payouts, setPayouts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
