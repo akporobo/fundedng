@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { verifyKycServer } from "@/server/kyc.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -75,11 +76,19 @@ function AdminConsole() {
     load();
   };
 
-  const verifyKyc = async (userId: string) => {
-    const { error } = await supabase.from("profiles").update({ kyc_verified: true }).eq("id", userId);
-    if (error) return toast.error(error.message);
-    toast.success("KYC verified");
-    load();
+  const verifyKyc = async (userId: string, expectedAccount: string) => {
+    const entered = window.prompt(
+      `Confirm the trader's account number to verify KYC.\nThe trader has submitted: ${expectedAccount}`,
+      "",
+    );
+    if (!entered) return;
+    try {
+      await verifyKycServer({ data: { userId, accountNumber: entered.trim() } });
+      toast.success("KYC verified");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Verification failed");
+    }
   };
 
   return (
@@ -167,7 +176,9 @@ function AdminConsole() {
                     {a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}
                   </Badge>
                   {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && (
-                    <Button size="sm" onClick={() => verifyKyc(a.user_id)}>Verify bank matches MT5</Button>
+                    <Button size="sm" onClick={() => verifyKyc(a.user_id, a.profiles.bank_account_number)}>
+                      Verify bank matches MT5
+                    </Button>
                   )}
                 </div>
               </div>
