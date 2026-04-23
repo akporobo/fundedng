@@ -66,8 +66,10 @@ export const Route = createFileRoute("/api/deliver-account")({
               email,
               name: profile?.full_name || "FundedNG Trader",
               phone: profile?.phone || "+2348000000000",
-              // Naira account size → USD demo balance (₦200k → $200, ₦500k → $500, ₦1M → $1000)
-              balance: Math.max(1, Math.round(ch.account_size / 1000)),
+              // MT5 hides the currency unit, so we send the raw account_size as the
+              // USD balance. The trader sees "200,000" in MT5 which visually matches
+              // the ₦200,000 tier they purchased. All DB tracking stays in Naira.
+              balance: Math.max(1, Number(ch.account_size)),
             });
           } catch (e) {
             const msg = e instanceof Error ? e.message : "MetaApi failed";
