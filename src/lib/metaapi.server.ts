@@ -2,17 +2,23 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const PROVISIONING_BASE = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai";
 const CLIENT_API_BASE = "https://mt-client-api-v1.new-york.agiliumtrade.ai";
+const ACCOUNT_INFO_BASE = "https://metaapi-v1.new-york.agiliumtrade.ai";
 
-// ICMarkets-Demo defaults — chosen by the operator.
-const DEFAULT_SERVER = "ICMarketsSC-Demo";
-const DEFAULT_KEYWORDS = ["Raw Trading Ltd", "ICMarkets"];
-const DEFAULT_ACCOUNT_TYPE = "cTrader";
-const DEFAULT_LEVERAGE = 500;
+// Exness demo defaults via custom MetaApi provisioning profile.
+const PRIMARY_SERVER = "Exness-MT5Trial3";
+const FALLBACK_SERVER = "Exness-MT5Trial9";
+const DEFAULT_LEVERAGE = 200;
 
 function token(): string {
   const t = process.env.METAAPI_TOKEN;
   if (!t) throw new Error("METAAPI_TOKEN env var is not set");
   return t;
+}
+
+function profileId(): string {
+  const p = process.env.METAAPI_PROFILE_ID;
+  if (!p) throw new Error("METAAPI_PROFILE_ID env var is not set");
+  return p;
 }
 
 function randomTransactionId(): string {
@@ -28,8 +34,6 @@ export interface MetaApiCreateInput {
   balance: number;
   leverage?: number;
   serverName?: string;
-  keywords?: string[];
-  accountType?: string;
 }
 
 export interface MetaApiCreateResult {
@@ -40,55 +44,60 @@ export interface MetaApiCreateResult {
 }
 
 /**
- * Create an MT5 demo account via MetaApi provisioning REST API.
- * Uses provisioning profile "default" so the broker is selected by serverName/keywords.
+ * Create an Exness MT5 demo account via MetaApi using the operator's
+ * custom provisioning profile (METAAPI_PROFILE_ID). Tries Exness-MT5Trial3 first,
+ * falls back to Exness-MT5Trial9, polls 202 responses with a stable transaction id.
  */
 export async function createMt5DemoAccount(
   input: MetaApiCreateInput,
 ): Promise<MetaApiCreateResult> {
-  const body = {
-    accountType: input.accountType ?? DEFAULT_ACCOUNT_TYPE,
-    balance: input.balance,
-    email: input.email,
-    leverage: input.leverage ?? DEFAULT_LEVERAGE,
-    name: input.name,
-    phone: input.phone || "+2348000000000",
-    serverName: input.serverName ?? DEFAULT_SERVER,
-    keywords: input.keywords ?? DEFAULT_KEYWORDS,
-  };
+  const servers = input.serverName ? [input.serverName] : [PRIMARY_SERVER, FALLBACK_SERVER];
+  const url = `${PROVISIONING_BASE}/users/current/provisioning-profiles/${profileId()}/mt5-demo-accounts`;
 
-  const url = `${PROVISIONING_BASE}/users/current/provisioning-profiles/default/mt5-demo-accounts`;
+  let lastError = "";
+  for (const serverName of servers) {
+    const body = {
+      balance: input.balance,
+      email: input.email,
+      leverage: input.leverage ?? DEFAULT_LEVERAGE,
+      name: input.name,
+      phone: input.phone || "+2348000000000",
+      serverName,
+    };
+    const txId = randomTransactionId();
+    const maxAttempts = 12;
+    const delayMs = 2500;
 
-  // 202 polling: reuse same transaction-id until terminal status.
-  const txId = randomTransactionId();
-  const maxAttempts = 12;
-  const delayMs = 2500;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "auth-token": token(),
-        "transaction-id": txId,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (res.status === 201) {
-      const data = (await res.json()) as MetaApiCreateResult;
-      return data;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "auth-token": token(),
+          "transaction-id": txId,
+        },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 201) {
+        const data = (await res.json()) as Partial<MetaApiCreateResult>;
+        return {
+          login: String(data.login ?? ""),
+          password: data.password ?? "",
+          investorPassword: data.investorPassword ?? "",
+          serverName: data.serverName ?? serverName,
+        };
+      }
+      if (res.status === 202) {
+        await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+      lastError = `${res.status}: ${await res.text()}`;
+      console.warn(`[metaapi] ${serverName} failed (${lastError}), trying next server`);
+      break; // try next server
     }
-    if (res.status === 202) {
-      // Provisioning still in progress; wait and retry with same tx id.
-      await new Promise((r) => setTimeout(r, delayMs));
-      continue;
-    }
-    const text = await res.text();
-    throw new Error(`MetaApi provisioning ${res.status}: ${text}`);
   }
-  throw new Error("MetaApi provisioning timed out (still pending after 30s)");
+  throw new Error(`MetaApi provisioning failed on all Exness servers — ${lastError || "timeout"}`);
 }
 
 /**
