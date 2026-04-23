@@ -7,6 +7,9 @@ export interface Profile {
   full_name: string;
   phone: string | null;
   kyc_verified: boolean;
+  bank_account_number: string | null;
+  bank_name: string | null;
+  bank_account_name: string | null;
 }
 
 export interface AuthState {
