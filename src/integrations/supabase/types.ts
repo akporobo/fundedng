@@ -351,6 +351,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      seed_demo_data: { Args: never; Returns: Json }
     }
     Enums: {
       account_status: "active" | "breached" | "passed" | "funded"
