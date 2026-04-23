@@ -25,6 +25,7 @@ export type Database = {
           fulfilled_at: string | null
           id: string
           order_id: string
+          provider_response: Json | null
           status: string
           updated_at: string
           user_id: string
@@ -39,6 +40,7 @@ export type Database = {
           fulfilled_at?: string | null
           id?: string
           order_id: string
+          provider_response?: Json | null
           status?: string
           updated_at?: string
           user_id: string
@@ -53,6 +55,7 @@ export type Database = {
           fulfilled_at?: string | null
           id?: string
           order_id?: string
+          provider_response?: Json | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -554,12 +557,16 @@ export type Database = {
           current_phase: number
           funded_at: string | null
           id: string
+          investor_password: string | null
+          last_synced_at: string | null
+          metaapi_account_id: string | null
           mt5_login: string
           mt5_password: string
           mt5_server: string
           order_id: string
           phase1_passed_at: string | null
           phase2_passed_at: string | null
+          provider: string
           starting_balance: number
           status: Database["public"]["Enums"]["account_status"]
           updated_at: string
@@ -573,12 +580,16 @@ export type Database = {
           current_phase?: number
           funded_at?: string | null
           id?: string
+          investor_password?: string | null
+          last_synced_at?: string | null
+          metaapi_account_id?: string | null
           mt5_login: string
           mt5_password: string
           mt5_server?: string
           order_id: string
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
+          provider?: string
           starting_balance: number
           status?: Database["public"]["Enums"]["account_status"]
           updated_at?: string
@@ -592,12 +603,16 @@ export type Database = {
           current_phase?: number
           funded_at?: string | null
           id?: string
+          investor_password?: string | null
+          last_synced_at?: string | null
+          metaapi_account_id?: string | null
           mt5_login?: string
           mt5_password?: string
           mt5_server?: string
           order_id?: string
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
+          provider?: string
           starting_balance?: number
           status?: Database["public"]["Enums"]["account_status"]
           updated_at?: string

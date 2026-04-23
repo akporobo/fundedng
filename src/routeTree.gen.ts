@@ -24,6 +24,7 @@ import { Route as AuthenticatedCommunityRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authenticated/community.index'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
+import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
 
 const SetupAdminRoute = SetupAdminRouteImport.update({
   id: '/setup-admin',
@@ -101,6 +102,11 @@ const AuthenticatedCommunitySlugRoute =
     path: '/$slug',
     getParentRoute: () => AuthenticatedCommunityRoute,
   } as any)
+const ApiPublicCronSyncEquityRoute = ApiPublicCronSyncEquityRouteImport.update({
+  id: '/api/public/cron/sync-equity',
+  path: '/api/public/cron/sync-equity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
+  '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
+  '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
+  '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/community/$slug'
     | '/community/'
+    | '/api/public/cron/sync-equity'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/community/$slug'
     | '/community'
+    | '/api/public/cron/sync-equity'
   id:
     | '__root__'
     | '/'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/_authenticated/community/$slug'
     | '/_authenticated/community/'
+    | '/api/public/cron/sync-equity'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
+  ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -321,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommunitySlugRouteImport
       parentRoute: typeof AuthenticatedCommunityRoute
     }
+    '/api/public/cron/sync-equity': {
+      id: '/api/public/cron/sync-equity'
+      path: '/api/public/cron/sync-equity'
+      fullPath: '/api/public/cron/sync-equity'
+      preLoaderRoute: typeof ApiPublicCronSyncEquityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -368,6 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
+  ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
