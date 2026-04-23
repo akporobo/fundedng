@@ -52,6 +52,54 @@ export type Database = {
           },
         ]
       }
+      certificates: {
+        Row: {
+          account_size: number
+          certificate_number: string
+          challenge_name: string
+          created_at: string
+          full_name: string
+          id: string
+          issued_at: string
+          kind: Database["public"]["Enums"]["certificate_kind"]
+          mt5_login: string
+          payout_amount: number | null
+          payout_id: string | null
+          trader_account_id: string
+          user_id: string
+        }
+        Insert: {
+          account_size: number
+          certificate_number: string
+          challenge_name: string
+          created_at?: string
+          full_name: string
+          id?: string
+          issued_at?: string
+          kind: Database["public"]["Enums"]["certificate_kind"]
+          mt5_login: string
+          payout_amount?: number | null
+          payout_id?: string | null
+          trader_account_id: string
+          user_id: string
+        }
+        Update: {
+          account_size?: number
+          certificate_number?: string
+          challenge_name?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          issued_at?: string
+          kind?: Database["public"]["Enums"]["certificate_kind"]
+          mt5_login?: string
+          payout_amount?: number | null
+          payout_id?: string | null
+          trader_account_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       challenges: {
         Row: {
           account_size: number
@@ -562,6 +610,7 @@ export type Database = {
     Enums: {
       account_status: "active" | "breached" | "passed" | "funded"
       app_role: "admin" | "trader"
+      certificate_kind: "funded" | "payout"
       order_status:
         | "pending"
         | "paid"
@@ -699,6 +748,7 @@ export const Constants = {
     Enums: {
       account_status: ["active", "breached", "passed", "funded"],
       app_role: ["admin", "trader"],
+      certificate_kind: ["funded", "payout"],
       order_status: [
         "pending",
         "paid",
