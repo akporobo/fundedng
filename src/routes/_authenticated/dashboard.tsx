@@ -9,12 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, Sparkles } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, Sparkles, ShieldCheck, ShieldAlert, Landmark } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -36,16 +35,45 @@ const statusVariant: Record<string, string> = {
 };
 
 function DashboardPage() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refresh } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selected, setSelected] = useState<Account | null>(null);
   const [snapshots, setSnapshots] = useState<{ snapshot_time: string; equity: number }[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [payoutMethod, setPayoutMethod] = useState<"usdt" | "bank_transfer">("usdt");
-  const [walletInput, setWalletInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [bankAccountName, setBankAccountName] = useState("");
+  const [savingKyc, setSavingKyc] = useState(false);
+
+  useEffect(() => {
+    setBankAccountNumber(profile?.bank_account_number ?? "");
+    setBankName(profile?.bank_name ?? "");
+    setBankAccountName(profile?.bank_account_name ?? profile?.full_name ?? "");
+  }, [profile]);
+
+  const saveBankDetails = async () => {
+    const acct = bankAccountNumber.replace(/\s+/g, "");
+    if (!/^\d{10}$/.test(acct)) return toast.error("Account number must be 10 digits.");
+    if (!bankName.trim()) return toast.error("Bank name is required.");
+    if (!bankAccountName.trim()) return toast.error("Account holder name is required.");
+    setSavingKyc(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        bank_account_number: acct,
+        bank_name: bankName.trim(),
+        bank_account_name: bankAccountName.trim(),
+        kyc_verified: false, // re-verification required when changed
+      } as never)
+      .eq("id", user!.id);
+    setSavingKyc(false);
+    if (error) return toast.error(error.message);
+    toast.success("Bank details saved. Awaiting admin verification.");
+    await refresh();
+  };
 
   const seedDemo = async () => {
     setSeeding(true);
@@ -78,8 +106,9 @@ function DashboardPage() {
   }, [selected]);
 
   const requestPayout = async () => {
-    if (!selected || !walletInput) return;
-    if (!profile?.kyc_verified) return toast.error("KYC required. Contact admin to verify identity.");
+    if (!selected) return;
+    if (!profile?.bank_account_number) return toast.error("Add your bank account in the KYC card first.");
+    if (!profile?.kyc_verified) return toast.error("Bank account pending admin verification.");
     if (!["passed", "funded"].includes(selected.status)) return toast.error("Account must be passed or funded.");
     const equity = Number(selected.current_equity ?? selected.starting_balance);
     const profit = equity - selected.starting_balance;
@@ -91,14 +120,17 @@ function DashboardPage() {
       trader_account_id: selected.id,
       amount_naira: amount,
       profit_percent: Number(((profit / selected.starting_balance) * 100).toFixed(4)),
-      payment_method: payoutMethod,
-      wallet_address: payoutMethod === "usdt" ? walletInput : null,
-      bank_details: payoutMethod === "bank_transfer" ? { account: walletInput } : null,
+      payment_method: "bank_transfer",
+      wallet_address: null,
+      bank_details: {
+        account_number: profile.bank_account_number,
+        bank_name: profile.bank_name,
+        account_name: profile.bank_account_name,
+      },
     } as never);
     setSubmitting(false);
     if (error) return toast.error(error.message);
     toast.success(`Payout of ${formatNaira(amount)} requested!`);
-    setWalletInput("");
     load();
   };
 
