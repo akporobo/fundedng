@@ -2,17 +2,23 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const PROVISIONING_BASE = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai";
 const CLIENT_API_BASE = "https://mt-client-api-v1.new-york.agiliumtrade.ai";
+const ACCOUNT_INFO_BASE = "https://metaapi-v1.new-york.agiliumtrade.ai";
 
-// ICMarkets-Demo defaults — chosen by the operator.
-const DEFAULT_SERVER = "ICMarketsSC-Demo";
-const DEFAULT_KEYWORDS = ["Raw Trading Ltd", "ICMarkets"];
-const DEFAULT_ACCOUNT_TYPE = "cTrader";
-const DEFAULT_LEVERAGE = 500;
+// Exness demo defaults via custom MetaApi provisioning profile.
+const PRIMARY_SERVER = "Exness-MT5Trial3";
+const FALLBACK_SERVER = "Exness-MT5Trial9";
+const DEFAULT_LEVERAGE = 200;
 
 function token(): string {
   const t = process.env.METAAPI_TOKEN;
   if (!t) throw new Error("METAAPI_TOKEN env var is not set");
   return t;
+}
+
+function profileId(): string {
+  const p = process.env.METAAPI_PROFILE_ID;
+  if (!p) throw new Error("METAAPI_PROFILE_ID env var is not set");
+  return p;
 }
 
 function randomTransactionId(): string {
