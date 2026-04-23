@@ -4,14 +4,16 @@ const PROVISIONING_BASE = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtr
 const CLIENT_API_BASE = "https://mt-client-api-v1.new-york.agiliumtrade.ai";
 const ACCOUNT_INFO_BASE = "https://metaapi-v1.new-york.agiliumtrade.ai";
 
-// IC Markets demo defaults via custom MetaApi provisioning profile.
-// Exness blocks programmatic demo account creation on all their Trial servers
-// ("Demo account generation is not allowed on server Exness-MT5Trial..."),
-// so we use IC Markets which MetaApi fully supports for automated provisioning.
-const PRIMARY_SERVER = "ICMarketsSC-Demo";
+// MetaQuotes-Demo is the official MT5 demo server from MetaQuotes itself.
+// MetaApi supports demo generation on it natively — no servers.dat / custom
+// provisioning profile required. Both Exness and IC Markets blocked
+// programmatic demo creation on their public servers, so we use this as the
+// reliable provisioning target. Traders only see the server name in MT5;
+// no broker branding is shown either way.
+const PRIMARY_SERVER = "MetaQuotes-Demo";
 const DEFAULT_LEVERAGE = 200;
 const DEFAULT_ACCOUNT_TYPE = "hedged";
-const DEFAULT_KEYWORDS = ["Raw Trading Ltd"];
+const DEFAULT_KEYWORDS = ["MetaQuotes Software Corp."];
 
 function token(): string {
   const t = process.env.METAAPI_TOKEN;
