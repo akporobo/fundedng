@@ -40,7 +40,7 @@ function AdminConsole() {
     const [pr, ord, acc, po] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("orders").select("amount_paid,status"),
-      supabase.from("trader_accounts").select("*, profiles(full_name), challenges(name)"),
+      supabase.from("trader_accounts").select("*, profiles(full_name,bank_account_number,bank_name,bank_account_name,kyc_verified), challenges(name)"),
       supabase.from("payouts").select("*, profiles(full_name), trader_accounts(mt5_login)").order("created_at", { ascending: false }),
     ]);
     const accList = (acc.data ?? []) as any[];
@@ -133,19 +133,42 @@ function AdminConsole() {
 
           <TabsContent value="accounts" className="mt-6 space-y-2">
             {accounts.map((a) => (
-              <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-                <div className="flex-1 min-w-[180px]">
-                  <div className="font-semibold">{a.profiles?.full_name ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">{a.challenges?.name} · login {a.mt5_login}</div>
+              <div key={a.id} className="rounded-xl border border-border bg-card p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex-1 min-w-[180px]">
+                    <div className="font-semibold">{a.profiles?.full_name ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{a.challenges?.name} · login {a.mt5_login}</div>
+                  </div>
+                  <div className="text-sm">{formatNaira(a.starting_balance)}</div>
+                  <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
+                  <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
+                  <div className="flex flex-wrap gap-1">
+                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "passed" })}>Pass</Button>
+                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "funded", funded_at: new Date().toISOString() })}>Fund</Button>
+                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
+                  </div>
                 </div>
-                <div className="text-sm">{formatNaira(a.starting_balance)}</div>
-                <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
-                <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
-                <div className="flex flex-wrap gap-1">
-                  <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "passed" })}>Pass</Button>
-                  <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "funded", funded_at: new Date().toISOString() })}>Fund</Button>
-                  <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
-                  <Button size="sm" variant="outline" onClick={() => verifyKyc(a.user_id)}>Verify KYC</Button>
+                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-background p-3 text-xs">
+                  <div className="flex-1 min-w-[260px]">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">KYC bank account</div>
+                    {a.profiles?.bank_account_number ? (
+                      <div className="font-display mt-0.5">
+                        <span className="font-mono text-primary">{a.profiles.bank_account_number}</span>
+                        <span className="text-muted-foreground"> · </span>
+                        <span>{a.profiles.bank_name}</span>
+                        <span className="text-muted-foreground"> · </span>
+                        <span>{a.profiles.bank_account_name}</span>
+                      </div>
+                    ) : (
+                      <div className="mt-0.5 text-muted-foreground">Trader hasn't submitted bank details.</div>
+                    )}
+                  </div>
+                  <Badge className={`font-display ${a.profiles?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
+                    {a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}
+                  </Badge>
+                  {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && (
+                    <Button size="sm" onClick={() => verifyKyc(a.user_id)}>Verify bank matches MT5</Button>
+                  )}
                 </div>
               </div>
             ))}
