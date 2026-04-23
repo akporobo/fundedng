@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_requests: {
+        Row: {
+          attempts: number
+          challenge_id: string
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          failure_reason: string | null
+          fulfilled_at: string | null
+          id: string
+          order_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          challenge_id: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          failure_reason?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          order_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          challenge_id?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          failure_reason?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          order_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       account_snapshots: {
         Row: {
           balance: number
@@ -309,6 +354,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mt5_worker_events: {
+        Row: {
+          account_request_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json | null
+          trader_account_id: string | null
+          worker_id: string | null
+        }
+        Insert: {
+          account_request_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          trader_account_id?: string | null
+          worker_id?: string | null
+        }
+        Update: {
+          account_request_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          trader_account_id?: string | null
+          worker_id?: string | null
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
