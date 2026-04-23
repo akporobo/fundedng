@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/_admin/admin")({ component: AdminPage });
+export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
 function AdminPage() {
   const [stats, setStats] = useState({ traders: 0, accounts: 0, active: 0, passed: 0, breached: 0, pending: 0, revenue: 0, paid: 0 });
