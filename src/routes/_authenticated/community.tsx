@@ -60,16 +60,36 @@ function CommunityPage() {
   }, [user?.id]);
 
   const join = async (groupId: string) => {
-    if (!user) return;
+    if (!user) {
+      toast.error("Please sign in to join groups.");
+      return;
+    }
+    // Optimistic UI: immediately mark joined so the button updates
+    setGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId
+          ? { ...g, is_member: true, member_count: (g.member_count ?? 0) + 1 }
+          : g
+      )
+    );
     const { error } = await supabase
       .from("group_members")
       .insert({ group_id: groupId, user_id: user.id });
     if (error) {
-      toast.error(error.message);
+      // Already a member is fine — keep optimistic state and open chat
+      if (error.code === "23505" || /duplicate|unique/i.test(error.message)) {
+        const slug = groups.find((g) => g.id === groupId)?.slug;
+        if (slug) open_chat(slug);
+        return;
+      }
+      console.error("Join group failed", error);
+      toast.error(error.message || "Could not join group");
+      load();
       return;
     }
     toast.success("Joined group");
-    load();
+    const slug = groups.find((g) => g.id === groupId)?.slug;
+    if (slug) open_chat(slug);
   };
 
   const open_chat = (slug: string) => navigate({ to: "/community/$slug", params: { slug } });
