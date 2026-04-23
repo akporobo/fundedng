@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNaira } from "@/lib/utils";
 import { Check, Zap, ShieldCheck, Trophy, ArrowRight } from "lucide-react";
 import tradingChartHero from "@/assets/trading-chart-hero.jpg";
+import tradingChartHeroDark from "@/assets/trading-chart-hero-dark.jpg";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -35,7 +36,15 @@ function Index() {
           alt="Live trading candlestick chart with upward trend"
           width={1920}
           height={1080}
-          className="absolute inset-0 h-full w-full object-cover opacity-60"
+          className="absolute inset-0 h-full w-full object-cover opacity-60 dark:hidden"
+        />
+        <img
+          src={tradingChartHeroDark}
+          alt=""
+          aria-hidden="true"
+          width={1920}
+          height={1080}
+          className="absolute inset-0 hidden h-full w-full object-cover opacity-80 dark:block"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
         <div className="absolute inset-0 gradient-radial-primary opacity-40" />
