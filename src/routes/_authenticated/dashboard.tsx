@@ -349,6 +349,18 @@ function DashboardPage() {
               ))}
             </TabsContent>
 
+            <TabsContent value="certificates" className="mt-6 space-y-4">
+              {certificates.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
+                  <Trophy className="mx-auto h-10 w-10 text-muted-foreground"/>
+                  <p className="font-display mt-3 text-base font-semibold">No certificates yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Pass your evaluation or receive a payout to earn one.</p>
+                </div>
+              ) : (
+                certificates.map((c) => <CertificateCard key={c.id} cert={c} />)
+              )}
+            </TabsContent>
+
             <TabsContent value="notifications" className="mt-6 space-y-2">
               {notifications.length === 0 ? <p className="text-muted-foreground">No notifications.</p> : notifications.map((n) => (
                 <div key={n.id} className={`rounded-xl border bg-card p-4 ${n.is_read ? "border-border" : "border-primary/40"}`}>
