@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { toast } from "sonner";
 import { Plus, Users, MessageCircle, ArrowRight } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/community")({ component: CommunityPage });
+export const Route = createFileRoute("/_authenticated/community/")({ component: CommunityPage });
 
 interface Group {
   id: string;
