@@ -36,18 +36,25 @@ function AdminConsole() {
   const [stats, setStats] = useState({ traders: 0, accounts: 0, active: 0, passed: 0, breached: 0, pending: 0, revenue: 0, paid: 0 });
   const [payouts, setPayouts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [retrying, setRetrying] = useState<string | null>(null);
 
   const load = async () => {
-    const [pr, ord, acc, po] = await Promise.all([
+    const [pr, ord, acc, po, req] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("orders").select("amount_paid,status"),
       supabase.from("trader_accounts").select("*, profiles(full_name,bank_account_number,bank_name,bank_account_name,kyc_verified), challenges(name)"),
       supabase.from("payouts").select("*, profiles(full_name), trader_accounts(mt5_login)").order("created_at", { ascending: false }),
+      supabase.from("account_requests")
+        .select("*, profiles:user_id(full_name), challenges(name, account_size), orders(status)")
+        .in("status", ["pending", "failed"])
+        .order("created_at", { ascending: false }),
     ]);
     const accList = (acc.data ?? []) as any[];
     const poList = (po.data ?? []) as any[];
     setAccounts(accList);
     setPayouts(poList);
+    setPendingRequests((req.data ?? []) as any[]);
     setStats({
       traders: pr.count ?? 0,
       accounts: accList.length,
@@ -61,6 +68,25 @@ function AdminConsole() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const retryDelivery = async (orderId: string) => {
+    setRetrying(orderId);
+    try {
+      const res = await fetch("/api/deliver-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Delivery failed");
+      toast.success(`Delivered: login ${json.login}`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Retry failed");
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   const updatePayout = async (id: string, status: "approved" | "paid" | "rejected") => {
     const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
@@ -99,6 +125,9 @@ function AdminConsole() {
         <Tabs defaultValue="stats" className="mt-6">
           <TabsList>
             <TabsTrigger value="stats">Stats</TabsTrigger>
+            <TabsTrigger value="pending">
+              Pending {pendingRequests.length > 0 && <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">{pendingRequests.length}</span>}
+            </TabsTrigger>
             <TabsTrigger value="payouts">Payouts</TabsTrigger>
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
           </TabsList>
@@ -117,6 +146,34 @@ function AdminConsole() {
               <div key={l} className="rounded-xl border border-border bg-card p-5">
                 <div className="text-xs text-muted-foreground">{l}</div>
                 <div className={`font-display mt-2 text-2xl font-bold ${c ?? ""}`}>{v}</div>
+              </div>
+            ))}
+          </TabsContent>
+
+          <TabsContent value="pending" className="mt-6 space-y-3">
+            {pendingRequests.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                No pending or failed accounts. New paid orders auto-deliver via MetaApi.
+              </div>
+            ) : pendingRequests.map((r) => (
+              <div key={r.id} className="rounded-xl border border-border bg-card p-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="font-semibold">{r.profiles?.full_name ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{r.challenges?.name} · {formatNaira(r.challenges?.account_size ?? 0)}</div>
+                  </div>
+                  <Badge variant="outline" className={`font-display ${r.status === "failed" ? "border-destructive/40 text-destructive" : "border-warning/40 text-warning"}`}>
+                    {r.status.toUpperCase()}
+                  </Badge>
+                  <Button size="sm" onClick={() => retryDelivery(r.order_id)} disabled={retrying === r.order_id}>
+                    {retrying === r.order_id ? "Delivering…" : r.status === "failed" ? "Retry MetaApi" : "Deliver now"}
+                  </Button>
+                </div>
+                {r.failure_reason && (
+                  <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                    {r.failure_reason}
+                  </div>
+                )}
               </div>
             ))}
           </TabsContent>
