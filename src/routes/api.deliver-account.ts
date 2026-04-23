@@ -66,7 +66,8 @@ export const Route = createFileRoute("/api/deliver-account")({
               email,
               name: profile?.full_name || "FundedNG Trader",
               phone: profile?.phone || "+2348000000000",
-              balance: ch.account_size,
+              // Naira account size → USD demo balance (₦200k → $200, ₦500k → $500, ₦1M → $1000)
+              balance: Math.max(1, Math.round(ch.account_size / 1000)),
             });
           } catch (e) {
             const msg = e instanceof Error ? e.message : "MetaApi failed";
