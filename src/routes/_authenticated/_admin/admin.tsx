@@ -48,7 +48,7 @@ function AdminPage() {
   };
 
   const updateAccount = async (id: string, patch: Record<string, any>) => {
-    const { error } = await supabase.from("trader_accounts").update(patch).eq("id", id);
+    const { error } = await supabase.from("trader_accounts").update(patch as never).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Account updated");
     load();
