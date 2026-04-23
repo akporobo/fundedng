@@ -35,22 +35,23 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
   const renderCanvas = async () => {
     const node = cardRef.current;
     if (!node) throw new Error("Card not ready");
-    const html2canvas = (await import("html2canvas")).default;
-    return html2canvas(node, {
-      scale: 2,
+    const { toPng } = await import("html-to-image");
+    // html-to-image supports oklch() and modern CSS color functions
+    const dataUrl = await toPng(node, {
+      pixelRatio: 2,
       backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
+      cacheBust: true,
     });
+    return dataUrl;
   };
 
   const downloadPng = async () => {
     setExporting(true);
     try {
-      const canvas = await renderCanvas();
+      const dataUrl = await renderCanvas();
       const link = document.createElement("a");
       link.download = `${filename}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.href = dataUrl;
       link.click();
       toast.success("Certificate downloaded");
     } catch (e) {
@@ -64,9 +65,14 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
   const downloadPdf = async () => {
     setExporting(true);
     try {
-      const canvas = await renderCanvas();
+      const dataUrl = await renderCanvas();
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("image load failed"));
+      });
       const { jsPDF } = await import("jspdf");
-      const imgData = canvas.toDataURL("image/png");
       // Landscape A4: 297 x 210 mm
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
@@ -74,7 +80,7 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
       const margin = 12;
       const maxW = pageW - margin * 2;
       const maxH = pageH - margin * 2;
-      const ratio = canvas.width / canvas.height;
+      const ratio = img.width / img.height;
       let w = maxW;
       let h = w / ratio;
       if (h > maxH) {
@@ -83,7 +89,7 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
       }
       const x = (pageW - w) / 2;
       const y = (pageH - h) / 2;
-      pdf.addImage(imgData, "PNG", x, y, w, h);
+      pdf.addImage(dataUrl, "PNG", x, y, w, h);
       pdf.save(`${filename}.pdf`);
       toast.success("Certificate PDF saved");
     } catch (e) {
