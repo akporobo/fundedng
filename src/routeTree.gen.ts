@@ -20,6 +20,7 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-pas
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authenticated/community.index'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
@@ -78,6 +79,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCommunityRoute = AuthenticatedCommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -85,15 +91,15 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
 } as any)
 const AuthenticatedCommunityIndexRoute =
   AuthenticatedCommunityIndexRouteImport.update({
-    id: '/community/',
-    path: '/community/',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedCommunityRoute,
   } as any)
 const AuthenticatedCommunitySlugRoute =
   AuthenticatedCommunitySlugRouteImport.update({
-    id: '/community/$slug',
-    path: '/community/$slug',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/$slug',
+    path: '/$slug',
+    getParentRoute: () => AuthenticatedCommunityRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/buy': typeof BuyRoute
   '/setup-admin': typeof SetupAdminRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/community': typeof AuthenticatedCommunityRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
@@ -133,6 +140,7 @@ export interface FileRoutesById {
   '/buy': typeof BuyRoute
   '/setup-admin': typeof SetupAdminRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/community': typeof AuthenticatedCommunityRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
@@ -150,6 +158,7 @@ export interface FileRouteTypes {
     | '/buy'
     | '/setup-admin'
     | '/admin'
+    | '/community'
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/buy'
     | '/setup-admin'
     | '/_authenticated/admin'
+    | '/_authenticated/community'
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
     | '/api/deliver-account'
@@ -283,6 +293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/community': {
+      id: '/_authenticated/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof AuthenticatedCommunityRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -292,35 +309,49 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/community/': {
       id: '/_authenticated/community/'
-      path: '/community'
+      path: '/'
       fullPath: '/community/'
       preLoaderRoute: typeof AuthenticatedCommunityIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedCommunityRoute
     }
     '/_authenticated/community/$slug': {
       id: '/_authenticated/community/$slug'
-      path: '/community/$slug'
+      path: '/$slug'
       fullPath: '/community/$slug'
       preLoaderRoute: typeof AuthenticatedCommunitySlugRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedCommunityRoute
     }
   }
 }
 
-interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+interface AuthenticatedCommunityRouteChildren {
   AuthenticatedCommunitySlugRoute: typeof AuthenticatedCommunitySlugRoute
   AuthenticatedCommunityIndexRoute: typeof AuthenticatedCommunityIndexRoute
 }
 
+const AuthenticatedCommunityRouteChildren: AuthenticatedCommunityRouteChildren =
+  {
+    AuthenticatedCommunitySlugRoute: AuthenticatedCommunitySlugRoute,
+    AuthenticatedCommunityIndexRoute: AuthenticatedCommunityIndexRoute,
+  }
+
+const AuthenticatedCommunityRouteWithChildren =
+  AuthenticatedCommunityRoute._addFileChildren(
+    AuthenticatedCommunityRouteChildren,
+  )
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedCommunityRoute: typeof AuthenticatedCommunityRouteWithChildren
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+}
+
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedCommunityRoute: AuthenticatedCommunityRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedCommunitySlugRoute: AuthenticatedCommunitySlugRoute,
-  AuthenticatedCommunityIndexRoute: AuthenticatedCommunityIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
