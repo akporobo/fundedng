@@ -51,15 +51,41 @@ function AdminConsole() {
       supabase.from("trader_accounts").select("*, profiles(full_name,bank_account_number,bank_name,bank_account_name,kyc_verified), challenges(name)"),
       supabase.from("payouts").select("*, profiles(full_name), trader_accounts(mt5_login)").order("created_at", { ascending: false }),
       supabase.from("account_requests")
-        .select("*, profiles:user_id(full_name), challenges(name, account_size), orders(status)")
+        .select("*")
         .in("status", ["pending", "failed"])
         .order("created_at", { ascending: false }),
     ]);
+    if (req.error) console.error("[admin] account_requests load failed:", req.error);
     const accList = (acc.data ?? []) as any[];
     const poList = (po.data ?? []) as any[];
+    const reqRows = (req.data ?? []) as any[];
+    // account_requests has no FK metadata in PostgREST, so hydrate manually.
+    const userIds = Array.from(new Set(reqRows.map((r) => r.user_id)));
+    const challengeIds = Array.from(new Set(reqRows.map((r) => r.challenge_id)));
+    const orderIds = Array.from(new Set(reqRows.map((r) => r.order_id)));
+    const [profRes, chRes, ordRes] = await Promise.all([
+      userIds.length
+        ? supabase.from("profiles").select("id, full_name").in("id", userIds)
+        : Promise.resolve({ data: [] as any[] }),
+      challengeIds.length
+        ? supabase.from("challenges").select("id, name, account_size").in("id", challengeIds)
+        : Promise.resolve({ data: [] as any[] }),
+      orderIds.length
+        ? supabase.from("orders").select("id, status").in("id", orderIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const profMap = new Map((profRes.data ?? []).map((p: any) => [p.id, p]));
+    const chMap = new Map((chRes.data ?? []).map((c: any) => [c.id, c]));
+    const ordMap = new Map((ordRes.data ?? []).map((o: any) => [o.id, o]));
+    const hydrated = reqRows.map((r) => ({
+      ...r,
+      profiles: profMap.get(r.user_id) ?? null,
+      challenges: chMap.get(r.challenge_id) ?? null,
+      orders: ordMap.get(r.order_id) ?? null,
+    }));
     setAccounts(accList);
     setPayouts(poList);
-    setPendingRequests((req.data ?? []) as any[]);
+    setPendingRequests(hydrated);
     setStats({
       traders: pr.count ?? 0,
       accounts: accList.length,
