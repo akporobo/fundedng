@@ -1,24 +1,46 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import {
-  createMt5DemoAccount,
-  deployMetaApiAccount,
-  getUserEmail,
-} from "@/lib/metaapi.server";
 
 /**
- * Provisions a real MT5 demo account on ICMarkets-Demo via MetaApi,
- * stores the credentials on trader_accounts, marks the order delivered,
- * and notifies the user. Idempotent: re-runs are safe.
+ * Manual account delivery. Admin posts MT5 credentials they created by hand
+ * in the broker terminal; this route stores them on trader_accounts, marks
+ * the order delivered, and notifies the trader. Idempotent per order.
+ *
+ * Body: {
+ *   order_id: string,
+ *   mt5_login: string,
+ *   mt5_password: string,
+ *   mt5_server: string,
+ *   investor_password?: string,
+ * }
  */
 export const Route = createFileRoute("/api/deliver-account")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { order_id } = (await request.json()) as { order_id?: string };
+          const body = (await request.json()) as {
+            order_id?: string;
+            mt5_login?: string;
+            mt5_password?: string;
+            mt5_server?: string;
+            investor_password?: string;
+          };
+          const {
+            order_id,
+            mt5_login,
+            mt5_password,
+            mt5_server,
+            investor_password,
+          } = body;
           if (!order_id) {
             return Response.json({ error: "order_id required" }, { status: 400 });
+          }
+          if (!mt5_login || !mt5_password || !mt5_server) {
+            return Response.json(
+              { error: "mt5_login, mt5_password and mt5_server are required" },
+              { status: 400 },
+            );
           }
 
           const { data: order } = await supabaseAdmin
@@ -51,64 +73,17 @@ export const Route = createFileRoute("/api/deliver-account")({
             .eq("id", order.user_id)
             .single();
 
-          const email = await getUserEmail(order.user_id);
-          if (!email) {
-            return Response.json(
-              { error: "Could not resolve user email" },
-              { status: 500 },
-            );
-          }
-
-          // Call MetaApi to create the actual MT5 demo account.
-          let mtCreds;
-          try {
-            mtCreds = await createMt5DemoAccount({
-              email,
-              name: profile?.full_name || "FundedNG Trader",
-              phone: profile?.phone || "+2348000000000",
-              // MT5 hides the currency unit, so we send the raw account_size as the
-              // USD balance. The trader sees "200,000" in MT5 which visually matches
-              // the ₦200,000 tier they purchased. All DB tracking stays in Naira.
-              balance: Math.max(1, Number(ch.account_size)),
-            });
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : "MetaApi failed";
-            await supabaseAdmin
-              .from("account_requests")
-              .update({
-                status: "failed",
-                failure_reason: msg,
-                attempts: 1,
-                provider_response: { error: msg },
-              })
-              .eq("order_id", order.id);
-            await supabaseAdmin.from("mt5_worker_events").insert({
-              event_type: "metaapi_create_failed",
-              worker_id: "metaapi",
-              payload: { order_id: order.id, error: msg },
-            });
-            return Response.json({ error: msg }, { status: 502 });
-          }
-
-          // Deploy to MetaApi cloud so we can poll equity later.
-          const metaapiAccountId = await deployMetaApiAccount({
-            login: mtCreds.login,
-            password: mtCreds.password,
-            serverName: mtCreds.serverName,
-            name: `${profile?.full_name ?? "Trader"} - ${ch.name}`,
-          });
-
-          // Persist credentials on trader_accounts.
+          // Persist admin-entered credentials on trader_accounts.
           const { error: insertErr } = await supabaseAdmin.from("trader_accounts").insert({
             user_id: order.user_id,
             order_id: order.id,
             challenge_id: order.challenge_id,
-            mt5_login: mtCreds.login,
-            mt5_password: mtCreds.password,
-            investor_password: mtCreds.investorPassword,
-            mt5_server: mtCreds.serverName,
-            metaapi_account_id: metaapiAccountId,
-            provider: "metaapi",
+            mt5_login: mt5_login.trim(),
+            mt5_password: mt5_password.trim(),
+            investor_password: investor_password?.trim() || null,
+            mt5_server: mt5_server.trim(),
+            metaapi_account_id: null,
+            provider: "manual",
             starting_balance: ch.account_size,
             current_equity: ch.account_size,
             current_phase: 1,
@@ -128,25 +103,25 @@ export const Route = createFileRoute("/api/deliver-account")({
             .update({
               status: "fulfilled",
               fulfilled_at: new Date().toISOString(),
-              claimed_by: "metaapi",
-              provider_response: { login: mtCreds.login, server: mtCreds.serverName },
+              claimed_by: "manual",
+              provider_response: { login: mt5_login, server: mt5_server },
             })
             .eq("order_id", order.id);
 
           await supabaseAdmin.from("mt5_worker_events").insert({
-            event_type: "metaapi_create_ok",
-            worker_id: "metaapi",
-            payload: { order_id: order.id, login: mtCreds.login, metaapi_account_id: metaapiAccountId },
+            event_type: "manual_delivery",
+            worker_id: "manual",
+            payload: { order_id: order.id, login: mt5_login },
           });
 
           await supabaseAdmin.from("notifications").insert({
             user_id: order.user_id,
             title: "🎉 Your MT5 Account is Ready",
-            message: `${ch.name} active. Login: ${mtCreds.login} · Server: ${mtCreds.serverName}. Open the dashboard to view your password.`,
+            message: `${ch.name} active. Login: ${mt5_login} · Server: ${mt5_server}. Open the dashboard to view your password.`,
             type: "welcome",
           });
 
-          return Response.json({ ok: true, login: mtCreds.login, server: mtCreds.serverName });
+          return Response.json({ ok: true, login: mt5_login, server: mt5_server });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "fail";
           console.error("[deliver-account] unexpected", msg);
