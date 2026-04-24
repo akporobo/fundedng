@@ -65,7 +65,6 @@ export const Route = createFileRoute("/api/provision-account")({
               status: "claimed",
               claimed_by: "bot",
               claimed_at: new Date().toISOString(),
-              attempts: ((null as unknown as number) ?? 0) + 1,
             })
             .eq("order_id", order.id);
 
