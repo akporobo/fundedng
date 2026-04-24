@@ -5,6 +5,9 @@ import { SiteNav } from "@/components/site/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -37,7 +40,9 @@ function AdminConsole() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
-  const [retrying, setRetrying] = useState<string | null>(null);
+  const [delivering, setDelivering] = useState(false);
+  const [deliverFor, setDeliverFor] = useState<any | null>(null);
+  const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
 
   const load = async () => {
     const [pr, ord, acc, po, req] = await Promise.all([
@@ -69,22 +74,39 @@ function AdminConsole() {
 
   useEffect(() => { load(); }, []);
 
-  const retryDelivery = async (orderId: string) => {
-    setRetrying(orderId);
+  const openDeliver = (req: any) => {
+    setDeliverFor(req);
+    setForm({ login: "", password: "", investor: "", server: "" });
+  };
+
+  const submitDelivery = async () => {
+    if (!deliverFor) return;
+    if (!form.login.trim() || !form.password.trim() || !form.server.trim()) {
+      toast.error("Login, password and server are required");
+      return;
+    }
+    setDelivering(true);
     try {
       const res = await fetch("/api/deliver-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: orderId }),
+        body: JSON.stringify({
+          order_id: deliverFor.order_id,
+          mt5_login: form.login.trim(),
+          mt5_password: form.password.trim(),
+          investor_password: form.investor.trim() || undefined,
+          mt5_server: form.server.trim(),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Delivery failed");
       toast.success(`Delivered: login ${json.login}`);
+      setDeliverFor(null);
       load();
     } catch (e: any) {
-      toast.error(e?.message ?? "Retry failed");
+      toast.error(e?.message ?? "Delivery failed");
     } finally {
-      setRetrying(null);
+      setDelivering(false);
     }
   };
 
@@ -153,7 +175,7 @@ function AdminConsole() {
           <TabsContent value="pending" className="mt-6 space-y-3">
             {pendingRequests.length === 0 ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                No pending or failed accounts. New paid orders auto-deliver via MetaApi.
+                No pending accounts. New paid orders will appear here for manual delivery.
               </div>
             ) : pendingRequests.map((r) => (
               <div key={r.id} className="rounded-xl border border-border bg-card p-5">
@@ -165,8 +187,8 @@ function AdminConsole() {
                   <Badge variant="outline" className={`font-display ${r.status === "failed" ? "border-destructive/40 text-destructive" : "border-warning/40 text-warning"}`}>
                     {r.status.toUpperCase()}
                   </Badge>
-                  <Button size="sm" onClick={() => retryDelivery(r.order_id)} disabled={retrying === r.order_id}>
-                    {retrying === r.order_id ? "Delivering…" : r.status === "failed" ? "Retry MetaApi" : "Deliver now"}
+                  <Button size="sm" onClick={() => openDeliver(r)}>
+                    Deliver manually
                   </Button>
                 </div>
                 {r.failure_reason && (
@@ -243,6 +265,46 @@ function AdminConsole() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={!!deliverFor} onOpenChange={(o) => !o && setDeliverFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deliver MT5 account</DialogTitle>
+            <DialogDescription>
+              {deliverFor && (
+                <>
+                  Trader: <span className="font-medium">{deliverFor.profiles?.full_name ?? "—"}</span> ·{" "}
+                  {deliverFor.challenges?.name} ({formatNaira(deliverFor.challenges?.account_size ?? 0)})
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="login">MT5 Login</Label>
+              <Input id="login" value={form.login} onChange={(e) => setForm({ ...form, login: e.target.value })} placeholder="e.g. 12345678" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="server">Server</Label>
+              <Input id="server" value={form.server} onChange={(e) => setForm({ ...form, server: e.target.value })} placeholder="e.g. ICMarketsSC-Demo" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="password">Master password</Label>
+              <Input id="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Trading password" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="investor">Investor password (optional)</Label>
+              <Input id="investor" value={form.investor} onChange={(e) => setForm({ ...form, investor: e.target.value })} placeholder="Read-only password" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeliverFor(null)} disabled={delivering}>Cancel</Button>
+            <Button onClick={submitDelivery} disabled={delivering}>
+              {delivering ? "Delivering…" : "Deliver to trader"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
