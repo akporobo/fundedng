@@ -55,6 +55,7 @@ export interface BotProvisionResult {
 export async function botProvision(args: {
   balanceNGN: number;
   idempotencyKey: string;
+  challengeName?: string;
 }): Promise<BotProvisionResult> {
   const res = await withTimeout(
     fetch(`${baseUrl()}/provision`, {
@@ -66,6 +67,7 @@ export async function botProvision(args: {
       body: JSON.stringify({
         balanceNGN: args.balanceNGN,
         idempotencyKey: args.idempotencyKey,
+        challengeName: args.challengeName,
       }),
     }),
     PROVISION_TIMEOUT_MS,

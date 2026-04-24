@@ -73,6 +73,7 @@ export const Route = createFileRoute("/api/provision-account")({
             provisioned = await botProvision({
               balanceNGN: ch.account_size,
               idempotencyKey: order.id,
+              challengeName: ch.name,
             });
           } catch (err) {
             const reason = err instanceof Error ? err.message : "bot provision failed";
