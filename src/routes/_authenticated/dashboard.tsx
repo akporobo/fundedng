@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, Sparkles, ShieldCheck, ShieldAlert, Landmark } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
@@ -44,7 +44,6 @@ function DashboardPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [seeding, setSeeding] = useState(false);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankName, setBankName] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
@@ -75,16 +74,6 @@ function DashboardPage() {
     if (error) return toast.error(error.message);
     toast.success("Bank details saved. Awaiting admin verification.");
     await refresh();
-  };
-
-  const seedDemo = async () => {
-    setSeeding(true);
-    const { error } = await supabase.rpc("seed_demo_data");
-    setSeeding(false);
-    if (error) return toast.error(error.message);
-    toast.success("Demo data loaded.");
-    setSelected(null);
-    load();
   };
 
   const load = async () => {
@@ -157,9 +146,6 @@ function DashboardPage() {
             <p className="text-sm text-muted-foreground">Welcome back, {profile?.full_name || user?.email}</p>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={seedDemo} disabled={seeding}>
-              <Sparkles className="mr-1 h-4 w-4"/>{seeding ? "Loading…" : "Load demo data"}
-            </Button>
             <Link to="/buy"><Button size="sm" className="font-display"><Plus className="mr-1 h-4 w-4"/>New Challenge</Button></Link>
             <Button size="sm" variant="outline" onClick={signOut}><LogOut className="mr-1 h-4 w-4"/>Sign out</Button>
           </div>
@@ -172,9 +158,6 @@ function DashboardPage() {
             <p className="mt-2 text-muted-foreground">Buy your first challenge to get an MT5 account in seconds.</p>
             <div className="mt-6 flex justify-center gap-2">
               <Link to="/buy"><Button className="font-display">Get Funded →</Button></Link>
-              <Button variant="outline" onClick={seedDemo} disabled={seeding}>
-                <Sparkles className="mr-1 h-4 w-4"/>{seeding ? "Loading…" : "Load demo data"}
-              </Button>
             </div>
           </div>
         ) : (

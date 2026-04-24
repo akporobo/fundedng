@@ -105,23 +105,6 @@ function AdminConsole() {
     setForm({ login: "", password: "", investor: "", server: "" });
   };
 
-  const retryBot = async (req: any) => {
-    try {
-      const res = await fetch("/api/provision-account", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: req.order_id }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Bot provisioning failed");
-      toast.success(`Provisioned: login ${json.login}`);
-      load();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Bot provisioning failed");
-      load();
-    }
-  };
-
   const submitDelivery = async () => {
     if (!deliverFor) return;
     if (!form.login.trim() || !form.password.trim() || !form.server.trim()) {
@@ -232,9 +215,6 @@ function AdminConsole() {
                   </Badge>
                   <Button size="sm" onClick={() => openDeliver(r)}>
                     Deliver manually
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => retryBot(r)}>
-                    Retry bot
                   </Button>
                 </div>
                 {r.failure_reason && (
