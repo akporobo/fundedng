@@ -50,7 +50,8 @@ function BuyPage() {
     }
     setLoading(true); setError("");
 
-    // Simulate payment: create paid order + auto-deliver demo MT5 account.
+    // Create paid order. The DB trigger auto-queues an account_requests row
+    // for the admin to fulfill manually with broker MT5 credentials.
     const { data: order, error: orderErr } = await supabase.from("orders").insert({
       user_id: user!.id,
       challenge_id: selected.id,
@@ -64,21 +65,9 @@ function BuyPage() {
       return setError(orderErr?.message ?? "Failed to create order");
     }
 
-    // Trigger account delivery via server function
-    try {
-      const res = await fetch("/api/deliver-account", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: order.id }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      toast.success("Payment confirmed! Your MT5 account is ready.");
-      navigate({ to: "/dashboard" });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Delivery failed");
-    } finally {
-      setLoading(false);
-    }
+    toast.success("Payment confirmed! Your MT5 account will be delivered shortly.");
+    navigate({ to: "/dashboard" });
+    setLoading(false);
   };
 
   return (
