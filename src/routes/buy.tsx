@@ -65,7 +65,18 @@ function BuyPage() {
       return setError(orderErr?.message ?? "Failed to create order");
     }
 
-    toast.success("Payment confirmed! Your MT5 account will be delivered shortly.");
+    // Fire-and-forget auto-provision via the Railway bot. The route is
+    // idempotent per order_id; if it fails the account_request stays in
+    // "failed" state and the admin can deliver manually as a fallback.
+    toast.success("Payment confirmed! Provisioning your MT5 account…");
+    fetch("/api/provision-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: order.id }),
+    }).catch(() => {
+      // Network failure is non-fatal: admin will see the pending request
+      // in the dashboard and can deliver manually.
+    });
     navigate({ to: "/dashboard" });
     setLoading(false);
   };

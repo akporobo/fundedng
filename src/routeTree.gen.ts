@@ -17,6 +17,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-passw
 import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -63,6 +64,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/auth/forgot-password',
   path: '/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProvisionAccountRoute = ApiProvisionAccountRouteImport.update({
+  id: '/api/provision-account',
+  path: '/api/provision-account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/provision-account': typeof ApiProvisionAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/provision-account': typeof ApiProvisionAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/provision-account': typeof ApiProvisionAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
+    | '/api/provision-account'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
+    | '/api/provision-account'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
     | '/api/deliver-account'
+    | '/api/provision-account'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -220,6 +232,7 @@ export interface RootRouteChildren {
   BuyRoute: typeof BuyRoute
   SetupAdminRoute: typeof SetupAdminRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
+  ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/forgot-password'
       fullPath: '/auth/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/provision-account': {
+      id: '/api/provision-account'
+      path: '/api/provision-account'
+      fullPath: '/api/provision-account'
+      preLoaderRoute: typeof ApiProvisionAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/deliver-account': {
@@ -384,6 +404,7 @@ const rootRouteChildren: RootRouteChildren = {
   BuyRoute: BuyRoute,
   SetupAdminRoute: SetupAdminRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
+  ApiProvisionAccountRoute: ApiProvisionAccountRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,

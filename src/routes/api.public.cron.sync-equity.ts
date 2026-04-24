@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { fetchAccountInformation } from "@/lib/metaapi.server";
+import { botEquity } from "@/lib/bot.server";
 
 /**
  * Public cron endpoint — called by pg_cron every 5 minutes.
@@ -25,9 +25,9 @@ async function syncEquity() {
   const startedAt = Date.now();
   const { data: accounts, error } = await supabaseAdmin
     .from("trader_accounts")
-    .select("id, metaapi_account_id, starting_balance, status")
+    .select("id, mt5_login, provider, starting_balance, status")
     .in("status", ["active", "funded"])
-    .not("metaapi_account_id", "is", null);
+    .eq("provider", "exness-bot");
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
@@ -38,11 +38,11 @@ async function syncEquity() {
   let failed = 0;
   const errors: Array<{ id: string; error: string }> = [];
 
-  // Process sequentially to be gentle on MetaApi rate limits.
+  // Process sequentially to be gentle on the bot + Exness portal.
   for (const acct of list) {
-    if (!acct.metaapi_account_id) continue;
+    if (!acct.mt5_login) continue;
     try {
-      const info = await fetchAccountInformation(acct.metaapi_account_id);
+      const info = await botEquity(acct.mt5_login);
       if (!info) {
         failed++;
         continue;
