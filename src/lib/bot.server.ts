@@ -21,7 +21,14 @@ const EQUITY_TIMEOUT_MS = 15_000;
 function baseUrl(): string {
   const u = process.env.BOT_BASE_URL;
   if (!u) throw new Error("BOT_BASE_URL env var is not set");
-  return u.replace(/\/+$/, "");
+  const trimmed = u.trim().replace(/\/+$/, "");
+  // Be defensive: if the secret was set without a scheme (e.g.
+  // "fundedng-bot-production.up.railway.app"), prepend https:// so
+  // fetch() doesn't reject it as "Invalid URL".
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
 }
 
 function apiKey(): string {
