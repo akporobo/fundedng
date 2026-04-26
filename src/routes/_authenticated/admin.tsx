@@ -704,7 +704,6 @@ function AdminConsole() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
     </>
   );
 }
