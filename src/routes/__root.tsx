@@ -69,6 +69,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
       </head>
       <body className="noise-overlay">
         {children}
+        <script src="https://js.paystack.co/v1/inline.js" async></script>
         <Scripts />
       </body>
     </html>
