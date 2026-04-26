@@ -25,7 +25,7 @@ function RulesPage() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border bg-surface">
         <div className="absolute inset-0 gradient-radial-primary opacity-30" />
-        <div className="relative mx-auto max-w-4xl px-6 py-20 text-center">
+        <div className="relative mx-auto max-w-4xl px-4 py-20 text-center md:px-6">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">RULEBOOK</Badge>
           <h1 className="font-display mt-4 text-5xl font-bold leading-tight md:text-6xl">
             Simple, transparent <span className="text-primary text-glow">trading rules</span>
@@ -38,7 +38,7 @@ function RulesPage() {
 
       {/* The 2 main highlight rules */}
       <section className="border-b border-border">
-        <div className="mx-auto max-w-5xl px-6 py-20">
+        <div className="mx-auto max-w-5xl px-4 py-20 md:px-6">
           <div className="text-center">
             <Badge variant="outline" className="font-display border-primary/40 text-primary">THE 2 MAIN RULES</Badge>
             <h2 className="font-display mt-4 text-4xl font-bold">Break either one and your account closes.</h2>
@@ -84,7 +84,7 @@ function RulesPage() {
 
       {/* Detailed rules */}
       <section className="border-b border-border bg-surface">
-        <div className="mx-auto max-w-4xl px-6 py-20">
+        <div className="mx-auto max-w-4xl px-4 py-20 md:px-6">
           <div className="text-center">
             <Badge variant="outline" className="font-display border-primary/40 text-primary">FULL DETAILS</Badge>
             <h2 className="font-display mt-4 text-4xl font-bold">Everything else, in plain English</h2>
@@ -151,7 +151,7 @@ function RulesPage() {
 
       {/* CTA */}
       <section className="border-b border-border">
-        <div className="mx-auto max-w-3xl px-6 py-20 text-center">
+        <div className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
           <h2 className="font-display text-4xl font-bold">Ready to put the rules to the test?</h2>
           <p className="mt-3 text-muted-foreground">Pick a challenge size and start trading on a live Exness MT5 demo.</p>
           <Link to="/buy" className="mt-8 inline-block">
@@ -161,7 +161,7 @@ function RulesPage() {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-12 text-center">
+      <footer className="px-4 py-12 text-center md:px-6">
         <Brand />
         <div className="mt-4 text-xs text-muted-foreground/60">
           © {new Date().getFullYear()} FundedNG. All rights reserved.

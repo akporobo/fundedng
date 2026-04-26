@@ -139,7 +139,7 @@ function DashboardPage() {
   return (
     <div className="min-h-screen">
       <SiteNav />
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl font-bold">Dashboard</h1>
@@ -162,17 +162,19 @@ function DashboardPage() {
           </div>
         ) : (
           <Tabs defaultValue="overview" className="mt-8">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="accounts">Accounts</TabsTrigger>
-              <TabsTrigger value="payouts">Payouts</TabsTrigger>
-              <TabsTrigger value="certificates">
-                <Trophy className="mr-1 h-3 w-3"/>Certificates {certificates.length > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{certificates.length}</span>}
-              </TabsTrigger>
-              <TabsTrigger value="notifications">
-                <Bell className="mr-1 h-3 w-3"/>Notifications {unread > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{unread}</span>}
-              </TabsTrigger>
-            </TabsList>
+            <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+              <TabsList className="w-max min-w-full">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="accounts">Accounts</TabsTrigger>
+                <TabsTrigger value="payouts">Payouts</TabsTrigger>
+                <TabsTrigger value="certificates">
+                  <Trophy className="mr-1 h-3 w-3"/>Certificates {certificates.length > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{certificates.length}</span>}
+                </TabsTrigger>
+                <TabsTrigger value="notifications">
+                  <Bell className="mr-1 h-3 w-3"/>Notifications {unread > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{unread}</span>}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="overview" className="mt-6 space-y-6">
               {accounts.length > 1 && (
@@ -188,7 +190,7 @@ function DashboardPage() {
 
               {selected && (
                 <>
-                  <div className="grid gap-4 md:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                     {[
                       { label: "Account Size", value: formatNaira(start) },
                       { label: "Equity", value: formatNaira(equity), color: "text-primary" },

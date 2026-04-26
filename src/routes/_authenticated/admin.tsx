@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/utils";
@@ -24,7 +26,7 @@ function AdminPage() {
     return (
       <div className="min-h-screen">
         <SiteNav />
-        <div className="mx-auto max-w-xl px-6 py-16 text-center">
+        <div className="mx-auto max-w-xl px-4 py-16 text-center md:px-6">
           <h1 className="font-display text-3xl font-bold">Admins only</h1>
           <p className="mt-2 text-muted-foreground">You don't have admin access.</p>
         </div>
@@ -54,6 +56,76 @@ function AdminConsole() {
   const [delivering, setDelivering] = useState(false);
   const [deliverFor, setDeliverFor] = useState<any | null>(null);
   const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
+
+  // ---- Challenges management ----
+  const [challengeList, setChallengeList] = useState<any[]>([]);
+  const [challengeEditOpen, setChallengeEditOpen] = useState(false);
+  const [editingChallenge, setEditingChallenge] = useState<any | null>(null);
+  const blankChallenge = {
+    id: "",
+    name: "",
+    account_size: 200000,
+    price_naira: 12000,
+    profit_target_percent: 10,
+    max_drawdown_percent: 20,
+    phases: 2,
+    is_active: true,
+  };
+  const [challengeForm, setChallengeForm] = useState<any>(blankChallenge);
+  const [savingChallenge, setSavingChallenge] = useState(false);
+
+  const loadChallenges = async () => {
+    const { data, error } = await supabase
+      .from("challenges")
+      .select("*")
+      .order("account_size");
+    if (error) return console.error("[admin] challenges load failed:", error);
+    setChallengeList((data ?? []) as any[]);
+  };
+
+  const openNewChallenge = () => {
+    setEditingChallenge(null);
+    setChallengeForm(blankChallenge);
+    setChallengeEditOpen(true);
+  };
+
+  const openEditChallenge = (c: any) => {
+    setEditingChallenge(c);
+    setChallengeForm({ ...c });
+    setChallengeEditOpen(true);
+  };
+
+  const saveChallenge = async () => {
+    if (!challengeForm.name.trim()) return toast.error("Name is required");
+    setSavingChallenge(true);
+    const payload: any = {
+      name: challengeForm.name.trim(),
+      account_size: Number(challengeForm.account_size),
+      price_naira: Number(challengeForm.price_naira),
+      profit_target_percent: Number(challengeForm.profit_target_percent),
+      max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
+      phases: Number(challengeForm.phases),
+      is_active: !!challengeForm.is_active,
+    };
+    let error;
+    if (editingChallenge?.id) {
+      ({ error } = await supabase.from("challenges").update(payload).eq("id", editingChallenge.id));
+    } else {
+      ({ error } = await supabase.from("challenges").insert(payload));
+    }
+    setSavingChallenge(false);
+    if (error) return toast.error(error.message);
+    toast.success(editingChallenge?.id ? "Challenge updated" : "Challenge added");
+    setChallengeEditOpen(false);
+    loadChallenges();
+  };
+
+  const toggleChallengeActive = async (c: any) => {
+    const { error } = await supabase.from("challenges").update({ is_active: !c.is_active }).eq("id", c.id);
+    if (error) return toast.error(error.message);
+    toast.success(c.is_active ? "Deactivated" : "Activated");
+    loadChallenges();
+  };
 
   const load = async () => {
     const [pr, ord, accRaw, poRaw, req] = await Promise.all([
@@ -152,7 +224,7 @@ function AdminConsole() {
     });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadChallenges(); }, []);
 
   const openDeliver = (req: any) => {
     setDeliverFor(req);
@@ -222,17 +294,20 @@ function AdminConsole() {
   return (
     <div className="min-h-screen">
       <SiteNav />
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <h1 className="font-display text-3xl font-bold">Admin Console</h1>
         <Tabs defaultValue="stats" className="mt-6">
-          <TabsList>
-            <TabsTrigger value="stats">Stats</TabsTrigger>
-            <TabsTrigger value="pending">
-              Pending {pendingRequests.length > 0 && <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">{pendingRequests.length}</span>}
-            </TabsTrigger>
-            <TabsTrigger value="payouts">Payouts</TabsTrigger>
-            <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          </TabsList>
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+            <TabsList className="w-max min-w-full">
+              <TabsTrigger value="stats">Stats</TabsTrigger>
+              <TabsTrigger value="pending">
+                Pending {pendingRequests.length > 0 && <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">{pendingRequests.length}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="payouts">Payouts</TabsTrigger>
+              <TabsTrigger value="accounts">Accounts</TabsTrigger>
+              <TabsTrigger value="challenges">Challenges</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="stats" className="mt-6 grid gap-4 md:grid-cols-4">
             {[
@@ -346,6 +421,87 @@ function AdminConsole() {
               </div>
             ))}
           </TabsContent>
+
+          <TabsContent value="challenges" className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-xl font-bold">Challenges</h2>
+                <p className="text-xs text-muted-foreground">Add, edit, activate or deactivate challenge tiers.</p>
+              </div>
+              <Button size="sm" onClick={openNewChallenge} className="font-display">+ Add Challenge</Button>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="space-y-3 md:hidden">
+              {challengeList.map((c) => (
+                <div key={c.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-display font-semibold">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">{formatNaira(c.account_size)} account</div>
+                    </div>
+                    <Badge variant="outline" className={`font-display ${c.is_active ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
+                      {c.is_active ? "ACTIVE" : "INACTIVE"}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-muted-foreground">Fee:</span> <span className="font-display text-primary">{formatNaira(c.price_naira)}</span></div>
+                    <div><span className="text-muted-foreground">Phases:</span> {c.phases}</div>
+                    <div><span className="text-muted-foreground">Target:</span> {c.profit_target_percent}%</div>
+                    <div><span className="text-muted-foreground">Drawdown:</span> {c.max_drawdown_percent}%</div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => openEditChallenge(c)}>Edit</Button>
+                    <Button size="sm" variant="outline" onClick={() => toggleChallengeActive(c)}>
+                      {c.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {challengeList.length === 0 && (
+                <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No challenges yet.</div>
+              )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Account Size</th>
+                    <th className="px-4 py-3 text-left">Fee</th>
+                    <th className="px-4 py-3 text-left">Target %</th>
+                    <th className="px-4 py-3 text-left">Max DD %</th>
+                    <th className="px-4 py-3 text-left">Phases</th>
+                    <th className="px-4 py-3 text-left">Active</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {challengeList.map((c) => (
+                    <tr key={c.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-display font-semibold">{c.name}</td>
+                      <td className="px-4 py-3">{formatNaira(c.account_size)}</td>
+                      <td className="px-4 py-3 font-display text-primary">{formatNaira(c.price_naira)}</td>
+                      <td className="px-4 py-3">{c.profit_target_percent}%</td>
+                      <td className="px-4 py-3">{c.max_drawdown_percent}%</td>
+                      <td className="px-4 py-3">{c.phases}</td>
+                      <td className="px-4 py-3">
+                        <Switch checked={c.is_active} onCheckedChange={() => toggleChallengeActive(c)} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button size="sm" variant="outline" onClick={() => openEditChallenge(c)}>Edit</Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {challengeList.length === 0 && (
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No challenges yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -384,6 +540,58 @@ function AdminConsole() {
             <Button variant="outline" onClick={() => setDeliverFor(null)} disabled={delivering}>Cancel</Button>
             <Button onClick={submitDelivery} disabled={delivering}>
               {delivering ? "Delivering…" : "Deliver to trader"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={challengeEditOpen} onOpenChange={(o) => !savingChallenge && setChallengeEditOpen(o)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingChallenge?.id ? "Edit challenge" : "Add challenge"}</DialogTitle>
+            <DialogDescription>Configure pricing and rules for this challenge tier.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ch-name">Name</Label>
+              <Input id="ch-name" value={challengeForm.name} onChange={(e) => setChallengeForm({ ...challengeForm, name: e.target.value })} placeholder="e.g. Starter" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-size">Account Size (₦)</Label>
+                <Input id="ch-size" type="number" min={0} value={challengeForm.account_size} onChange={(e) => setChallengeForm({ ...challengeForm, account_size: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-fee">Fee (₦)</Label>
+                <Input id="ch-fee" type="number" min={0} value={challengeForm.price_naira} onChange={(e) => setChallengeForm({ ...challengeForm, price_naira: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-target">Profit Target %</Label>
+                <Input id="ch-target" type="number" min={0} step="0.01" value={challengeForm.profit_target_percent} onChange={(e) => setChallengeForm({ ...challengeForm, profit_target_percent: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-dd">Max Drawdown %</Label>
+                <Input id="ch-dd" type="number" min={0} step="0.01" value={challengeForm.max_drawdown_percent} onChange={(e) => setChallengeForm({ ...challengeForm, max_drawdown_percent: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-phases">Phases</Label>
+                <Input id="ch-phases" type="number" min={1} max={5} value={challengeForm.phases} onChange={(e) => setChallengeForm({ ...challengeForm, phases: e.target.value })} />
+              </div>
+              <div className="flex items-end gap-2">
+                <Checkbox id="ch-active" checked={!!challengeForm.is_active} onCheckedChange={(v) => setChallengeForm({ ...challengeForm, is_active: !!v })} />
+                <Label htmlFor="ch-active" className="cursor-pointer">Active</Label>
+              </div>
+            </div>
+            {Number(challengeForm.price_naira) > 0 && Number(challengeForm.account_size) > 0 && (
+              <div className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
+                Preview: <span className="font-display text-primary">{formatNaira(challengeForm.account_size)}</span> account for <span className="font-display text-primary">{formatNaira(challengeForm.price_naira)}</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChallengeEditOpen(false)} disabled={savingChallenge}>Cancel</Button>
+            <Button onClick={saveChallenge} disabled={savingChallenge}>
+              {savingChallenge ? "Saving…" : editingChallenge?.id ? "Save changes" : "Add challenge"}
             </Button>
           </DialogFooter>
         </DialogContent>

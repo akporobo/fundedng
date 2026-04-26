@@ -48,11 +48,11 @@ function Index() {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
         <div className="absolute inset-0 gradient-radial-primary opacity-40" />
-        <div className="relative mx-auto max-w-5xl px-6 py-24 text-center md:py-32">
+        <div className="relative mx-auto max-w-5xl px-4 py-24 text-center md:px-6 md:py-32">
           <div className="font-display mb-6 text-xs tracking-[0.4em] text-primary opacity-80">
             NIGERIA'S PROP TRADING FIRM
           </div>
-          <h1 className="font-display text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl">
+          <h1 className="font-display text-4xl font-bold leading-[1.05] md:text-7xl lg:text-8xl">
             Trade Big.
             <br />
             <span className="text-primary text-glow">Get Paid.</span>
@@ -86,7 +86,7 @@ function Index() {
 
       {/* Rules */}
       <section className="border-b border-border bg-surface">
-        <div className="mx-auto max-w-5xl px-6 py-20 text-center">
+        <div className="mx-auto max-w-5xl px-4 py-20 text-center md:px-6">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">THE RULES</Badge>
           <h2 className="font-display mt-4 text-4xl font-bold">Just 2 Rules. That's It.</h2>
           <div className="mt-12 grid gap-5 md:grid-cols-2">
@@ -116,7 +116,7 @@ function Index() {
 
       {/* Pricing */}
       <section className="border-b border-border">
-        <div className="mx-auto max-w-6xl px-6 py-20">
+        <div className="mx-auto max-w-6xl px-4 py-20 md:px-6">
           <div className="text-center">
             <Badge variant="outline" className="font-display border-primary/40 text-primary">PRICING</Badge>
             <h2 className="font-display mt-4 text-4xl font-bold">Choose Your Account</h2>
@@ -156,7 +156,7 @@ function Index() {
 
       {/* CTA */}
       <section className="border-b border-border bg-surface">
-        <div className="mx-auto max-w-3xl px-6 py-20 text-center">
+        <div className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
           <Trophy className="mx-auto h-12 w-12 text-primary" />
           <h2 className="font-display mt-6 text-4xl font-bold">Ready to get funded?</h2>
           <p className="mt-3 text-muted-foreground">Join hundreds of Nigerian traders earning real payouts.</p>
@@ -167,7 +167,7 @@ function Index() {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-12 text-center">
+      <footer className="px-4 py-12 text-center md:px-6">
         <Brand />
         <p className="mx-auto mt-4 max-w-2xl text-xs text-muted-foreground">
           FundedNG is a proprietary trading evaluation platform. Challenge fees fund operational costs.
