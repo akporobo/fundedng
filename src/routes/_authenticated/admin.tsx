@@ -60,6 +60,9 @@ function AdminConsole() {
   // Manual equity input per account row (admin-only)
   const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
+  // KYC verification modal
+  const [kycTarget, setKycTarget] = useState<any | null>(null);
+  const [kycVerifying, setKycVerifying] = useState(false);
 
   // ---- Challenges management ----
   const [challengeList, setChallengeList] = useState<any[]>([]);
@@ -303,23 +306,29 @@ function AdminConsole() {
     load();
   };
 
-  const verifyKyc = async (userId: string, expectedAccount: string) => {
-    const entered = window.prompt(
-      `Confirm the trader's account number to verify KYC.\nPress OK to verify, or edit the number first.`,
-      expectedAccount,
-    );
-    if (entered === null) return;
+  const openKycVerify = (account: any) => setKycTarget(account);
+
+  const submitKycVerify = async () => {
+    if (!kycTarget) return;
     if (!session?.access_token) return toast.error("Please sign in again");
+    const accountNumber = (kycTarget.profiles?.bank_account_number ?? "").trim();
+    if (!accountNumber) return toast.error("Trader hasn't submitted bank details");
+    setKycVerifying(true);
     try {
-      const res = await verifyKycServer({ data: { userId, accountNumber: entered.trim(), accessToken: session.access_token } });
+      const res = await verifyKycServer({
+        data: { userId: kycTarget.user_id, accountNumber, accessToken: session.access_token },
+      });
       if (!res?.ok) {
         toast.error(res?.error ?? "Verification failed");
         return;
       }
       toast.success("KYC verified");
+      setKycTarget(null);
       load();
     } catch (e: any) {
       toast.error(e?.message ?? "Verification failed");
+    } finally {
+      setKycVerifying(false);
     }
   };
 
@@ -473,7 +482,7 @@ function AdminConsole() {
                     {a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}
                   </Badge>
                   {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && (
-                    <Button size="sm" onClick={() => verifyKyc(a.user_id, a.profiles.bank_account_number)}>
+                    <Button size="sm" onClick={() => openKycVerify(a)}>
                       Verify bank matches MT5
                     </Button>
                   )}
@@ -600,6 +609,50 @@ function AdminConsole() {
             <Button variant="outline" onClick={() => setDeliverFor(null)} disabled={delivering}>Cancel</Button>
             <Button onClick={submitDelivery} disabled={delivering}>
               {delivering ? "Delivering…" : "Deliver to trader"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!kycTarget} onOpenChange={(o) => !o && !kycVerifying && setKycTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify trader KYC</DialogTitle>
+            <DialogDescription>
+              Confirm the bank details below match what the trader sent for KYC, then click Verify.
+            </DialogDescription>
+          </DialogHeader>
+          {kycTarget && (
+            <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Trader</div>
+                <div className="font-display font-semibold">{kycTarget.profiles?.full_name ?? "—"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account number</div>
+                <div className="font-mono text-base text-primary">{kycTarget.profiles?.bank_account_number ?? "—"}</div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Bank</div>
+                  <div>{kycTarget.profiles?.bank_name ?? "—"}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account name</div>
+                  <div>{kycTarget.profiles?.bank_account_name ?? "—"}</div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                MT5 login: <span className="font-mono">{kycTarget.mt5_login}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKycTarget(null)} disabled={kycVerifying}>
+              Cancel
+            </Button>
+            <Button onClick={submitKycVerify} disabled={kycVerifying}>
+              {kycVerifying ? "Verifying…" : "Verify KYC"}
             </Button>
           </DialogFooter>
         </DialogContent>
