@@ -122,7 +122,7 @@ function Index() {
             <Badge variant="outline" className="font-display border-primary/40 text-primary">PRICING</Badge>
             <h2 className="font-display mt-4 text-4xl font-bold">Choose Your Account</h2>
           </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
+          <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {(challenges.length ? challenges : [
               { id:"1", name:"Starter", account_size:200000, price_naira:7500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
               { id:"2", name:"Growth", account_size:500000, price_naira:17500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
