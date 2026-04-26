@@ -69,14 +69,21 @@ function BuyPage() {
     // idempotent per order_id; if it fails the account_request stays in
     // "failed" state and the admin can deliver manually as a fallback.
     toast.success("Payment confirmed! Provisioning your MT5 account…");
-    fetch("/api/provision-account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order_id: order.id }),
-    }).catch(() => {
+    // Use keepalive so the POST survives the navigation that follows.
+    // The endpoint is idempotent per order_id so a duplicate call is safe.
+    try {
+      fetch("/api/provision-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: order.id }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
       // Network failure is non-fatal: admin will see the pending request
       // in the dashboard and can deliver manually.
-    });
+    }
+    // Small delay so the browser actually flushes the request before navigating.
+    await new Promise((r) => setTimeout(r, 250));
     navigate({ to: "/dashboard" });
     setLoading(false);
   };
