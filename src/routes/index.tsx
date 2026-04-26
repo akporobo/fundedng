@@ -66,13 +66,16 @@ function Index() {
             <br />
             <span className="text-primary text-glow">Get Paid.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-            Prove your skill on an Exness MT5 demo. Pass two simple phases. Withdraw
-            your profits within 7 days (typically 2-3 days).
+          <p className="mx-auto mt-4 max-w-xl text-base font-display tracking-wide text-primary md:text-lg">
+            The Best Prop-Firm for 9ja traders wey sabi
+          </p>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground md:text-base">
+            Pass two phases. Get funded. Withdraw 24 hours after your 7-day payout
+            window opens — no wahala.
           </p>
 
           <div className="mx-auto mt-12 grid max-w-2xl grid-cols-2 gap-6 md:grid-cols-4">
-            {[["3","Simple Rules"],["7 Day","Payouts"],["80%","Profit Split"],["₦2M","Max Funding"]].map(([v,l]) => (
+            {[["24h","Payouts"],["80%","Profit Split"],["3","Simple Rules"],["₦2M","Max Funding"]].map(([v,l]) => (
               <div key={l}>
                 <div className="font-display text-3xl font-bold text-primary">{v}</div>
                 <div className="mt-1 text-xs text-muted-foreground">{l}</div>
@@ -148,7 +151,7 @@ function Index() {
                 <div className="font-display mt-2 text-4xl font-bold text-primary">{formatNaira(c.account_size)}</div>
                 <div className="text-sm text-muted-foreground">account size</div>
                 <div className="mt-6 space-y-2 border-t border-border pt-6">
-                  {[`${c.profit_target_percent}% profit target per phase`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"Payouts within 7 days (typically 2-3 days)","80% profit split"].map(f => (
+                  {[`${c.profit_target_percent}% profit target per phase`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"Payouts within 24 hrs of approval","80% profit split"].map(f => (
                     <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Check className="h-4 w-4 text-primary" /> {f}
                     </div>
@@ -181,8 +184,10 @@ function Index() {
       <footer className="px-4 py-12 text-center md:px-6">
         <Brand />
         <p className="mx-auto mt-4 max-w-2xl text-xs text-muted-foreground">
-          FundedNG is a proprietary trading evaluation platform. Challenge fees fund operational costs.
-          All trading is on Exness demo accounts. Past performance does not guarantee future results.
+          FundedNG is a proprietary trading evaluation platform. Challenge fees
+          fund operational costs. All evaluations run on simulated MT5 accounts —
+          you trade real-market prices but no real-money risk. Past performance
+          does not guarantee future results.
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
           <Link to="/rules" className="text-muted-foreground hover:text-primary">Rules</Link>
