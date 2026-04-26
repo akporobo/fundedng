@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { botProvision } from "@/lib/bot.server";
+import { sendPushToUser, sendPushToAdmins } from "@/lib/push.server";
 
 /**
  * Auto-provision an MT5 demo account by calling the externally-hosted
@@ -140,6 +141,17 @@ export const Route = createFileRoute("/api/provision-account")({
             title: "🎉 Your MT5 Account is Ready",
             message: `${ch.name} active. Login: ${provisioned.login} · Server: ${provisioned.server}. Open the dashboard to view your password.`,
             type: "welcome",
+          });
+
+          await sendPushToUser(order.user_id, {
+            title: "🎉 Your MT5 Account is Ready",
+            body: `${ch.name} is active. Tap to view your login.`,
+            url: "/dashboard",
+          });
+          await sendPushToAdmins({
+            title: "New challenge purchase",
+            body: `${ch.name} delivered for order ${order.id.slice(0, 8)}…`,
+            url: "/admin",
           });
 
           return Response.json({

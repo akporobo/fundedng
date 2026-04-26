@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendPushToUser } from "@/lib/push.server";
 
 /**
  * Manual account delivery. Admin posts MT5 credentials they created by hand
@@ -119,6 +120,12 @@ export const Route = createFileRoute("/api/deliver-account")({
             title: "🎉 Your MT5 Account is Ready",
             message: `${ch.name} active. Login: ${mt5_login} · Server: ${mt5_server}. Open the dashboard to view your password.`,
             type: "welcome",
+          });
+
+          await sendPushToUser(order.user_id, {
+            title: "🎉 Your MT5 Account is Ready",
+            body: `${ch.name} active. Tap to view your login.`,
+            url: "/dashboard",
           });
 
           return Response.json({ ok: true, login: mt5_login, server: mt5_server });

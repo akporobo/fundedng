@@ -31,13 +31,13 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "FundedNG — Nigeria's Prop Trading Firm" },
-      { name: "description", content: "Get funded up to ₦1,000,000. Two simple rules. 24-hour payouts. Trade on Exness MT5." },
+      { name: "description", content: "Get funded up to ₦2,000,000. Three simple rules. Payouts within 7 days. Trade on Exness MT5." },
       { property: "og:title", content: "FundedNG — Nigeria's Prop Trading Firm" },
-      { property: "og:description", content: "Get funded up to ₦1,000,000. Two simple rules. 24-hour payouts. Trade on Exness MT5." },
+      { property: "og:description", content: "Get funded up to ₦2,000,000. Three simple rules. Payouts within 7 days. Trade on Exness MT5." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "FundedNG — Nigeria's Prop Trading Firm" },
-      { name: "twitter:description", content: "Get funded up to ₦1,000,000. Two simple rules. 24-hour payouts. Trade on Exness MT5." },
+      { name: "twitter:description", content: "Get funded up to ₦2,000,000. Three simple rules. Payouts within 7 days. Trade on Exness MT5." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/c2a87901-c47d-47f6-b172-e1333c79d14d" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/c2a87901-c47d-47f6-b172-e1333c79d14d" },
     ],
@@ -69,6 +69,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
       </head>
       <body className="noise-overlay">
         {children}
+        <script src="https://js.paystack.co/v1/inline.js" async></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var inIframe=window.self!==window.top;var host=window.location.hostname;var isPreview=host.includes('id-preview--')||host.includes('lovableproject.com')||host.includes('lovable.dev');if((inIframe||isPreview)&&'serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});});}}catch(e){}})();`,
+          }}
+        />
         <Scripts />
       </body>
     </html>

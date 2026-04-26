@@ -56,45 +56,72 @@ function BuyPage() {
 
   const handleBuy = async () => {
     if (!selected) return;
+    if (!user?.email) {
+      setError("You need to be signed in with an email.");
+      return;
+    }
+    const PaystackPop = (window as unknown as { PaystackPop?: { setup: (opts: Record<string, unknown>) => { openIframe: () => void } } }).PaystackPop;
+    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+    if (!PaystackPop) {
+      setError("Payment system is still loading. Please try again in a moment.");
+      return;
+    }
+    if (!publicKey) {
+      setError("Payment is not configured yet. Set VITE_PAYSTACK_PUBLIC_KEY in your environment.");
+      return;
+    }
+
     setLoading(true); setError("");
 
-    // Create paid order. The DB trigger auto-queues an account_requests row
-    // for the admin to fulfill manually with broker MT5 credentials.
-    const { data: order, error: orderErr } = await supabase.from("orders").insert({
-      user_id: user!.id,
-      challenge_id: selected.id,
-      amount_paid: selected.price_naira * 100,
-      status: "paid",
-      paystack_reference: `DEMO-${Date.now()}`,
-    }).select().single();
+    const handler = PaystackPop.setup({
+      key: publicKey,
+      email: user.email,
+      amount: selected.price_naira * 100, // amount in kobo
+      currency: "NGN",
+      ref: `FNG-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+      metadata: {
+        challenge_id: selected.id,
+        challenge_name: selected.name,
+        user_id: user.id,
+      },
+      onSuccess: async (transaction: { reference: string }) => {
+        // Persist the order using the verified Paystack reference.
+        const { data: order, error: orderErr } = await supabase.from("orders").insert({
+          user_id: user.id,
+          challenge_id: selected.id,
+          amount_paid: selected.price_naira * 100,
+          status: "paid",
+          paystack_reference: transaction.reference,
+        }).select().single();
 
-    if (orderErr || !order) {
-      setLoading(false);
-      return setError(orderErr?.message ?? "Failed to create order");
-    }
+        if (orderErr || !order) {
+          setLoading(false);
+          setError(orderErr?.message ?? "Order creation failed");
+          return;
+        }
 
-    // Fire-and-forget auto-provision via the Railway bot. The route is
-    // idempotent per order_id; if it fails the account_request stays in
-    // "failed" state and the admin can deliver manually as a fallback.
-    toast.success("Payment confirmed! Provisioning your MT5 account…");
-    // Use keepalive so the POST survives the navigation that follows.
-    // The endpoint is idempotent per order_id so a duplicate call is safe.
-    try {
-      fetch("/api/provision-account", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: order.id }),
-        keepalive: true,
-      }).catch(() => {});
-    } catch {
-      // Network failure is non-fatal: admin will see the pending request
-      // in the dashboard and can deliver manually.
-    }
-    // Small delay so the browser actually flushes the request before navigating.
-    await new Promise((r) => setTimeout(r, 250));
-    navigate({ to: "/dashboard" });
-    setLoading(false);
-    setConfirmOpen(false);
+        toast.success("Payment confirmed! Provisioning your MT5 account…");
+
+        // Fire-and-forget provision; admin can deliver manually if it fails.
+        fetch("/api/provision-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: order.id }),
+          keepalive: true,
+        }).catch(() => {});
+
+        await new Promise((r) => setTimeout(r, 250));
+        navigate({ to: "/dashboard" });
+        setLoading(false);
+        setConfirmOpen(false);
+      },
+      onCancel: () => {
+        setLoading(false);
+        toast.info("Payment cancelled.");
+      },
+    });
+
+    handler.openIframe();
   };
 
   return (
@@ -129,7 +156,7 @@ function BuyPage() {
                 <div className="font-display mt-2 text-3xl font-bold text-primary">{formatNaira(c.account_size)}</div>
                 <div className="text-xs text-muted-foreground">account size</div>
                 <div className="mt-5 space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
-                  {[`${c.profit_target_percent}% profit target`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"80% profit split","24hr payouts"].map(f=>(
+                  {[`${c.profit_target_percent}% profit target`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"80% profit split","Payouts within 7 days"].map(f=>(
                     <div key={f} className="flex items-center gap-2"><Diamond className="h-3 w-3 text-primary"/> {f}</div>
                   ))}
                 </div>
@@ -182,7 +209,7 @@ function BuyPage() {
                   { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
                   { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
                   { icon: Wallet, label: "Profit split", value: "80%" },
-                  { icon: Clock, label: "Payout window", value: "24 hours" },
+                  { icon: Clock, label: "Payout window", value: "Within 7 days" },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-muted-foreground">
