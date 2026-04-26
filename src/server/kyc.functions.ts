@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const VerifyInput = z.object({
   userId: z.string().uuid(),
   accountNumber: z.string().regex(/^\d{10}$/, "Account number must be 10 digits"),
+  accessToken: z.string().min(1),
 });
 
 /**
@@ -16,14 +16,15 @@ const VerifyInput = z.object({
  *  - The trader actually owns at least one trader_account (i.e., they exist as a trader)
  */
 export const verifyKycServer = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => VerifyInput.parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
     try {
-      const callerId = context.userId;
+      const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(data.accessToken);
+      if (authErr || !authData.user) return { ok: false, error: "Please sign in again" };
+      const callerId = authData.user.id;
 
       // 1. Caller must be admin
-      const { data: roles, error: roleErr } = await context.supabase
+      const { data: roles, error: roleErr } = await supabaseAdmin
         .from("user_roles")
         .select("role")
         .eq("user_id", callerId);
