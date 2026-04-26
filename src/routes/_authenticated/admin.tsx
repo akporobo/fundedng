@@ -614,6 +614,50 @@ function AdminConsole() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!kycTarget} onOpenChange={(o) => !o && !kycVerifying && setKycTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify trader KYC</DialogTitle>
+            <DialogDescription>
+              Confirm the bank details below match what the trader sent for KYC, then click Verify.
+            </DialogDescription>
+          </DialogHeader>
+          {kycTarget && (
+            <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Trader</div>
+                <div className="font-display font-semibold">{kycTarget.profiles?.full_name ?? "—"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account number</div>
+                <div className="font-mono text-base text-primary">{kycTarget.profiles?.bank_account_number ?? "—"}</div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Bank</div>
+                  <div>{kycTarget.profiles?.bank_name ?? "—"}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account name</div>
+                  <div>{kycTarget.profiles?.bank_account_name ?? "—"}</div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                MT5 login: <span className="font-mono">{kycTarget.mt5_login}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKycTarget(null)} disabled={kycVerifying}>
+              Cancel
+            </Button>
+            <Button onClick={submitKycVerify} disabled={kycVerifying}>
+              {kycVerifying ? "Verifying…" : "Verify KYC"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={challengeEditOpen} onOpenChange={(o) => !savingChallenge && setChallengeEditOpen(o)}>
         <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-lg">
           <DialogHeader>
