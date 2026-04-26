@@ -100,10 +100,10 @@ function BuyPage() {
           return;
         }
 
-        toast.success("Payment confirmed! Provisioning your MT5 account…");
+        toast.success("Payment confirmed! Your account is being prepared — you'll get a notification within minutes.");
 
-        // Fire-and-forget provision; admin can deliver manually if it fails.
-        fetch("/api/provision-account", {
+        // Tell the server to notify admins so they can deliver manually.
+        fetch("/api/notify-new-purchase", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ order_id: order.id }),

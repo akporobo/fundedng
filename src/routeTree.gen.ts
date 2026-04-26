@@ -18,6 +18,7 @@ import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
+import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-new-purchase'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -70,6 +71,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
 const ApiProvisionAccountRoute = ApiProvisionAccountRouteImport.update({
   id: '/api/provision-account',
   path: '/api/provision-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotifyNewPurchaseRoute = ApiNotifyNewPurchaseRouteImport.update({
+  id: '/api/notify-new-purchase',
+  path: '/api/notify-new-purchase',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
+    | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/auth/forgot-password'
     | '/auth/login'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
+    | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/auth/forgot-password'
     | '/auth/login'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
     | '/api/deliver-account'
+    | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/auth/forgot-password'
     | '/auth/login'
@@ -244,6 +256,7 @@ export interface RootRouteChildren {
   BuyRoute: typeof BuyRoute
   RulesRoute: typeof RulesRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
+  ApiNotifyNewPurchaseRoute: typeof ApiNotifyNewPurchaseRoute
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
@@ -316,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/api/provision-account'
       fullPath: '/api/provision-account'
       preLoaderRoute: typeof ApiProvisionAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notify-new-purchase': {
+      id: '/api/notify-new-purchase'
+      path: '/api/notify-new-purchase'
+      fullPath: '/api/notify-new-purchase'
+      preLoaderRoute: typeof ApiNotifyNewPurchaseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/deliver-account': {
@@ -424,6 +444,7 @@ const rootRouteChildren: RootRouteChildren = {
   BuyRoute: BuyRoute,
   RulesRoute: RulesRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
+  ApiNotifyNewPurchaseRoute: ApiNotifyNewPurchaseRoute,
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
