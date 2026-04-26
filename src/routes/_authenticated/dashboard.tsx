@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
@@ -28,6 +28,52 @@ interface Account {
 }
 interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; }
 interface Notification { id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; }
+
+function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const diff = nextPayoutDate.getTime() - Date.now();
+  const isReady = diff <= 0;
+  const days = Math.max(0, Math.floor(diff / 86400000));
+  const hours = Math.max(0, Math.floor((diff % 86400000) / 3600000));
+  const minutes = Math.max(0, Math.floor((diff % 3600000) / 60000));
+  const seconds = Math.max(0, Math.floor((diff % 60000) / 1000));
+  return (
+    <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
+      <div className="font-display flex items-center gap-2 text-base font-bold text-primary">
+        <Clock className="h-4 w-4" />
+        {isReady ? "🎉 Payout Window Open!" : "⏳ Next Payout Window"}
+      </div>
+      {isReady ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your 7-day window is open. Request your payout now — processed within 24hrs of approval.
+        </p>
+      ) : (
+        <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-3">
+          {[
+            { label: "Days", value: days },
+            { label: "Hours", value: hours },
+            { label: "Mins", value: minutes },
+            { label: "Secs", value: seconds },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-lg border border-border bg-background p-2 text-center sm:p-3">
+              <div className="font-display text-xl font-bold text-primary sm:text-2xl">
+                {String(value).padStart(2, "0")}
+              </div>
+              <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="mt-4 text-[11px] text-muted-foreground">
+        Payout rules: min 10% of account size · max 50% per cycle · processed within 24hrs of approval
+      </p>
+    </div>
+  );
+}
 
 const statusVariant: Record<string, string> = {
   active: "bg-primary/15 text-primary border-primary/30",
@@ -106,8 +152,13 @@ function DashboardPage() {
     if (!["passed", "funded"].includes(selected.status)) return toast.error("Account must be passed or funded.");
     const equity = Number(selected.current_equity ?? selected.starting_balance);
     const profit = equity - selected.starting_balance;
-    if (profit <= 0) return toast.error("No profit available.");
-    const amount = Math.floor(profit * 0.8);
+    const minPayout = selected.starting_balance * 0.1;
+    const maxPayout = selected.starting_balance * 0.5;
+    const traderShare = Math.floor(profit * 0.8);
+    if (profit <= 0) return toast.error("No profit available to withdraw.");
+    if (traderShare < minPayout)
+      return toast.error(`Minimum payout is ${formatNaira(minPayout)} (10% of account size).`);
+    const amount = Math.min(traderShare, Math.floor(maxPayout));
     setSubmitting(true);
     const { error } = await supabase.from("payouts").insert({
       user_id: user!.id,
