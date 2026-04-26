@@ -375,9 +375,9 @@ function GroupChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col md:h-screen">
+    <div className="fixed inset-x-0 top-0 bottom-0 z-40 flex flex-col bg-background md:static md:h-screen">
       {/* Header */}
-      <header className="flex items-center gap-2 border-b border-border bg-background/95 px-3 py-2 backdrop-blur-xl">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur-xl">
         <button
           onClick={() => navigate({ to: "/community" })}
           className="grid h-9 w-9 place-items-center rounded-full hover:bg-muted"
