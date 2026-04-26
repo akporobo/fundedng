@@ -129,7 +129,7 @@ function BuyPage() {
                 <div className="font-display mt-2 text-3xl font-bold text-primary">{formatNaira(c.account_size)}</div>
                 <div className="text-xs text-muted-foreground">account size</div>
                 <div className="mt-5 space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
-                  {[`${c.profit_target_percent}% profit target`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"80% profit split","24hr payouts"].map(f=>(
+                  {[`${c.profit_target_percent}% profit target`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"80% profit split","Payouts within 7 days"].map(f=>(
                     <div key={f} className="flex items-center gap-2"><Diamond className="h-3 w-3 text-primary"/> {f}</div>
                   ))}
                 </div>
@@ -182,7 +182,7 @@ function BuyPage() {
                   { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
                   { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
                   { icon: Wallet, label: "Profit split", value: "80%" },
-                  { icon: Clock, label: "Payout window", value: "24 hours" },
+                  { icon: Clock, label: "Payout window", value: "Within 7 days" },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-muted-foreground">
