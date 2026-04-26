@@ -7,8 +7,9 @@ import { SiteNav } from "@/components/site/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira } from "@/lib/utils";
-import { Check, Diamond, ArrowRight } from "lucide-react";
+import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/buy")({
@@ -29,6 +30,7 @@ function BuyPage() {
   const [selected, setSelected] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -42,12 +44,18 @@ function BuyPage() {
       });
   }, [search.challenge]);
 
-  const handleBuy = async () => {
+  const openConfirm = () => {
     if (!selected) return setError("Select a challenge first");
     if (!isAuthenticated) {
       navigate({ to: "/auth/register" });
       return;
     }
+    setError("");
+    setConfirmOpen(true);
+  };
+
+  const handleBuy = async () => {
+    if (!selected) return;
     setLoading(true); setError("");
 
     // Create paid order. The DB trigger auto-queues an account_requests row
@@ -86,12 +94,13 @@ function BuyPage() {
     await new Promise((r) => setTimeout(r, 250));
     navigate({ to: "/dashboard" });
     setLoading(false);
+    setConfirmOpen(false);
   };
 
   return (
     <div className="min-h-screen">
       <SiteNav />
-      <div className="mx-auto max-w-5xl px-6 py-16">
+      <div className="mx-auto max-w-5xl px-4 py-16 md:px-6">
         <div className="text-center">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">SELECT YOUR CHALLENGE</Badge>
           <h1 className="font-display mt-4 text-4xl font-bold">Get Funded Today</h1>
@@ -141,7 +150,7 @@ function BuyPage() {
               </div>
             </div>
             {error && <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>}
-            <Button className="font-display mt-5 w-full" size="lg" onClick={handleBuy} disabled={loading}>
+            <Button className="font-display mt-5 w-full" size="lg" onClick={openConfirm} disabled={loading}>
               {loading ? "Processing..." : <>Pay {formatNaira(selected.price_naira)} Now <ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
@@ -152,6 +161,64 @@ function BuyPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={(o) => !loading && setConfirmOpen(o)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-lg">
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-2xl">{selected.name}</DialogTitle>
+                <DialogDescription>
+                  <span className="font-display block text-3xl font-bold text-primary">
+                    {formatNaira(selected.account_size)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">account size</span>
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
+                {[
+                  { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
+                  { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
+                  { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
+                  { icon: Wallet, label: "Profit split", value: "80%" },
+                  { icon: Clock, label: "Payout window", value: "24 hours" },
+                ].map((r) => (
+                  <div key={r.label} className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <r.icon className="h-4 w-4 text-primary" /> {r.label}
+                    </span>
+                    <span className="font-display font-semibold">{r.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
+                <span className="font-display block font-semibold text-warning">Rules reminder</span>
+                No automated trading. No copy trading. Trade at least once every 7 days.
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <span className="text-sm text-muted-foreground">Total due</span>
+                <span className="font-display text-2xl font-bold text-primary">
+                  {formatNaira(selected.price_naira)}
+                </span>
+              </div>
+
+              {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={loading}>
+                  Cancel
+                </Button>
+                <Button className="font-display" onClick={handleBuy} disabled={loading}>
+                  {loading ? "Processing…" : <>Confirm & Pay {formatNaira(selected.price_naira)} <ArrowRight className="ml-2 h-4 w-4" /></>}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
