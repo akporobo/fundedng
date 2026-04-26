@@ -6,7 +6,7 @@ import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatNaira } from "@/lib/utils";
-import { Check, Zap, ShieldCheck, Trophy, ArrowRight } from "lucide-react";
+import { Check, Zap, ShieldCheck, Trophy, ArrowRight, Clock } from "lucide-react";
 import tradingChartHero from "@/assets/trading-chart-hero.jpg";
 import tradingChartHeroDark from "@/assets/trading-chart-hero-dark.jpg";
 
@@ -59,11 +59,11 @@ function Index() {
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
             Prove your skill on an Exness MT5 demo. Pass two simple phases. Withdraw
-            your profits within 24 hours.
+            your profits within 7 days (typically 2-3 days).
           </p>
 
           <div className="mx-auto mt-12 grid max-w-2xl grid-cols-2 gap-6 md:grid-cols-4">
-            {[["2","Simple Rules"],["24h","Payouts"],["80%","Profit Split"],["₦1M","Max Funding"]].map(([v,l]) => (
+            {[["3","Simple Rules"],["7 Day","Payouts"],["80%","Profit Split"],["₦2M","Max Funding"]].map(([v,l]) => (
               <div key={l}>
                 <div className="font-display text-3xl font-bold text-primary">{v}</div>
                 <div className="mt-1 text-xs text-muted-foreground">{l}</div>
@@ -88,11 +88,12 @@ function Index() {
       <section className="border-b border-border bg-surface">
         <div className="mx-auto max-w-5xl px-4 py-20 text-center md:px-6">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">THE RULES</Badge>
-          <h2 className="font-display mt-4 text-4xl font-bold">Just 2 Rules. That's It.</h2>
-          <div className="mt-12 grid gap-5 md:grid-cols-2">
+          <h2 className="font-display mt-4 text-4xl font-bold">Just 3 Rules. That's It.</h2>
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
             {[
               { num: "01", title: "20% Max Drawdown", desc: "Don't lose more than 20% of your starting balance. No daily loss limit.", icon: ShieldCheck },
               { num: "02", title: "Trade Every 7 Days", desc: "Place at least one trade within every 7-day window to keep your account active.", icon: Zap },
+              { num: "03", title: "Min 3-Minute Trade Duration", desc: "All manually closed trades must be held for at least 3 minutes. Stop-loss and take-profit hits are fully exempt from this rule.", icon: Clock },
             ].map((r) => (
               <div key={r.num} className="rounded-xl border border-border bg-card p-8 text-left transition-colors hover:border-primary/40">
                 <div className="flex items-start justify-between">
@@ -123,9 +124,10 @@ function Index() {
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {(challenges.length ? challenges : [
-              { id:"1", name:"Starter", account_size:200000, price_naira:12000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
-              { id:"2", name:"Growth", account_size:500000, price_naira:30000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
-              { id:"3", name:"Elite", account_size:1000000, price_naira:55000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+              { id:"1", name:"Starter", account_size:200000, price_naira:7500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+              { id:"2", name:"Growth", account_size:500000, price_naira:17500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+              { id:"3", name:"Pro", account_size:1000000, price_naira:32000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+              { id:"4", name:"Elite", account_size:2000000, price_naira:60000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
             ]).map((c, i) => (
               <div key={c.id} className={`relative rounded-xl border bg-card p-8 ${i===1 ? "border-primary glow-primary" : "border-border"}`}>
                 {i===1 && (
@@ -137,7 +139,7 @@ function Index() {
                 <div className="font-display mt-2 text-4xl font-bold text-primary">{formatNaira(c.account_size)}</div>
                 <div className="text-sm text-muted-foreground">account size</div>
                 <div className="mt-6 space-y-2 border-t border-border pt-6">
-                  {[`${c.profit_target_percent}% profit target per phase`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"24hr payouts","80% profit split"].map(f => (
+                  {[`${c.profit_target_percent}% profit target per phase`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"Payouts within 7 days (typically 2-3 days)","80% profit split"].map(f => (
                     <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Check className="h-4 w-4 text-primary" /> {f}
                     </div>
