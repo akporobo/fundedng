@@ -29,7 +29,7 @@ function RegisterPage() {
     });
     setLoading(false);
     if (error) return setError(error.message);
-    navigate({ to: "/buy" });
+    navigate({ to: "/dashboard" });
   };
 
   return (

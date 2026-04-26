@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ImagePlus, Send, Smile, X } from "lucide-react";
 import { MessageBubble, type ChatMessage } from "@/components/community/MessageBubble";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useHasPurchase } from "@/hooks/use-has-purchase";
 
 export const Route = createFileRoute("/_authenticated/community/$slug")({ component: GroupChatPage });
 
@@ -39,6 +40,7 @@ function GroupChatPage() {
   const { slug } = Route.useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const hasPurchase = useHasPurchase();
 
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
@@ -102,8 +104,12 @@ function GroupChatPage() {
     }
   };
 
+  // Read-only viewers (no purchase) should still see messages.
+  const canRead = !!groupId && (isMember || hasPurchase === false);
+  const canPost = isMember && hasPurchase === true;
+
   useEffect(() => {
-    if (!groupId || !isMember) return;
+    if (!groupId || !canRead) return;
     (async () => {
       const { data: msgs } = await supabase
         .from("messages")
@@ -132,11 +138,11 @@ function GroupChatPage() {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
       });
     })();
-  }, [groupId, isMember]);
+  }, [groupId, canRead]);
 
   // ----- Realtime subscriptions -----
   useEffect(() => {
-    if (!groupId || !isMember || !user) return;
+    if (!groupId || !canRead || !user) return;
 
     const channel = supabase
       .channel(`group:${groupId}`)
@@ -198,7 +204,7 @@ function GroupChatPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId, isMember, user?.id]);
+  }, [groupId, canRead, user?.id]);
 
   // Expire stale typing entries
   useEffect(() => {
@@ -344,8 +350,8 @@ function GroupChatPage() {
     .filter((t) => t.user_id !== user?.id)
     .map((t) => authors[t.user_id]?.split(" ")[0] || "Someone");
 
-  // ----- Join CTA when not member -----
-  if (groupId && !isMember) {
+  // ----- Join CTA when not member AND user has purchased -----
+  if (groupId && !isMember && hasPurchase === true) {
     return (
       <div className="mx-auto max-w-md p-6 text-center">
         <h1 className="font-display text-2xl font-bold">{groupName}</h1>
@@ -398,6 +404,12 @@ function GroupChatPage() {
         </div>
       </header>
 
+      {hasPurchase === false && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-warning/10 px-3 py-2 text-[11px] text-warning">
+          🔒 Read-only — <Link to="/buy" className="underline">purchase a challenge</Link> to post.
+        </div>
+      )}
+
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto py-3">
         {enriched.length === 0 ? (
@@ -424,7 +436,7 @@ function GroupChatPage() {
       </div>
 
       {/* Reply preview */}
-      {replyTo && (
+      {canPost && replyTo && (
         <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-3 py-2 text-xs">
           <div className="min-w-0 flex-1">
             <div className="font-semibold text-primary">Replying to {replyTo.author_name}</div>
@@ -439,7 +451,7 @@ function GroupChatPage() {
       )}
 
       {/* Image preview */}
-      {imagePreview && (
+      {canPost && imagePreview && (
         <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-3 py-2">
           <img src={imagePreview} alt="Preview" className="h-12 w-12 rounded object-cover" />
           <span className="flex-1 text-xs text-muted-foreground">Image attached</span>
@@ -456,6 +468,7 @@ function GroupChatPage() {
       )}
 
       {/* Composer */}
+      {canPost ? (
       <div className="flex items-center gap-2 border-t border-border bg-background px-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
         <input
           ref={fileInputRef}
@@ -522,6 +535,17 @@ function GroupChatPage() {
           <Send className="h-4 w-4" />
         </Button>
       </div>
+      ) : (
+        <div className="border-t border-border bg-background px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-center text-xs text-muted-foreground">
+          {hasPurchase === false ? (
+            <>
+              <Link to="/buy" className="font-display text-primary hover:underline">Purchase a challenge</Link> to join and post.
+            </>
+          ) : (
+            "Loading…"
+          )}
+        </div>
+      )}
 
       {/* Image lightbox */}
       <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { SiteNav } from "@/components/site/SiteNav";
+import { PublicHeader } from "@/components/site/PublicHeader";
 import { Brand } from "@/components/site/Brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,10 @@ export const Route = createFileRoute("/rules")({
 function RulesPage() {
   return (
     <div className="min-h-screen">
-      <SiteNav />
+      <PublicHeader />
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border bg-surface">
+      <section className="relative overflow-hidden border-b border-border bg-surface pt-16">
         <div className="absolute inset-0 gradient-radial-primary opacity-30" />
         <div className="relative mx-auto max-w-4xl px-4 py-20 text-center md:px-6">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">RULEBOOK</Badge>
@@ -179,6 +179,10 @@ function RulesPage() {
       {/* Footer */}
       <footer className="px-4 py-12 text-center md:px-6">
         <Brand />
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
+          <Link to="/" className="text-muted-foreground hover:text-primary">Home</Link>
+          <Link to="/agreement" className="text-muted-foreground hover:text-primary">Agreement & Risk</Link>
+        </div>
         <div className="mt-4 text-xs text-muted-foreground/60">
           © {new Date().getFullYear()} FundedNG. All rights reserved.
         </div>
