@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,10 @@ export const Route = createFileRoute("/auth/login")({ component: LoginPage });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useAuth();
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) navigate({ to: "/dashboard", replace: true });
+  }, [isAuthenticated, isLoading, navigate]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

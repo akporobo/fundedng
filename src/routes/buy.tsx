@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira } from "@/lib/utils";
-import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone } from "lucide-react";
+import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone, Share, Plus as PlusIcon } from "lucide-react";
 import { toast } from "sonner";
-import { triggerInstallPrompt } from "@/components/PWAInstallButton";
+import { useInstallPrompt } from "@/components/PWAInstallButton";
 
 export const Route = createFileRoute("/buy")({
   validateSearch: z.object({ challenge: z.string().optional() }),
@@ -26,6 +26,7 @@ function BuyPage() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
+  const { available: installAvailable, install: installPwa, isIOS, isStandalone } = useInstallPrompt();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [selected, setSelected] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(false);
@@ -214,7 +215,7 @@ function BuyPage() {
                   { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
                   { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
                   { icon: Wallet, label: "Profit split", value: "80%" },
-                  { icon: Clock, label: "Payout window", value: "Within 7 days" },
+                { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-muted-foreground">
@@ -278,6 +279,15 @@ function BuyPage() {
               alerts on equity, drawdown and payout updates.
             </DialogDescription>
           </DialogHeader>
+          {isIOS && !isStandalone && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+              <div className="font-display mb-2 font-semibold">Install on iPhone / iPad</div>
+              <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                Tap the <Share className="inline h-3.5 w-3.5" /> Share button in Safari, then
+                <PlusIcon className="inline h-3.5 w-3.5" /> <strong>Add to Home Screen</strong>.
+              </p>
+            </div>
+          )}
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               variant="outline"
@@ -289,19 +299,21 @@ function BuyPage() {
             >
               <Smartphone className="mr-2 h-4 w-4" /> Continue to Dashboard
             </Button>
-            <Button
-              className="font-display"
-              onClick={async () => {
-                const ok = await triggerInstallPrompt();
-                if (!ok) {
-                  toast.info("Use your browser menu → 'Install app' / 'Add to Home Screen'.");
-                }
-                setPostPurchaseOpen(false);
-                navigate({ to: "/dashboard" });
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" /> Install App
-            </Button>
+            {!isIOS && installAvailable && (
+              <Button
+                className="font-display"
+                onClick={async () => {
+                  const ok = await installPwa();
+                  if (!ok) {
+                    toast.info("Use your browser menu → 'Install app' / 'Add to Home Screen'.");
+                  }
+                  setPostPurchaseOpen(false);
+                  navigate({ to: "/dashboard" });
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" /> Install App
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
