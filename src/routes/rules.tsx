@@ -9,9 +9,9 @@ export const Route = createFileRoute("/rules")({
   head: () => ({
     meta: [
       { title: "Trading Rules — FundedNG" },
-      { name: "description", content: "Full breakdown of FundedNG's prop trading rules: 20% max drawdown, 7-day activity, profit targets, payouts, and what's allowed." },
+      { name: "description", content: "Full breakdown of FundedNG's prop trading rules: 20% max drawdown, 7-day activity, 3-minute minimum trade duration, profit targets, payouts, and what's allowed." },
       { property: "og:title", content: "Trading Rules — FundedNG" },
-      { property: "og:description", content: "Just 2 main rules — 20% max drawdown and trade every 7 days. See the full rulebook here." },
+      { property: "og:description", content: "Just 3 main rules — 20% max drawdown, trade every 7 days, and a 3-minute minimum trade duration. See the full rulebook here." },
     ],
   }),
   component: RulesPage,
@@ -31,7 +31,7 @@ function RulesPage() {
             Simple, transparent <span className="text-primary text-glow">trading rules</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground">
-            Just 2 main rules to keep your account alive. Everything else is here for full clarity — no hidden gotchas.
+            Just 3 main rules to keep your account alive. Everything else is here for full clarity — no hidden gotchas.
           </p>
         </div>
       </section>
@@ -40,11 +40,11 @@ function RulesPage() {
       <section className="border-b border-border">
         <div className="mx-auto max-w-5xl px-4 py-20 md:px-6">
           <div className="text-center">
-            <Badge variant="outline" className="font-display border-primary/40 text-primary">THE 2 MAIN RULES</Badge>
-            <h2 className="font-display mt-4 text-4xl font-bold">Break either one and your account closes.</h2>
+            <Badge variant="outline" className="font-display border-primary/40 text-primary">THE 3 MAIN RULES</Badge>
+            <h2 className="font-display mt-4 text-4xl font-bold">Break any one and your account closes.</h2>
           </div>
 
-          <div className="mt-12 grid gap-5 md:grid-cols-2">
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
             <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
               <div className="flex items-start justify-between">
                 <div className="font-display text-6xl font-bold text-primary/30">01</div>
@@ -78,6 +78,22 @@ function RulesPage() {
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Miss a window and the account is closed for inactivity.</li>
               </ul>
             </div>
+
+            <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-primary/30">03</div>
+                <Clock className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">Min 3-Minute Trade Duration</h3>
+              <p className="mt-3 text-muted-foreground">
+                All manually closed trades must be held for at least 3 minutes from open to close. This prevents tick-scalping and stale-quote abuse on the demo feed.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Stop-loss and take-profit hits are fully exempt.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies to manual closes only — not server-triggered exits.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Repeated breaches void the account.</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -105,7 +121,7 @@ function RulesPage() {
               {
                 icon: Wallet,
                 title: "Profit Split & Payouts",
-                body: "Funded traders keep 80% of profits. Payouts are processed within 24 hours of request to your verified Nigerian bank account or USDT wallet.",
+                body: "Funded traders keep 80% of profits. Payouts are processed within 7 days of request (typically 2-3 days) to your verified Nigerian bank account or USDT wallet.",
               },
               {
                 icon: AlertTriangle,
