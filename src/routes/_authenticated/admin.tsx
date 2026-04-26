@@ -544,6 +544,58 @@ function AdminConsole() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={challengeEditOpen} onOpenChange={(o) => !savingChallenge && setChallengeEditOpen(o)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingChallenge?.id ? "Edit challenge" : "Add challenge"}</DialogTitle>
+            <DialogDescription>Configure pricing and rules for this challenge tier.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ch-name">Name</Label>
+              <Input id="ch-name" value={challengeForm.name} onChange={(e) => setChallengeForm({ ...challengeForm, name: e.target.value })} placeholder="e.g. Starter" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-size">Account Size (₦)</Label>
+                <Input id="ch-size" type="number" min={0} value={challengeForm.account_size} onChange={(e) => setChallengeForm({ ...challengeForm, account_size: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-fee">Fee (₦)</Label>
+                <Input id="ch-fee" type="number" min={0} value={challengeForm.price_naira} onChange={(e) => setChallengeForm({ ...challengeForm, price_naira: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-target">Profit Target %</Label>
+                <Input id="ch-target" type="number" min={0} step="0.01" value={challengeForm.profit_target_percent} onChange={(e) => setChallengeForm({ ...challengeForm, profit_target_percent: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-dd">Max Drawdown %</Label>
+                <Input id="ch-dd" type="number" min={0} step="0.01" value={challengeForm.max_drawdown_percent} onChange={(e) => setChallengeForm({ ...challengeForm, max_drawdown_percent: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="ch-phases">Phases</Label>
+                <Input id="ch-phases" type="number" min={1} max={5} value={challengeForm.phases} onChange={(e) => setChallengeForm({ ...challengeForm, phases: e.target.value })} />
+              </div>
+              <div className="flex items-end gap-2">
+                <Checkbox id="ch-active" checked={!!challengeForm.is_active} onCheckedChange={(v) => setChallengeForm({ ...challengeForm, is_active: !!v })} />
+                <Label htmlFor="ch-active" className="cursor-pointer">Active</Label>
+              </div>
+            </div>
+            {Number(challengeForm.price_naira) > 0 && Number(challengeForm.account_size) > 0 && (
+              <div className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
+                Preview: <span className="font-display text-primary">{formatNaira(challengeForm.account_size)}</span> account for <span className="font-display text-primary">{formatNaira(challengeForm.price_naira)}</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChallengeEditOpen(false)} disabled={savingChallenge}>Cancel</Button>
+            <Button onClick={saveChallenge} disabled={savingChallenge}>
+              {savingChallenge ? "Saving…" : editingChallenge?.id ? "Save changes" : "Add challenge"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
