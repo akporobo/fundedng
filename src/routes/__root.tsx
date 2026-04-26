@@ -3,6 +3,7 @@ import { AuthProvider } from "@/lib/auth";
 import { NotificationsProvider } from "@/lib/notifications";
 import { Toaster } from "@/components/ui/sonner";
 import { MobileBottomNav } from "@/components/site/MobileBottomNav";
+import { PwaInstallPrompt } from "@/components/site/PwaInstallPrompt";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -89,6 +90,7 @@ function RootComponent() {
           <Outlet />
         </div>
         <MobileBottomNav />
+        <PwaInstallPrompt />
         <Toaster />
       </NotificationsProvider>
     </AuthProvider>
