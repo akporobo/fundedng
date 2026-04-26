@@ -421,6 +421,87 @@ function AdminConsole() {
               </div>
             ))}
           </TabsContent>
+
+          <TabsContent value="challenges" className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-xl font-bold">Challenges</h2>
+                <p className="text-xs text-muted-foreground">Add, edit, activate or deactivate challenge tiers.</p>
+              </div>
+              <Button size="sm" onClick={openNewChallenge} className="font-display">+ Add Challenge</Button>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="space-y-3 md:hidden">
+              {challengeList.map((c) => (
+                <div key={c.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-display font-semibold">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">{formatNaira(c.account_size)} account</div>
+                    </div>
+                    <Badge variant="outline" className={`font-display ${c.is_active ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
+                      {c.is_active ? "ACTIVE" : "INACTIVE"}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-muted-foreground">Fee:</span> <span className="font-display text-primary">{formatNaira(c.price_naira)}</span></div>
+                    <div><span className="text-muted-foreground">Phases:</span> {c.phases}</div>
+                    <div><span className="text-muted-foreground">Target:</span> {c.profit_target_percent}%</div>
+                    <div><span className="text-muted-foreground">Drawdown:</span> {c.max_drawdown_percent}%</div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => openEditChallenge(c)}>Edit</Button>
+                    <Button size="sm" variant="outline" onClick={() => toggleChallengeActive(c)}>
+                      {c.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {challengeList.length === 0 && (
+                <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">No challenges yet.</div>
+              )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Account Size</th>
+                    <th className="px-4 py-3 text-left">Fee</th>
+                    <th className="px-4 py-3 text-left">Target %</th>
+                    <th className="px-4 py-3 text-left">Max DD %</th>
+                    <th className="px-4 py-3 text-left">Phases</th>
+                    <th className="px-4 py-3 text-left">Active</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {challengeList.map((c) => (
+                    <tr key={c.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-display font-semibold">{c.name}</td>
+                      <td className="px-4 py-3">{formatNaira(c.account_size)}</td>
+                      <td className="px-4 py-3 font-display text-primary">{formatNaira(c.price_naira)}</td>
+                      <td className="px-4 py-3">{c.profit_target_percent}%</td>
+                      <td className="px-4 py-3">{c.max_drawdown_percent}%</td>
+                      <td className="px-4 py-3">{c.phases}</td>
+                      <td className="px-4 py-3">
+                        <Switch checked={c.is_active} onCheckedChange={() => toggleChallengeActive(c)} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button size="sm" variant="outline" onClick={() => openEditChallenge(c)}>Edit</Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {challengeList.length === 0 && (
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No challenges yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
