@@ -1,5 +1,6 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth";
+import { NotificationsProvider } from "@/lib/notifications";
 import { Toaster } from "@/components/ui/sonner";
 import { MobileBottomNav } from "@/components/site/MobileBottomNav";
 import appCss from "../styles.css?url";
@@ -70,11 +71,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <AuthProvider>
-      <div className="pb-16 md:pb-0">
-        <Outlet />
-      </div>
-      <MobileBottomNav />
-      <Toaster />
+      <NotificationsProvider>
+        <div className="pb-16 md:pb-0">
+          <Outlet />
+        </div>
+        <MobileBottomNav />
+        <Toaster />
+      </NotificationsProvider>
     </AuthProvider>
   );
 }
