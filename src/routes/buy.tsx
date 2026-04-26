@@ -100,13 +100,22 @@ function BuyPage() {
           return;
         }
 
-        toast.success("Payment confirmed! Provisioning your MT5 account…");
+        toast.success("Payment confirmed! Your account is being prepared — you'll get a notification within minutes.");
 
-        // Fire-and-forget provision; admin can deliver manually if it fails.
-        fetch("/api/provision-account", {
+        // Notify admins so they can deliver the account manually.
+        fetch("/api/public/push-event", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order_id: order.id }),
+          headers: {
+            "Content-Type": "application/json",
+            "x-webhook-secret": "internal",
+          },
+          body: JSON.stringify({
+            event: "new_purchase",
+            admins: true,
+            title: "💰 New challenge purchase",
+            body: `${selected.name} (₦${selected.price_naira.toLocaleString()}) — manual delivery needed.`,
+            url: "/admin",
+          }),
           keepalive: true,
         }).catch(() => {});
 
