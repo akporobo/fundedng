@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { SiteNav } from "@/components/site/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -13,9 +12,10 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import { subscribeToPush } from "@/lib/push";
+import { PWAInstallButton } from "@/components/PWAInstallButton";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -139,7 +139,6 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <SiteNav />
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -166,12 +165,49 @@ function DashboardPage() {
         </div>
 
         {accounts.length === 0 ? (
-          <div className="mt-12 rounded-xl border border-border bg-card p-16 text-center">
-            <Trophy className="mx-auto h-12 w-12 text-primary" />
-            <h2 className="font-display mt-4 text-2xl font-bold">No challenges yet</h2>
-            <p className="mt-2 text-muted-foreground">Buy your first challenge to get an MT5 account in seconds.</p>
-            <div className="mt-6 flex justify-center gap-2">
-              <Link to="/buy"><Button className="font-display">Get Funded →</Button></Link>
+          <div className="mt-10 overflow-hidden rounded-2xl border border-primary/40 bg-card p-8 md:p-12">
+            <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-display tracking-wider text-primary">
+                  <Sparkles className="h-3 w-3" /> GET STARTED
+                </div>
+                <h2 className="font-display mt-4 text-3xl font-bold leading-tight md:text-4xl">
+                  You don't have an active challenge yet
+                </h2>
+                <p className="mt-3 text-muted-foreground">
+                  Pick an account size, pass two simple phases, and get funded up to ₦2,000,000 — with payouts within 7 days.
+                </p>
+                <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
+                  {[
+                    "Instant MT5 demo account on Exness",
+                    "Just 3 trading rules — 20% drawdown, trade every 7 days, 3-min minimum hold",
+                    "80% profit split, paid in Naira",
+                    "Full equity & drawdown tracking on this dashboard",
+                  ].map((b) => (
+                    <li key={b} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-7 flex flex-wrap gap-2">
+                  <Link to="/buy">
+                    <Button size="lg" className="font-display animate-pulse-glow">
+                      Get Your First Account →
+                    </Button>
+                  </Link>
+                  <Link to="/rules">
+                    <Button size="lg" variant="outline" className="font-display">
+                      Read the rules
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+              <div className="relative hidden rounded-xl border border-border bg-background/60 p-6 md:block">
+                <Trophy className="mx-auto h-16 w-16 text-primary" />
+                <p className="font-display mt-4 text-center text-lg font-semibold">From ₦7,500</p>
+                <p className="mt-1 text-center text-xs text-muted-foreground">One-time challenge fee</p>
+              </div>
             </div>
           </div>
         ) : (
@@ -372,6 +408,7 @@ function DashboardPage() {
 
         )}
       </div>
+      <PWAInstallButton />
     </div>
   );
 }
