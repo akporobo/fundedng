@@ -384,26 +384,48 @@ function DashboardPage() {
                   </div>
 
                   {(selected.status === "passed" || selected.status === "funded") && (
-                    <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
-                      <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">80% of profits paid to your verified bank account within 7 days (typically 2-3 days).</p>
-                      {!profile?.kyc_verified && (
-                        <Alert variant="destructive" className="mt-3">
-                          <AlertDescription>Your bank account is awaiting admin verification before payouts are released.</AlertDescription>
-                        </Alert>
-                      )}
-                      {profile?.kyc_verified && profile.bank_account_number && (
-                        <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
-                          <div className="text-[11px] text-muted-foreground">Payout destination</div>
-                          <div className="font-display mt-1 text-primary">
-                            {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
-                          </div>
-                        </div>
-                      )}
-                      <Button className="font-display mt-4" onClick={requestPayout} disabled={submitting || !profile?.kyc_verified}>
-                        {submitting ? "Submitting…" : "Request payout →"}
-                      </Button>
-                    </div>
+                    <>
+                      {(() => {
+                        const lastPayout = payouts.find((p) => ["approved", "paid"].includes(p.status));
+                        const anchorIso = lastPayout?.created_at ?? (selected as Account & { funded_at?: string | null }).funded_at;
+                        const anchor = anchorIso ? new Date(anchorIso) : new Date();
+                        const next = new Date(anchor.getTime() + 7 * 86400000);
+                        const ready = next.getTime() <= Date.now();
+                        return (
+                          <>
+                            <PayoutCountdown nextPayoutDate={next} />
+                            <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
+                              <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                80% of profits paid to your verified bank account, processed within 24hrs of approval. Payout cycle every 7 days, min 10% / max 50% of account size.
+                              </p>
+                              {!profile?.kyc_verified && (
+                                <Alert variant="destructive" className="mt-3">
+                                  <AlertDescription>Your bank account is awaiting admin verification before payouts are released.</AlertDescription>
+                                </Alert>
+                              )}
+                              {profile?.kyc_verified && profile.bank_account_number && (
+                                <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
+                                  <div className="text-[11px] text-muted-foreground">Payout destination</div>
+                                  <div className="font-display mt-1 text-primary break-words">
+                                    {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
+                                  </div>
+                                </div>
+                              )}
+                              {ready ? (
+                                <Button className="font-display mt-4" onClick={requestPayout} disabled={submitting || !profile?.kyc_verified}>
+                                  {submitting ? "Submitting…" : "Request payout →"}
+                                </Button>
+                              ) : (
+                                <p className="mt-4 text-xs text-muted-foreground">
+                                  Request button unlocks when the countdown above hits zero.
+                                </p>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </>
                   )}
                 </>
               )}
