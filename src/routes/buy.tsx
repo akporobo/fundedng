@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira } from "@/lib/utils";
-import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone } from "lucide-react";
+import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone, Share, Plus as PlusIcon } from "lucide-react";
 import { toast } from "sonner";
-import { triggerInstallPrompt } from "@/components/PWAInstallButton";
+import { useInstallPrompt } from "@/components/PWAInstallButton";
 
 export const Route = createFileRoute("/buy")({
   validateSearch: z.object({ challenge: z.string().optional() }),
@@ -26,6 +26,7 @@ function BuyPage() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
+  const { available: installAvailable, install: installPwa, isIOS, isStandalone } = useInstallPrompt();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [selected, setSelected] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(false);
@@ -214,7 +215,7 @@ function BuyPage() {
                   { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
                   { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
                   { icon: Wallet, label: "Profit split", value: "80%" },
-                  { icon: Clock, label: "Payout window", value: "Within 7 days" },
+                { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-muted-foreground">
