@@ -285,7 +285,7 @@ function DashboardPage() {
                   {(selected.status === "passed" || selected.status === "funded") && (
                     <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                       <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">80% of profits paid to your verified bank account within 24 hours.</p>
+                      <p className="mt-1 text-sm text-muted-foreground">80% of profits paid to your verified bank account within 7 days (typically 2-3 days).</p>
                       {!profile?.kyc_verified && (
                         <Alert variant="destructive" className="mt-3">
                           <AlertDescription>Your bank account is awaiting admin verification before payouts are released.</AlertDescription>
