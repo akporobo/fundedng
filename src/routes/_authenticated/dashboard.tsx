@@ -15,6 +15,7 @@ import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
 import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
+import { subscribeToPush } from "@/lib/push";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -146,6 +147,19 @@ function DashboardPage() {
             <p className="text-sm text-muted-foreground">Welcome back, {profile?.full_name || user?.email}</p>
           </div>
           <div className="flex gap-2">
+            {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const ok = await subscribeToPush(user!.id, supabase);
+                  if (ok) toast.success("Notifications enabled");
+                  else toast.error("Could not enable notifications");
+                }}
+              >
+                <Bell className="mr-1 h-4 w-4" />Enable Push
+              </Button>
+            )}
             <Link to="/buy"><Button size="sm" className="font-display"><Plus className="mr-1 h-4 w-4"/>New Challenge</Button></Link>
             <Button size="sm" variant="outline" onClick={signOut}><LogOut className="mr-1 h-4 w-4"/>Sign out</Button>
           </div>
