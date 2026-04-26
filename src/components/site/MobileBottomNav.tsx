@@ -15,6 +15,9 @@ export function MobileBottomNav() {
   const { pathname } = useLocation();
   const { isAuthenticated } = useAuth();
 
+  // Hide on full-screen chat pages where the composer needs the bottom space.
+  if (/^\/community\/[^/]+/.test(pathname)) return null;
+
   const items = ITEMS.map((item) => {
     if (item.label === "Profile" && !isAuthenticated) {
       return { ...item, to: "/auth/login" as const };
