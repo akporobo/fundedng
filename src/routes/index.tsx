@@ -104,6 +104,13 @@ function Index() {
               </div>
             ))}
           </div>
+          <div className="mt-10">
+            <Link to="/rules">
+              <Button variant="outline" size="lg" className="font-display">
+                Read the full rulebook <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
