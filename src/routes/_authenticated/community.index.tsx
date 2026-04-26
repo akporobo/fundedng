@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Users, MessageCircle, ArrowRight } from "lucide-react";
+import { Plus, Users, MessageCircle, ArrowRight, Lock } from "lucide-react";
+import { useHasPurchase } from "@/hooks/use-has-purchase";
 
 export const Route = createFileRoute("/_authenticated/community/")({ component: CommunityPage });
 
@@ -26,6 +27,7 @@ interface Group {
 function CommunityPage() {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const hasPurchase = useHasPurchase();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -62,6 +64,10 @@ function CommunityPage() {
   const join = async (groupId: string) => {
     if (!user) {
       toast.error("Please sign in to join groups.");
+      return;
+    }
+    if (!hasPurchase) {
+      toast.error("Purchase a challenge to join groups.");
       return;
     }
     // Optimistic UI: immediately mark joined so the button updates
@@ -150,6 +156,23 @@ function CommunityPage() {
         )}
       </div>
 
+      {hasPurchase === false && (
+        <div className="mb-5 flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/5 p-4">
+          <Lock className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+          <div className="flex-1">
+            <div className="font-display text-sm font-semibold">Read-only mode</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Purchase a challenge to join the conversation and post in the community.
+            </p>
+          </div>
+          <Link to="/buy">
+            <Button size="sm" className="font-display">
+              Buy now <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading groups…</p>
       ) : (
@@ -173,8 +196,12 @@ function CommunityPage() {
                       <MessageCircle className="mr-1 h-4 w-4" /> Open chat
                     </Button>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => join(g.id)}>
-                      Join <ArrowRight className="ml-1 h-3 w-3" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => (hasPurchase ? join(g.id) : open_chat(g.slug))}
+                    >
+                      {hasPurchase ? <>Join <ArrowRight className="ml-1 h-3 w-3" /></> : <>View <ArrowRight className="ml-1 h-3 w-3" /></>}
                     </Button>
                   )}
                 </div>
