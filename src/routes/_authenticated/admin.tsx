@@ -26,7 +26,7 @@ function AdminPage() {
     return (
       <div className="min-h-screen">
         <SiteNav />
-        <div className="mx-auto max-w-xl px-6 py-16 text-center">
+        <div className="mx-auto max-w-xl px-4 py-16 text-center md:px-6">
           <h1 className="font-display text-3xl font-bold">Admins only</h1>
           <p className="mt-2 text-muted-foreground">You don't have admin access.</p>
         </div>
@@ -56,6 +56,76 @@ function AdminConsole() {
   const [delivering, setDelivering] = useState(false);
   const [deliverFor, setDeliverFor] = useState<any | null>(null);
   const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
+
+  // ---- Challenges management ----
+  const [challengeList, setChallengeList] = useState<any[]>([]);
+  const [challengeEditOpen, setChallengeEditOpen] = useState(false);
+  const [editingChallenge, setEditingChallenge] = useState<any | null>(null);
+  const blankChallenge = {
+    id: "",
+    name: "",
+    account_size: 200000,
+    price_naira: 12000,
+    profit_target_percent: 10,
+    max_drawdown_percent: 20,
+    phases: 2,
+    is_active: true,
+  };
+  const [challengeForm, setChallengeForm] = useState<any>(blankChallenge);
+  const [savingChallenge, setSavingChallenge] = useState(false);
+
+  const loadChallenges = async () => {
+    const { data, error } = await supabase
+      .from("challenges")
+      .select("*")
+      .order("account_size");
+    if (error) return console.error("[admin] challenges load failed:", error);
+    setChallengeList((data ?? []) as any[]);
+  };
+
+  const openNewChallenge = () => {
+    setEditingChallenge(null);
+    setChallengeForm(blankChallenge);
+    setChallengeEditOpen(true);
+  };
+
+  const openEditChallenge = (c: any) => {
+    setEditingChallenge(c);
+    setChallengeForm({ ...c });
+    setChallengeEditOpen(true);
+  };
+
+  const saveChallenge = async () => {
+    if (!challengeForm.name.trim()) return toast.error("Name is required");
+    setSavingChallenge(true);
+    const payload: any = {
+      name: challengeForm.name.trim(),
+      account_size: Number(challengeForm.account_size),
+      price_naira: Number(challengeForm.price_naira),
+      profit_target_percent: Number(challengeForm.profit_target_percent),
+      max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
+      phases: Number(challengeForm.phases),
+      is_active: !!challengeForm.is_active,
+    };
+    let error;
+    if (editingChallenge?.id) {
+      ({ error } = await supabase.from("challenges").update(payload).eq("id", editingChallenge.id));
+    } else {
+      ({ error } = await supabase.from("challenges").insert(payload));
+    }
+    setSavingChallenge(false);
+    if (error) return toast.error(error.message);
+    toast.success(editingChallenge?.id ? "Challenge updated" : "Challenge added");
+    setChallengeEditOpen(false);
+    loadChallenges();
+  };
+
+  const toggleChallengeActive = async (c: any) => {
+    const { error } = await supabase.from("challenges").update({ is_active: !c.is_active }).eq("id", c.id);
+    if (error) return toast.error(error.message);
+    toast.success(c.is_active ? "Deactivated" : "Activated");
+    loadChallenges();
+  };
 
   const load = async () => {
     const [pr, ord, accRaw, poRaw, req] = await Promise.all([
@@ -154,7 +224,7 @@ function AdminConsole() {
     });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadChallenges(); }, []);
 
   const openDeliver = (req: any) => {
     setDeliverFor(req);
