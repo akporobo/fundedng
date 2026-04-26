@@ -1,67 +1,45 @@
-import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Bell, Home, Plus, Users, User, ShieldCheck } from "lucide-react";
+import { Link, Outlet, useLocation } from "@tanstack/react-router";
+import { Home, PlusCircle, Users, User, ShieldCheck, LogOut } from "lucide-react";
 import { Brand } from "./Brand";
+import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: Home, match: (p: string) => p.startsWith("/dashboard") },
-  { to: "/buy", label: "Buy", icon: Plus, match: (p: string) => p.startsWith("/buy") },
+  { to: "/buy", label: "Buy", icon: PlusCircle, match: (p: string) => p.startsWith("/buy") },
   { to: "/community", label: "Community", icon: Users, match: (p: string) => p.startsWith("/community") },
   { to: "/profile", label: "Profile", icon: User, match: (p: string) => p.startsWith("/profile") },
 ] as const;
 
 /**
- * Authenticated app layout: top bar with logo + bell, mobile bottom nav,
- * and a desktop left sidebar.
+ * Persistent authenticated app layout.
+ * - Top bar with logo + notification bell
+ * - Mobile: bottom nav with 4 tabs
+ * - Desktop: left sidebar with same items + user card at bottom
  */
 export function AppShell() {
   const { pathname } = useLocation();
-  const { user, isAdmin } = useAuth();
-  const navigate = useNavigate();
-  const [unread, setUnread] = useState(0);
+  const { user, profile, isAdmin, signOut } = useAuth();
 
   // Hide the shell on full-screen chat where the composer needs the bottom space.
   const isChat = /^\/community\/[^/]+/.test(pathname);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    const load = () => {
-      supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false)
-        .then(({ count }) => {
-          if (!cancelled) setUnread(count ?? 0);
-        });
-    };
-    load();
-    const channel = supabase
-      .channel(`unread:${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => load(),
-      )
-      .subscribe();
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
 
   if (isChat) {
     return <Outlet />;
   }
 
+  const initials = (profile?.full_name || user?.email || "U")
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <div className="min-h-screen md:flex">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 border-r border-border bg-background/60 md:flex md:flex-col">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-background/60 md:flex md:fixed md:inset-y-0 md:left-0">
         <div className="flex h-16 items-center px-6">
           <Brand />
         </div>
@@ -99,31 +77,42 @@ export function AppShell() {
             </Link>
           )}
         </nav>
+
+        {/* User card at bottom */}
+        <div className="border-t border-border p-3">
+          <div className="flex items-center gap-3 rounded-md p-2">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15 font-display text-xs font-bold text-primary">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-display truncate text-sm font-semibold">
+                {profile?.full_name || "Trader"}
+              </div>
+              <div className="truncate text-[10px] text-muted-foreground">{user?.email}</div>
+            </div>
+            <button
+              onClick={signOut}
+              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </aside>
 
       {/* Main column */}
-      <div className="min-w-0 flex-1">
-        {/* Top bar (mobile + desktop). Logo hidden on desktop because sidebar shows it. */}
+      <div className="min-w-0 flex-1 md:ml-60">
+        {/* Top bar */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
           <div className="md:hidden">
             <Brand />
           </div>
           <div className="hidden md:block" />
-          <button
-            onClick={() => navigate({ to: "/dashboard", hash: "notifications" })}
-            className="relative grid h-10 w-10 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" />
-            {unread > 0 && (
-              <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                {unread > 9 ? "9+" : unread}
-              </span>
-            )}
-          </button>
+          <NotificationBell />
         </header>
 
-        <main className="pb-20 md:pb-0">
+        <main className="pb-24 md:pb-0">
           <Outlet />
         </main>
       </div>
