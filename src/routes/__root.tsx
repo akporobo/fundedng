@@ -2,8 +2,6 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import { AuthProvider } from "@/lib/auth";
 import { NotificationsProvider } from "@/lib/notifications";
 import { Toaster } from "@/components/ui/sonner";
-import { MobileBottomNav } from "@/components/site/MobileBottomNav";
-import { PwaInstallPrompt } from "@/components/site/PwaInstallPrompt";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -86,11 +84,7 @@ function RootComponent() {
   return (
     <AuthProvider>
       <NotificationsProvider>
-        <div className="pb-16 md:pb-0">
-          <Outlet />
-        </div>
-        <MobileBottomNav />
-        <PwaInstallPrompt />
+        <Outlet />
         <Toaster />
       </NotificationsProvider>
     </AuthProvider>
