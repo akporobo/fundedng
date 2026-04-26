@@ -60,6 +60,9 @@ function AdminConsole() {
   // Manual equity input per account row (admin-only)
   const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
+  // KYC verification modal
+  const [kycTarget, setKycTarget] = useState<any | null>(null);
+  const [kycVerifying, setKycVerifying] = useState(false);
 
   // ---- Challenges management ----
   const [challengeList, setChallengeList] = useState<any[]>([]);
@@ -303,23 +306,29 @@ function AdminConsole() {
     load();
   };
 
-  const verifyKyc = async (userId: string, expectedAccount: string) => {
-    const entered = window.prompt(
-      `Confirm the trader's account number to verify KYC.\nPress OK to verify, or edit the number first.`,
-      expectedAccount,
-    );
-    if (entered === null) return;
+  const openKycVerify = (account: any) => setKycTarget(account);
+
+  const submitKycVerify = async () => {
+    if (!kycTarget) return;
     if (!session?.access_token) return toast.error("Please sign in again");
+    const accountNumber = (kycTarget.profiles?.bank_account_number ?? "").trim();
+    if (!accountNumber) return toast.error("Trader hasn't submitted bank details");
+    setKycVerifying(true);
     try {
-      const res = await verifyKycServer({ data: { userId, accountNumber: entered.trim(), accessToken: session.access_token } });
+      const res = await verifyKycServer({
+        data: { userId: kycTarget.user_id, accountNumber, accessToken: session.access_token },
+      });
       if (!res?.ok) {
         toast.error(res?.error ?? "Verification failed");
         return;
       }
       toast.success("KYC verified");
+      setKycTarget(null);
       load();
     } catch (e: any) {
       toast.error(e?.message ?? "Verification failed");
+    } finally {
+      setKycVerifying(false);
     }
   };
 
