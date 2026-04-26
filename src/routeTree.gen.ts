@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupAdminRouteImport } from './routes/setup-admin'
 import { Route as BuyRouteImport } from './routes/buy'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -27,11 +26,6 @@ import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
 
-const SetupAdminRoute = SetupAdminRouteImport.update({
-  id: '/setup-admin',
-  path: '/setup-admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const BuyRoute = BuyRouteImport.update({
   id: '/buy',
   path: '/buy',
@@ -117,7 +111,6 @@ const ApiPublicCronSyncEquityRoute = ApiPublicCronSyncEquityRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/buy': typeof BuyRoute
-  '/setup-admin': typeof SetupAdminRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/community': typeof AuthenticatedCommunityRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -135,7 +128,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/buy': typeof BuyRoute
-  '/setup-admin': typeof SetupAdminRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -154,7 +146,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/buy': typeof BuyRoute
-  '/setup-admin': typeof SetupAdminRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/community': typeof AuthenticatedCommunityRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -174,7 +165,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/buy'
-    | '/setup-admin'
     | '/admin'
     | '/community'
     | '/dashboard'
@@ -192,7 +182,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/buy'
-    | '/setup-admin'
     | '/admin'
     | '/dashboard'
     | '/profile'
@@ -210,7 +199,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/buy'
-    | '/setup-admin'
     | '/_authenticated/admin'
     | '/_authenticated/community'
     | '/_authenticated/dashboard'
@@ -230,7 +218,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   BuyRoute: typeof BuyRoute
-  SetupAdminRoute: typeof SetupAdminRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
@@ -242,13 +229,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup-admin': {
-      id: '/setup-admin'
-      path: '/setup-admin'
-      fullPath: '/setup-admin'
-      preLoaderRoute: typeof SetupAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/buy': {
       id: '/buy'
       path: '/buy'
@@ -402,7 +382,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   BuyRoute: BuyRoute,
-  SetupAdminRoute: SetupAdminRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
