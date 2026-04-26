@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { SiteNav } from "@/components/site/SiteNav";
+import { PublicHeader } from "@/components/site/PublicHeader";
 import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { formatNaira } from "@/lib/utils";
 import { Check, Zap, ShieldCheck, Trophy, ArrowRight, Clock } from "lucide-react";
 import tradingChartHero from "@/assets/trading-chart-hero.jpg";
@@ -21,13 +22,21 @@ function Index() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
 
   useEffect(() => {
+    // If running as installed PWA, send the user straight to the dashboard.
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(display-mode: standalone)").matches
+    ) {
+      window.location.replace("/dashboard");
+      return;
+    }
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
       .then(({ data }) => setChallenges((data as Challenge[]) ?? []));
   }, []);
 
   return (
     <div className="min-h-screen">
-      <SiteNav />
+      <PublicHeader />
 
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
@@ -175,10 +184,16 @@ function Index() {
           FundedNG is a proprietary trading evaluation platform. Challenge fees fund operational costs.
           All trading is on Exness demo accounts. Past performance does not guarantee future results.
         </p>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
+          <Link to="/rules" className="text-muted-foreground hover:text-primary">Rules</Link>
+          <Link to="/agreement" className="text-muted-foreground hover:text-primary">Agreement & Risk</Link>
+        </div>
         <div className="mt-4 text-xs text-muted-foreground/60">
           © {new Date().getFullYear()} FundedNG. All rights reserved.
         </div>
       </footer>
+
+      <PWAInstallButton />
     </div>
   );
 }
