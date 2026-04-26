@@ -297,14 +297,17 @@ function AdminConsole() {
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <h1 className="font-display text-3xl font-bold">Admin Console</h1>
         <Tabs defaultValue="stats" className="mt-6">
-          <TabsList>
-            <TabsTrigger value="stats">Stats</TabsTrigger>
-            <TabsTrigger value="pending">
-              Pending {pendingRequests.length > 0 && <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">{pendingRequests.length}</span>}
-            </TabsTrigger>
-            <TabsTrigger value="payouts">Payouts</TabsTrigger>
-            <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          </TabsList>
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+            <TabsList className="w-max min-w-full">
+              <TabsTrigger value="stats">Stats</TabsTrigger>
+              <TabsTrigger value="pending">
+                Pending {pendingRequests.length > 0 && <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">{pendingRequests.length}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="payouts">Payouts</TabsTrigger>
+              <TabsTrigger value="accounts">Accounts</TabsTrigger>
+              <TabsTrigger value="challenges">Challenges</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="stats" className="mt-6 grid gap-4 md:grid-cols-4">
             {[
