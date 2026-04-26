@@ -37,6 +37,7 @@ function AdminPage() {
 }
 
 function AdminConsole() {
+  const { session } = useAuth();
   const [stats, setStats] = useState({
     traders: 0,
     accounts: 0,
@@ -308,8 +309,9 @@ function AdminConsole() {
       expectedAccount,
     );
     if (entered === null) return;
+    if (!session?.access_token) return toast.error("Please sign in again");
     try {
-      const res = await verifyKycServer({ data: { userId, accountNumber: entered.trim() } });
+      const res = await verifyKycServer({ data: { userId, accountNumber: entered.trim(), accessToken: session.access_token } });
       if (!res?.ok) {
         toast.error(res?.error ?? "Verification failed");
         return;
