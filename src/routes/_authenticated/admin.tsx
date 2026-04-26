@@ -482,7 +482,7 @@ function AdminConsole() {
                     {a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}
                   </Badge>
                   {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && (
-                    <Button size="sm" onClick={() => verifyKyc(a.user_id, a.profiles.bank_account_number)}>
+                    <Button size="sm" onClick={() => openKycVerify(a)}>
                       Verify bank matches MT5
                     </Button>
                   )}
