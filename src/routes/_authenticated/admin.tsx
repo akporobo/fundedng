@@ -329,6 +329,7 @@ function AdminConsole() {
   };
 
   return (
+    <>
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <h1 className="font-display text-3xl font-bold">Admin Console</h1>
         <Tabs defaultValue="stats" className="mt-6">
@@ -703,5 +704,6 @@ function AdminConsole() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
   );
 }
