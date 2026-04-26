@@ -24,6 +24,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authenticated/community.index'
+import { Route as ApiPublicPushEventRouteImport } from './routes/api.public.push-event'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
 
@@ -102,6 +103,11 @@ const AuthenticatedCommunityIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedCommunityRoute,
   } as any)
+const ApiPublicPushEventRoute = ApiPublicPushEventRouteImport.update({
+  id: '/api/public/push-event',
+  path: '/api/public/push-event',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCommunitySlugRoute =
   AuthenticatedCommunitySlugRouteImport.update({
     id: '/$slug',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
 }
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
 }
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
 }
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/community/$slug'
+    | '/api/public/push-event'
     | '/community/'
     | '/api/public/cron/sync-equity'
   fileRoutesByTo: FileRoutesByTo
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/community/$slug'
+    | '/api/public/push-event'
     | '/community'
     | '/api/public/cron/sync-equity'
   id:
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/_authenticated/community/$slug'
+    | '/api/public/push-event'
     | '/_authenticated/community/'
     | '/api/public/cron/sync-equity'
   fileRoutesById: FileRoutesById
@@ -237,6 +249,7 @@ export interface RootRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
+  ApiPublicPushEventRoute: typeof ApiPublicPushEventRoute
   ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
 }
 
@@ -347,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommunityIndexRouteImport
       parentRoute: typeof AuthenticatedCommunityRoute
     }
+    '/api/public/push-event': {
+      id: '/api/public/push-event'
+      path: '/api/public/push-event'
+      fullPath: '/api/public/push-event'
+      preLoaderRoute: typeof ApiPublicPushEventRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/community/$slug': {
       id: '/_authenticated/community/$slug'
       path: '/$slug'
@@ -409,6 +429,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
+  ApiPublicPushEventRoute: ApiPublicPushEventRoute,
   ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,
 }
 export const routeTree = rootRouteImport
