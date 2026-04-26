@@ -19,6 +19,9 @@ export function SiteNav() {
                   <Button variant="ghost" size="sm">Admin</Button>
                 </Link>
               )}
+              <Link to="/rules">
+                <Button variant="ghost" size="sm">Rules</Button>
+              </Link>
               <Link to="/community">
                 <Button variant="ghost" size="sm">Community</Button>
               </Link>
@@ -31,6 +34,9 @@ export function SiteNav() {
             </>
           ) : (
             <>
+              <Link to="/rules">
+                <Button variant="ghost" size="sm">Rules</Button>
+              </Link>
               <Link to="/community">
                 <Button variant="ghost" size="sm">Community</Button>
               </Link>

@@ -58,7 +58,7 @@ function AdminConsole() {
   const load = async () => {
     const [pr, ord, accRaw, poRaw, req] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
-      supabase.from("orders").select("amount_paid,status"),
+      supabase.from("orders").select("amount_paid,status,challenge_id"),
       supabase.from("trader_accounts").select("*").order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").order("created_at", { ascending: false }),
       supabase.from("account_requests").select("*").in("status", ["pending", "failed"]).order("created_at", { ascending: false }),
@@ -80,6 +80,7 @@ function AdminConsole() {
     const challengeIds = Array.from(new Set([
       ...accRows.map((a) => a.challenge_id),
       ...reqRows.map((r) => r.challenge_id),
+      ...((ord.data ?? []) as any[]).map((o) => o.challenge_id),
     ]));
     const orderIds = Array.from(new Set(reqRows.map((r) => r.order_id)));
     const accountIds = poRows.map((p) => p.trader_account_id).filter(Boolean);
@@ -125,14 +126,19 @@ function AdminConsole() {
     setPendingRequests(hydrated);
 
     const ordersList = (ord.data ?? []) as any[];
-    const sold = ordersList.filter((o) => o.status === "paid" || o.status === "delivered").length;
+    const soldOrders = ordersList.filter((o) => o.status === "paid" || o.status === "delivered");
+    const soldCount = soldOrders.length;
+    const soldValue = soldOrders.reduce(
+      (s: number, o: any) => s + Number(chMap.get(o.challenge_id)?.account_size ?? 0),
+      0,
+    );
     const passedCount = accList.filter((a) => a.status === "passed" || a.status === "funded").length;
-    const passRate = sold > 0 ? Math.round((passedCount / sold) * 100) : 0;
+    const passRate = soldCount > 0 ? Math.round((passedCount / soldCount) * 100) : 0;
 
     setStats({
       traders: pr.count ?? 0,
       accounts: accList.length,
-      sold,
+      sold: soldValue,
       funded: accList.filter((a) => a.status === "funded").length,
       active: accList.filter((a) => a.status === "active").length,
       passed: accList.filter((a) => a.status === "passed").length,
@@ -229,7 +235,7 @@ function AdminConsole() {
           <TabsContent value="stats" className="mt-6 grid gap-4 md:grid-cols-4">
             {[
               ["Traders", stats.traders],
-              ["Accounts Sold", stats.sold],
+              ["Accounts Sold (Funded Value)", formatNaira(stats.sold), "text-primary"],
               ["Accounts Delivered", stats.accounts],
               ["Active", stats.active],
               ["Passed", stats.passed],
