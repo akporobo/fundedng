@@ -144,7 +144,9 @@ function AdminConsole() {
       passed: accList.filter((a) => a.status === "passed").length,
       breached: accList.filter((a) => a.status === "breached").length,
       pending: poList.filter((p) => p.status === "pending").length,
-      revenue: ordersList.filter((o) => o.status === "paid" || o.status === "delivered").reduce((s: number, o: any) => s + Number(o.amount_paid), 0),
+      revenue: ordersList
+        .filter((o) => o.status === "paid" || o.status === "delivered")
+        .reduce((s: number, o: any) => s + Number(o.amount_paid), 0) / 100,
       paid: poList.filter((p) => p.status === "paid").reduce((s: number, p: any) => s + Number(p.amount_naira), 0),
       passRate,
     });
