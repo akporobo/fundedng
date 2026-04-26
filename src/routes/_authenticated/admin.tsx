@@ -309,7 +309,11 @@ function AdminConsole() {
     );
     if (!entered) return;
     try {
-      await verifyKycServer({ data: { userId, accountNumber: entered.trim() } });
+      const res = await verifyKycServer({ data: { userId, accountNumber: entered.trim() } });
+      if (!res?.ok) {
+        toast.error(res?.error ?? "Verification failed");
+        return;
+      }
       toast.success("KYC verified");
       load();
     } catch (e: any) {
