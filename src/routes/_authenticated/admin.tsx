@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site/SiteNav";
@@ -26,8 +26,7 @@ function AdminPage() {
         <SiteNav />
         <div className="mx-auto max-w-xl px-6 py-16 text-center">
           <h1 className="font-display text-3xl font-bold">Admins only</h1>
-          <p className="mt-2 text-muted-foreground">You don't have admin access. If you're setting up this platform for the first time, claim admin below.</p>
-          <Link to="/setup-admin"><Button className="mt-6">Claim admin (one-time)</Button></Link>
+          <p className="mt-2 text-muted-foreground">You don't have admin access.</p>
         </div>
       </div>
     );
@@ -36,7 +35,19 @@ function AdminPage() {
 }
 
 function AdminConsole() {
-  const [stats, setStats] = useState({ traders: 0, accounts: 0, active: 0, passed: 0, breached: 0, pending: 0, revenue: 0, paid: 0 });
+  const [stats, setStats] = useState({
+    traders: 0,
+    accounts: 0,
+    funded: 0,
+    active: 0,
+    passed: 0,
+    breached: 0,
+    pending: 0,
+    revenue: 0,
+    paid: 0,
+    sold: 0,
+    passRate: 0,
+  });
   const [payouts, setPayouts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -45,27 +56,37 @@ function AdminConsole() {
   const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
 
   const load = async () => {
-    const [pr, ord, acc, po, req] = await Promise.all([
+    const [pr, ord, accRaw, poRaw, req] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("orders").select("amount_paid,status"),
-      supabase.from("trader_accounts").select("*, profiles(full_name,bank_account_number,bank_name,bank_account_name,kyc_verified), challenges(name)"),
-      supabase.from("payouts").select("*, profiles(full_name), trader_accounts(mt5_login)").order("created_at", { ascending: false }),
-      supabase.from("account_requests")
-        .select("*")
-        .in("status", ["pending", "failed"])
-        .order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("*").order("created_at", { ascending: false }),
+      supabase.from("payouts").select("*").order("created_at", { ascending: false }),
+      supabase.from("account_requests").select("*").in("status", ["pending", "failed"]).order("created_at", { ascending: false }),
     ]);
+    if (accRaw.error) console.error("[admin] trader_accounts load failed:", accRaw.error);
+    if (poRaw.error) console.error("[admin] payouts load failed:", poRaw.error);
     if (req.error) console.error("[admin] account_requests load failed:", req.error);
-    const accList = (acc.data ?? []) as any[];
-    const poList = (po.data ?? []) as any[];
+
+    const accRows = (accRaw.data ?? []) as any[];
+    const poRows = (poRaw.data ?? []) as any[];
     const reqRows = (req.data ?? []) as any[];
-    // account_requests has no FK metadata in PostgREST, so hydrate manually.
-    const userIds = Array.from(new Set(reqRows.map((r) => r.user_id)));
-    const challengeIds = Array.from(new Set(reqRows.map((r) => r.challenge_id)));
+
+    // Collect ids across all three lists, hydrate in one go.
+    const userIds = Array.from(new Set([
+      ...accRows.map((a) => a.user_id),
+      ...poRows.map((p) => p.user_id),
+      ...reqRows.map((r) => r.user_id),
+    ]));
+    const challengeIds = Array.from(new Set([
+      ...accRows.map((a) => a.challenge_id),
+      ...reqRows.map((r) => r.challenge_id),
+    ]));
     const orderIds = Array.from(new Set(reqRows.map((r) => r.order_id)));
-    const [profRes, chRes, ordRes] = await Promise.all([
+    const accountIds = poRows.map((p) => p.trader_account_id).filter(Boolean);
+
+    const [profRes, chRes, ordRes, taRes] = await Promise.all([
       userIds.length
-        ? supabase.from("profiles").select("id, full_name").in("id", userIds)
+        ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds)
         : Promise.resolve({ data: [] as any[] }),
       challengeIds.length
         ? supabase.from("challenges").select("id, name, account_size").in("id", challengeIds)
@@ -73,28 +94,53 @@ function AdminConsole() {
       orderIds.length
         ? supabase.from("orders").select("id, status").in("id", orderIds)
         : Promise.resolve({ data: [] as any[] }),
+      accountIds.length
+        ? supabase.from("trader_accounts").select("id, mt5_login").in("id", accountIds)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
     const profMap = new Map((profRes.data ?? []).map((p: any) => [p.id, p]));
     const chMap = new Map((chRes.data ?? []).map((c: any) => [c.id, c]));
     const ordMap = new Map((ordRes.data ?? []).map((o: any) => [o.id, o]));
+    const taMap = new Map((taRes.data ?? []).map((t: any) => [t.id, t]));
+
+    const accList = accRows.map((a) => ({
+      ...a,
+      profiles: profMap.get(a.user_id) ?? null,
+      challenges: chMap.get(a.challenge_id) ?? null,
+    }));
+    const poList = poRows.map((p) => ({
+      ...p,
+      profiles: profMap.get(p.user_id) ?? null,
+      trader_accounts: taMap.get(p.trader_account_id) ?? null,
+    }));
     const hydrated = reqRows.map((r) => ({
       ...r,
       profiles: profMap.get(r.user_id) ?? null,
       challenges: chMap.get(r.challenge_id) ?? null,
       orders: ordMap.get(r.order_id) ?? null,
     }));
+
     setAccounts(accList);
     setPayouts(poList);
     setPendingRequests(hydrated);
+
+    const ordersList = (ord.data ?? []) as any[];
+    const sold = ordersList.filter((o) => o.status === "paid" || o.status === "delivered").length;
+    const passedCount = accList.filter((a) => a.status === "passed" || a.status === "funded").length;
+    const passRate = sold > 0 ? Math.round((passedCount / sold) * 100) : 0;
+
     setStats({
       traders: pr.count ?? 0,
       accounts: accList.length,
+      sold,
+      funded: accList.filter((a) => a.status === "funded").length,
       active: accList.filter((a) => a.status === "active").length,
       passed: accList.filter((a) => a.status === "passed").length,
       breached: accList.filter((a) => a.status === "breached").length,
       pending: poList.filter((p) => p.status === "pending").length,
-      revenue: (ord.data ?? []).reduce((s: number, o: any) => s + Number(o.amount_paid), 0) / 100,
+      revenue: ordersList.filter((o) => o.status === "paid" || o.status === "delivered").reduce((s: number, o: any) => s + Number(o.amount_paid), 0),
       paid: poList.filter((p) => p.status === "paid").reduce((s: number, p: any) => s + Number(p.amount_naira), 0),
+      passRate,
     });
   };
 
@@ -183,10 +229,13 @@ function AdminConsole() {
           <TabsContent value="stats" className="mt-6 grid gap-4 md:grid-cols-4">
             {[
               ["Traders", stats.traders],
-              ["Accounts Sold", stats.accounts],
+              ["Accounts Sold", stats.sold],
+              ["Accounts Delivered", stats.accounts],
               ["Active", stats.active],
               ["Passed", stats.passed],
+              ["Funded", stats.funded, "text-primary"],
               ["Breached", stats.breached],
+              ["Pass Rate", `${stats.passRate}%`, "text-gold"],
               ["Pending Payouts", stats.pending, "text-warning"],
               ["Revenue", formatNaira(stats.revenue), "text-primary"],
               ["Payouts Paid", formatNaira(stats.paid), "text-destructive"],
