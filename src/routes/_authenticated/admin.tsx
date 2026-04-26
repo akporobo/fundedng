@@ -56,6 +56,9 @@ function AdminConsole() {
   const [delivering, setDelivering] = useState(false);
   const [deliverFor, setDeliverFor] = useState<any | null>(null);
   const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
+  // Manual equity input per account row (admin-only)
+  const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
+  const [equitySaving, setEquitySaving] = useState<string | null>(null);
 
   // ---- Challenges management ----
   const [challengeList, setChallengeList] = useState<any[]>([]);
@@ -276,6 +279,29 @@ function AdminConsole() {
     load();
   };
 
+  const submitEquity = async (account: any) => {
+    const raw = equityDraft[account.id]?.trim();
+    if (!raw) return toast.error("Enter an equity value");
+    const equity = Number(raw);
+    if (!Number.isFinite(equity) || equity < 0) return toast.error("Equity must be a positive number");
+    setEquitySaving(account.id);
+    const starting = Number(account.starting_balance) || 0;
+    const profit = equity - starting;
+    const drawdown = starting > 0 ? Math.max(0, ((starting - equity) / starting) * 100) : 0;
+    const { error } = await supabase.from("account_snapshots").insert({
+      trader_account_id: account.id,
+      equity,
+      balance: equity,
+      profit,
+      drawdown_percent: Number(drawdown.toFixed(2)),
+    } as never);
+    setEquitySaving(null);
+    if (error) return toast.error(error.message);
+    setEquityDraft((d) => ({ ...d, [account.id]: "" }));
+    toast.success("Equity recorded — rules evaluated");
+    load();
+  };
+
   const verifyKyc = async (userId: string, expectedAccount: string) => {
     const entered = window.prompt(
       `Confirm the trader's account number to verify KYC.\nThe trader has submitted: ${expectedAccount}`,
@@ -393,6 +419,34 @@ function AdminConsole() {
                     <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "funded", funded_at: new Date().toISOString() })}>Fund</Button>
                     <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
                   </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-background p-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <Label htmlFor={`eq-${a.id}`} className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Update equity
+                    </Label>
+                    <Input
+                      id={`eq-${a.id}`}
+                      type="number"
+                      inputMode="decimal"
+                      placeholder={`Current: ${a.current_equity ?? a.starting_balance}`}
+                      value={equityDraft[a.id] ?? ""}
+                      onChange={(e) => setEquityDraft((d) => ({ ...d, [a.id]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter") submitEquity(a); }}
+                      className="mt-1 h-9"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => submitEquity(a)}
+                    disabled={equitySaving === a.id}
+                    className="font-display"
+                  >
+                    {equitySaving === a.id ? "Saving…" : "Record snapshot"}
+                  </Button>
+                  <p className="basis-full text-[11px] text-muted-foreground">
+                    Creates a snapshot — drawdown & phase rules run automatically.
+                  </p>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-background p-3 text-xs">
                   <div className="flex-1 min-w-[260px]">
