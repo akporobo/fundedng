@@ -304,10 +304,10 @@ function AdminConsole() {
 
   const verifyKyc = async (userId: string, expectedAccount: string) => {
     const entered = window.prompt(
-      `Confirm the trader's account number to verify KYC.\nThe trader has submitted: ${expectedAccount}`,
-      "",
+      `Confirm the trader's account number to verify KYC.\nPress OK to verify, or edit the number first.`,
+      expectedAccount,
     );
-    if (!entered) return;
+    if (entered === null) return;
     try {
       const res = await verifyKycServer({ data: { userId, accountNumber: entered.trim() } });
       if (!res?.ok) {
