@@ -26,7 +26,7 @@ function ResetPassword() {
   };
 
   return (
-    <div className="grid min-h-screen place-items-center px-6">
+    <div className="grid min-h-screen place-items-center px-4 md:px-6">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center"><Brand /></div>
         <div className="rounded-2xl border border-border bg-card p-8">
