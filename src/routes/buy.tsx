@@ -279,6 +279,15 @@ function BuyPage() {
               alerts on equity, drawdown and payout updates.
             </DialogDescription>
           </DialogHeader>
+          {isIOS && !isStandalone && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+              <div className="font-display mb-2 font-semibold">Install on iPhone / iPad</div>
+              <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                Tap the <Share className="inline h-3.5 w-3.5" /> Share button in Safari, then
+                <PlusIcon className="inline h-3.5 w-3.5" /> <strong>Add to Home Screen</strong>.
+              </p>
+            </div>
+          )}
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               variant="outline"
@@ -290,19 +299,21 @@ function BuyPage() {
             >
               <Smartphone className="mr-2 h-4 w-4" /> Continue to Dashboard
             </Button>
-            <Button
-              className="font-display"
-              onClick={async () => {
-                const ok = await triggerInstallPrompt();
-                if (!ok) {
-                  toast.info("Use your browser menu → 'Install app' / 'Add to Home Screen'.");
-                }
-                setPostPurchaseOpen(false);
-                navigate({ to: "/dashboard" });
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" /> Install App
-            </Button>
+            {!isIOS && installAvailable && (
+              <Button
+                className="font-display"
+                onClick={async () => {
+                  const ok = await installPwa();
+                  if (!ok) {
+                    toast.info("Use your browser menu → 'Install app' / 'Add to Home Screen'.");
+                  }
+                  setPostPurchaseOpen(false);
+                  navigate({ to: "/dashboard" });
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" /> Install App
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
