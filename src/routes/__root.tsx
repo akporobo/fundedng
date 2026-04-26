@@ -70,6 +70,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <body className="noise-overlay">
         {children}
         <script src="https://js.paystack.co/v1/inline.js" async></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var inIframe=window.self!==window.top;var host=window.location.hostname;var isPreview=host.includes('id-preview--')||host.includes('lovableproject.com')||host.includes('lovable.dev');if((inIframe||isPreview)&&'serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});});}}catch(e){}})();`,
+          }}
+        />
         <Scripts />
       </body>
     </html>
