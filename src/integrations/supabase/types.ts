@@ -100,6 +100,24 @@ export type Database = {
           },
         ]
       }
+      app_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       certificates: {
         Row: {
           account_size: number
@@ -727,6 +745,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      notify_push_event: {
+        Args: {
+          _admins?: boolean
+          _body: string
+          _event: string
+          _title: string
+          _url?: string
+          _user_id: string
+        }
+        Returns: undefined
       }
       seed_demo_data: { Args: never; Returns: Json }
     }
