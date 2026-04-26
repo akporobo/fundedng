@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { SiteNav } from "@/components/site/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira } from "@/lib/utils";
-import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers } from "lucide-react";
+import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import { triggerInstallPrompt } from "@/components/PWAInstallButton";
 
 export const Route = createFileRoute("/buy")({
   validateSearch: z.object({ challenge: z.string().optional() }),
@@ -23,7 +23,7 @@ interface Challenge {
 }
 
 function BuyPage() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -31,6 +31,13 @@ function BuyPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [postPurchaseOpen, setPostPurchaseOpen] = useState(false);
+
+  // Gate: /buy requires auth — redirect unauthenticated visitors to register.
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) navigate({ to: "/auth/register" });
+  }, [isLoading, isAuthenticated, navigate]);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -51,6 +58,7 @@ function BuyPage() {
       return;
     }
     setError("");
+    setAgreed(false);
     setConfirmOpen(true);
   };
 
@@ -111,9 +119,9 @@ function BuyPage() {
         }).catch(() => {});
 
         await new Promise((r) => setTimeout(r, 250));
-        navigate({ to: "/dashboard" });
         setLoading(false);
         setConfirmOpen(false);
+        setPostPurchaseOpen(true);
       },
       onCancel: () => {
         setLoading(false);
@@ -126,8 +134,7 @@ function BuyPage() {
 
   return (
     <div className="min-h-screen">
-      <SiteNav />
-      <div className="mx-auto max-w-5xl px-4 py-16 md:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
         <div className="text-center">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">SELECT YOUR CHALLENGE</Badge>
           <h1 className="font-display mt-4 text-4xl font-bold">Get Funded Today</h1>
@@ -181,9 +188,7 @@ function BuyPage() {
               {loading ? "Processing..." : <>Pay {formatNaira(selected.price_naira)} Now <ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              {isAuthenticated
-                ? "Demo checkout — your MT5 account will be delivered instantly."
-                : <>You'll need to <Link to="/auth/register" className="text-primary hover:underline">create an account</Link> first.</>}
+              By continuing you agree to our <Link to="/agreement" className="text-primary hover:underline">trader agreement</Link> and acknowledge the risk disclosure.
             </p>
           </div>
         )}
@@ -225,6 +230,22 @@ function BuyPage() {
                 No automated trading. No copy trading. Trade at least once every 7 days.
               </div>
 
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background/50 p-3 text-xs">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <span className="text-muted-foreground">
+                  I have read and agree to the{" "}
+                  <Link to="/agreement" className="text-primary hover:underline" target="_blank">
+                    FundedNG trader agreement & risk disclosure
+                  </Link>
+                  .
+                </span>
+              </label>
+
               <div className="flex items-center justify-between border-t border-border pt-4">
                 <span className="text-sm text-muted-foreground">Total due</span>
                 <span className="font-display text-2xl font-bold text-primary">
@@ -238,12 +259,50 @@ function BuyPage() {
                 <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={loading}>
                   Cancel
                 </Button>
-                <Button className="font-display" onClick={handleBuy} disabled={loading}>
+                <Button className="font-display" onClick={handleBuy} disabled={loading || !agreed}>
                   {loading ? "Processing…" : <>Confirm & Pay {formatNaira(selected.price_naira)} <ArrowRight className="ml-2 h-4 w-4" /></>}
                 </Button>
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Post-purchase install prompt */}
+      <Dialog open={postPurchaseOpen} onOpenChange={setPostPurchaseOpen}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl">🎉 Account purchased!</DialogTitle>
+            <DialogDescription>
+              Install the FundedNG app to manage your challenge from your phone — get instant
+              alerts on equity, drawdown and payout updates.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPostPurchaseOpen(false);
+                navigate({ to: "/dashboard" });
+              }}
+              className="font-display"
+            >
+              <Smartphone className="mr-2 h-4 w-4" /> Continue to Dashboard
+            </Button>
+            <Button
+              className="font-display"
+              onClick={async () => {
+                const ok = await triggerInstallPrompt();
+                if (!ok) {
+                  toast.info("Use your browser menu → 'Install app' / 'Add to Home Screen'.");
+                }
+                setPostPurchaseOpen(false);
+                navigate({ to: "/dashboard" });
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" /> Install App
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
