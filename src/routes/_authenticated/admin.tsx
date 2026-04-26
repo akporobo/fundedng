@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { SiteNav } from "@/components/site/SiteNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -24,12 +23,9 @@ function AdminPage() {
   }
   if (!isAdmin) {
     return (
-      <div className="min-h-screen">
-        <SiteNav />
-        <div className="mx-auto max-w-xl px-4 py-16 text-center md:px-6">
-          <h1 className="font-display text-3xl font-bold">Admins only</h1>
-          <p className="mt-2 text-muted-foreground">You don't have admin access.</p>
-        </div>
+      <div className="mx-auto max-w-xl px-4 py-16 text-center md:px-6">
+        <h1 className="font-display text-3xl font-bold">Admins only</h1>
+        <p className="mt-2 text-muted-foreground">You don't have admin access.</p>
       </div>
     );
   }
@@ -333,9 +329,7 @@ function AdminConsole() {
   };
 
   return (
-    <div className="min-h-screen">
-      <SiteNav />
-      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <h1 className="font-display text-3xl font-bold">Admin Console</h1>
         <Tabs defaultValue="stats" className="mt-6">
           <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
