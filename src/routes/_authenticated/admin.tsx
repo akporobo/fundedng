@@ -567,7 +567,31 @@ function AdminConsole() {
                       );
                     })()}
                     {a.current_phase >= 2 && a.status === "active" && (
-                      <Button size="sm" onClick={() => approveFunded(a)}>Approve Funded</Button>
+                      (() => {
+                        const target = Number(a.challenges?.profit_target_percent ?? 10);
+                        const equity = Number(a.current_equity ?? a.starting_balance);
+                        const required = Number(a.starting_balance) * (1 + target / 100);
+                        const hit = equity >= required;
+                        const requested = !!a.funded_requested_at;
+                        return (
+                          <>
+                            {requested && (
+                              <Badge variant="outline" className="font-display border-warning/40 text-warning">
+                                FUNDED REQUESTED
+                              </Badge>
+                            )}
+                            {hit ? (
+                              <Button size="sm" onClick={() => approveFunded(a)}>
+                                Phase 2 passed → Approve Funded
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">
+                                Needs {formatNaira(Math.ceil(required))} equity ({target}% target)
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()
                     )}
                     <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
                   </div>
