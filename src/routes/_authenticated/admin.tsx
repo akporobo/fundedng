@@ -344,6 +344,7 @@ function AdminConsole() {
       current_phase: 2,
       current_equity: a.starting_balance,
       phase1_passed_at: new Date().toISOString(),
+      phase2_requested_at: null,
       status: "active",
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
