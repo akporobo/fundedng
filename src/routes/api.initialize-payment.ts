@@ -48,7 +48,21 @@ export const Route = createFileRoute("/api/initialize-payment")({
             return Response.json({ error: "Payment is not configured" }, { status: 500 });
           }
 
-          const origin = new URL(request.url).origin;
+          // Prefer an explicit public site URL (set PUBLIC_SITE_URL secret to
+          // e.g. https://fundedng.lovable.app) so Paystack never redirects to
+          // localhost or a sandbox preview URL. Fall back to the browser's
+          // Origin/Referer header, then finally to the request URL.
+          const headerOrigin = request.headers.get("origin");
+          const referer = request.headers.get("referer");
+          let origin =
+            process.env.PUBLIC_SITE_URL?.trim() ||
+            headerOrigin ||
+            (referer ? new URL(referer).origin : "") ||
+            new URL(request.url).origin;
+          // Hard guard: never send Paystack a localhost callback in production.
+          if (/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(origin)) {
+            origin = process.env.PUBLIC_SITE_URL?.trim() || origin;
+          }
           const reference = `FNG-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
           const amountKobo = Number(challenge.price_naira) * 100;
 
