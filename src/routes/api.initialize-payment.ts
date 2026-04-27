@@ -1,0 +1,101 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
+/**
+ * Server-side Paystack initialization for the redirect/standard checkout flow.
+ *
+ * Authenticates the caller, looks up the challenge price on the server (so
+ * the browser can't tamper with it), then asks Paystack to create a
+ * transaction and returns the hosted `authorization_url` for the client to
+ * redirect to. After payment Paystack redirects back to `callback_url`, where
+ * `/payment/callback` calls `/api/verify-payment` to finalize the order.
+ */
+export const Route = createFileRoute("/api/initialize-payment")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        try {
+          const authHeader = request.headers.get("authorization");
+          const token = authHeader?.startsWith("Bearer ")
+            ? authHeader.slice("Bearer ".length).trim()
+            : null;
+          if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+          const { data: userData, error: authErr } = await supabaseAdmin.auth.getUser(token);
+          if (authErr || !userData?.user?.email) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+          }
+          const user = userData.user;
+
+          const body = (await request.json().catch(() => ({}))) as { challenge_id?: string };
+          const challengeId = body.challenge_id?.trim();
+          if (!challengeId) {
+            return Response.json({ error: "challenge_id is required" }, { status: 400 });
+          }
+
+          const { data: challenge, error: chErr } = await supabaseAdmin
+            .from("challenges")
+            .select("id, name, price_naira, is_active")
+            .eq("id", challengeId)
+            .maybeSingle();
+          if (chErr || !challenge || !challenge.is_active) {
+            return Response.json({ error: "Challenge not available" }, { status: 404 });
+          }
+
+          const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+          if (!paystackSecret) {
+            console.error("[initialize-payment] PAYSTACK_SECRET_KEY missing");
+            return Response.json({ error: "Payment is not configured" }, { status: 500 });
+          }
+
+          const origin = new URL(request.url).origin;
+          const reference = `FNG-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+          const amountKobo = Number(challenge.price_naira) * 100;
+
+          const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${paystackSecret}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: user.email,
+              amount: amountKobo,
+              currency: "NGN",
+              reference,
+              callback_url: `${origin}/payment/callback?challenge_id=${encodeURIComponent(challengeId)}`,
+              metadata: {
+                challenge_id: challenge.id,
+                challenge_name: challenge.name,
+                user_id: user.id,
+              },
+            }),
+          });
+
+          const initJson = (await initRes.json().catch(() => ({}))) as {
+            status?: boolean;
+            message?: string;
+            data?: { authorization_url?: string; reference?: string };
+          };
+
+          if (!initRes.ok || !initJson.status || !initJson.data?.authorization_url) {
+            return Response.json(
+              { error: initJson.message ?? "Could not start payment" },
+              { status: 400 },
+            );
+          }
+
+          return Response.json({
+            ok: true,
+            authorization_url: initJson.data.authorization_url,
+            reference: initJson.data.reference ?? reference,
+          });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Initialization failed";
+          console.error("[initialize-payment] unexpected", msg);
+          return Response.json({ error: msg }, { status: 500 });
+        }
+      },
+    },
+  },
+});
