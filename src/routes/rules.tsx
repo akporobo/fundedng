@@ -23,7 +23,7 @@ function RulesPage() {
       <PublicHeader />
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border bg-surface pt-16">
+      <section className="relative overflow-hidden border-b border-border bg-surface">
         <div className="absolute inset-0 gradient-radial-primary opacity-30" />
         <div className="relative mx-auto max-w-4xl px-4 py-20 text-center md:px-6">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">RULEBOOK</Badge>
