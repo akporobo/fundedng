@@ -191,6 +191,21 @@ function DashboardPage() {
   const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
   const unread = notifications.filter((n) => !n.is_read).length;
 
+  const canRequestPhase2 =
+    !!selected &&
+    selected.status === "active" &&
+    selected.current_phase < 2 &&
+    profitPct >= target;
+  const phase2Requested = !!selected?.phase2_requested_at;
+
+  const requestPhase2 = async () => {
+    if (!selected) return;
+    const { error } = await supabase.rpc("request_phase2", { _account_id: selected.id });
+    if (error) return toast.error(error.message);
+    toast.success("Phase 2 approval requested. An admin will review shortly.");
+    load();
+  };
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
