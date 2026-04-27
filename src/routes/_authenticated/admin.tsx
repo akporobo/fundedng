@@ -53,6 +53,10 @@ function AdminConsole() {
   const [delivering, setDelivering] = useState(false);
   const [deliverFor, setDeliverFor] = useState<any | null>(null);
   const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
+  // Tickets
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replySaving, setReplySaving] = useState<string | null>(null);
   // Manual equity input per account row (admin-only)
   const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
