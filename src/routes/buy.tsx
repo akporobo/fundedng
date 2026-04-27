@@ -275,7 +275,6 @@ function BuyPage() {
           )}
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
