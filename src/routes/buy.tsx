@@ -26,7 +26,7 @@ interface Challenge {
 }
 
 function BuyPage() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, session } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const { available: installAvailable, install: installPwa, isIOS, isStandalone } = useInstallPrompt();
@@ -92,35 +92,54 @@ function BuyPage() {
         user_id: user.id,
       },
       onSuccess: async (transaction: { reference: string }) => {
-        // Persist the order using the verified Paystack reference.
-        const { data: order, error: orderErr } = await supabase.from("orders").insert({
-          user_id: user.id,
-          challenge_id: selected.id,
-          amount_paid: selected.price_naira * 100,
-          status: "paid",
-          paystack_reference: transaction.reference,
-        }).select().single();
-
-        if (orderErr || !order) {
+        // Verify payment SERVER-SIDE before trusting `onSuccess`.
+        // The browser cannot prove a payment really happened — Paystack must.
+        if (!session?.access_token) {
           setLoading(false);
-          setError(orderErr?.message ?? "Order creation failed");
+          setError("Your session expired. Please sign in again.");
           return;
         }
+        try {
+          const res = await fetch("/api/verify-payment", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              reference: transaction.reference,
+              challenge_id: selected.id,
+            }),
+          });
+          const result = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            order_id?: string;
+            error?: string;
+          };
+          if (!res.ok || !result.ok || !result.order_id) {
+            setLoading(false);
+            setError(result.error ?? "Payment verification failed");
+            return;
+          }
 
-        toast.success("Payment confirmed! Your account is being prepared — you'll get a notification within minutes.");
+          toast.success("Payment confirmed! Your account is being prepared — you'll get a notification within minutes.");
 
-        // Tell the server to notify admins so they can deliver manually.
-        fetch("/api/notify-new-purchase", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order_id: order.id }),
-          keepalive: true,
-        }).catch(() => {});
+          // Tell the server to notify admins so they can deliver manually.
+          fetch("/api/notify-new-purchase", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order_id: result.order_id }),
+            keepalive: true,
+          }).catch(() => {});
 
-        await new Promise((r) => setTimeout(r, 250));
-        setLoading(false);
-        setConfirmOpen(false);
-        setPostPurchaseOpen(true);
+          await new Promise((r) => setTimeout(r, 250));
+          setLoading(false);
+          setConfirmOpen(false);
+          setPostPurchaseOpen(true);
+        } catch (e) {
+          setLoading(false);
+          setError(e instanceof Error ? e.message : "Payment verification failed");
+        }
       },
       onCancel: () => {
         setLoading(false);
