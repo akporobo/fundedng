@@ -1,6 +1,9 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/client",
+  "framework": null,
   "rewrites": [
-    { "source": "/((?!api/|assets/|.*\\..*).*)", "destination": "/" }
+    { "source": "/((?!assets/|.*\\..*).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
