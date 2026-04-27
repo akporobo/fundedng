@@ -170,7 +170,7 @@ function AdminConsole() {
         ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds)
         : Promise.resolve({ data: [] as any[] }),
       challengeIds.length
-        ? supabase.from("challenges").select("id, name, account_size").in("id", challengeIds)
+        ? supabase.from("challenges").select("id, name, account_size, profit_target_percent").in("id", challengeIds)
         : Promise.resolve({ data: [] as any[] }),
       orderIds.length
         ? supabase.from("orders").select("id, status").in("id", orderIds)
