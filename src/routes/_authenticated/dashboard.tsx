@@ -483,6 +483,7 @@ function DashboardPage() {
         )}
       </div>
       <PWAInstallButton />
+      <NewUserInstallPrompt />
     </div>
   );
 }
