@@ -8,9 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira } from "@/lib/utils";
-import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone, Share, Plus as PlusIcon } from "lucide-react";
+import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone, Share, Plus as PlusIcon, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
 import { useInstallPrompt } from "@/components/PWAInstallButton";
+import { Brand } from "@/components/site/Brand";
+import { ThemeToggle } from "@/components/site/ThemeToggle";
+import { NotificationBell } from "@/components/site/NotificationBell";
 
 export const Route = createFileRoute("/buy")({
   validateSearch: z.object({ challenge: z.string().optional() }),
@@ -23,7 +26,7 @@ interface Challenge {
 }
 
 function BuyPage() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const { available: installAvailable, install: installPwa, isIOS, isStandalone } = useInstallPrompt();
@@ -34,11 +37,6 @@ function BuyPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [postPurchaseOpen, setPostPurchaseOpen] = useState(false);
-
-  // Gate: /buy requires auth — redirect unauthenticated visitors to register.
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) navigate({ to: "/auth/register" });
-  }, [isLoading, isAuthenticated, navigate]);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -135,6 +133,47 @@ function BuyPage() {
 
   return (
     <div className="min-h-screen">
+      {/* Sticky header: works for both signed-in and signed-out visitors */}
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
+        <Brand />
+        <div className="flex items-center gap-1 md:gap-2">
+          <ThemeToggle />
+          {isAuthenticated ? (
+            <>
+              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                <Link to="/dashboard">
+                  <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="sm:hidden"
+                aria-label="Dashboard"
+              >
+                <Link to="/dashboard">
+                  <LayoutDashboard className="h-4 w-4" />
+                </Link>
+              </Button>
+              <NotificationBell />
+            </>
+          ) : (
+            <>
+              <Link
+                to="/auth/login"
+                className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+              >
+                Sign In
+              </Link>
+              <Button asChild size="sm" className="font-display">
+                <Link to="/auth/register">Get Funded</Link>
+              </Button>
+            </>
+          )}
+        </div>
+      </header>
+
       <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
         <div className="text-center">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">SELECT YOUR CHALLENGE</Badge>
