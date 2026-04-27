@@ -18,6 +18,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-passw
 import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as ApiVerifyPaymentRouteImport } from './routes/api.verify-payment'
 import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
 import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-new-purchase'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
@@ -72,6 +73,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/auth/forgot-password',
   path: '/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVerifyPaymentRoute = ApiVerifyPaymentRouteImport.update({
+  id: '/api/verify-payment',
+  path: '/api/verify-payment',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProvisionAccountRoute = ApiProvisionAccountRouteImport.update({
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
+  '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
+  '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
+  '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/api/deliver-account'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
+    | '/api/verify-payment'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/api/deliver-account'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
+    | '/api/verify-payment'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/api/deliver-account'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
+    | '/api/verify-payment'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -271,6 +283,7 @@ export interface RootRouteChildren {
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
   ApiNotifyNewPurchaseRoute: typeof ApiNotifyNewPurchaseRoute
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
+  ApiVerifyPaymentRoute: typeof ApiVerifyPaymentRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/forgot-password'
       fullPath: '/auth/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/verify-payment': {
+      id: '/api/verify-payment'
+      path: '/api/verify-payment'
+      fullPath: '/api/verify-payment'
+      preLoaderRoute: typeof ApiVerifyPaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/provision-account': {
@@ -467,6 +487,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
   ApiNotifyNewPurchaseRoute: ApiNotifyNewPurchaseRoute,
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
+  ApiVerifyPaymentRoute: ApiVerifyPaymentRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
