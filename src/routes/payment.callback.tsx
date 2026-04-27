@@ -18,7 +18,7 @@ export const Route = createFileRoute("/payment/callback")({
 
 function PaymentCallback() {
   const { reference, trxref, challenge_id } = Route.useSearch();
-  const { session, loading: authLoading } = useAuth();
+  const { session, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const ranRef = useRef(false);
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
