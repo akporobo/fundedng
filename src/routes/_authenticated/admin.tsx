@@ -203,9 +203,13 @@ function AdminConsole() {
 
     // Surface accounts that have requested phase 2 first, then active.
     accList.sort((a: any, b: any) => {
-      const ar = a.phase2_requested_at && a.status === "active" && a.current_phase < 2 ? 1 : 0;
-      const br = b.phase2_requested_at && b.status === "active" && b.current_phase < 2 ? 1 : 0;
-      return br - ar;
+      const score = (x: any) => {
+        if (x.status !== "active") return 0;
+        if (x.current_phase < 2 && x.phase2_requested_at) return 2;
+        if (x.current_phase >= 2 && x.funded_requested_at) return 2;
+        return 0;
+      };
+      return score(b) - score(a);
     });
     setAccounts(accList);
     setPayouts(poList);
