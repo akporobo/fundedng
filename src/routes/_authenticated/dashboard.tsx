@@ -217,6 +217,8 @@ function DashboardPage() {
           </div>
         </div>
 
+        {user && <PendingAccounts userId={user.id} />}
+
         {accounts.length === 0 ? (
           <div className="mt-10 overflow-hidden rounded-2xl border border-primary/40 bg-card p-8 md:p-12">
             <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-center">
