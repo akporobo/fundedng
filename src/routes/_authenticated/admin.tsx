@@ -203,9 +203,13 @@ function AdminConsole() {
 
     // Surface accounts that have requested phase 2 first, then active.
     accList.sort((a: any, b: any) => {
-      const ar = a.phase2_requested_at && a.status === "active" && a.current_phase < 2 ? 1 : 0;
-      const br = b.phase2_requested_at && b.status === "active" && b.current_phase < 2 ? 1 : 0;
-      return br - ar;
+      const score = (x: any) => {
+        if (x.status !== "active") return 0;
+        if (x.current_phase < 2 && x.phase2_requested_at) return 2;
+        if (x.current_phase >= 2 && x.funded_requested_at) return 2;
+        return 0;
+      };
+      return score(b) - score(a);
     });
     setAccounts(accList);
     setPayouts(poList);
@@ -379,6 +383,7 @@ function AdminConsole() {
       status: "funded",
       phase2_passed_at: new Date().toISOString(),
       funded_at: new Date().toISOString(),
+      funded_requested_at: null,
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
     toast.success("Account funded");
@@ -566,7 +571,31 @@ function AdminConsole() {
                       );
                     })()}
                     {a.current_phase >= 2 && a.status === "active" && (
-                      <Button size="sm" onClick={() => approveFunded(a)}>Approve Funded</Button>
+                      (() => {
+                        const target = Number(a.challenges?.profit_target_percent ?? 10);
+                        const equity = Number(a.current_equity ?? a.starting_balance);
+                        const required = Number(a.starting_balance) * (1 + target / 100);
+                        const hit = equity >= required;
+                        const requested = !!a.funded_requested_at;
+                        return (
+                          <>
+                            {requested && (
+                              <Badge variant="outline" className="font-display border-warning/40 text-warning">
+                                FUNDED REQUESTED
+                              </Badge>
+                            )}
+                            {hit ? (
+                              <Button size="sm" onClick={() => approveFunded(a)}>
+                                Phase 2 passed → Approve Funded
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">
+                                Needs {formatNaira(Math.ceil(required))} equity ({target}% target)
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()
                     )}
                     <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
                   </div>

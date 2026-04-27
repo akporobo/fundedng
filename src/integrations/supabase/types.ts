@@ -643,6 +643,7 @@ export type Database = {
           current_equity: number | null
           current_phase: number
           funded_at: string | null
+          funded_requested_at: string | null
           id: string
           investor_password: string | null
           last_synced_at: string | null
@@ -667,6 +668,7 @@ export type Database = {
           current_equity?: number | null
           current_phase?: number
           funded_at?: string | null
+          funded_requested_at?: string | null
           id?: string
           investor_password?: string | null
           last_synced_at?: string | null
@@ -691,6 +693,7 @@ export type Database = {
           current_equity?: number | null
           current_phase?: number
           funded_at?: string | null
+          funded_requested_at?: string | null
           id?: string
           investor_password?: string | null
           last_synced_at?: string | null
@@ -796,6 +799,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      request_funded: { Args: { _account_id: string }; Returns: boolean }
       request_phase2: { Args: { _account_id: string }; Returns: boolean }
       seed_demo_data: { Args: never; Returns: Json }
     }
