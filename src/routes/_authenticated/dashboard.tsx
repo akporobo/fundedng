@@ -17,6 +17,7 @@ import { CertificateCard, type Certificate } from "@/components/certificates/Cer
 import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
+import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
