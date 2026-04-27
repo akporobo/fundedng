@@ -16,6 +16,7 @@ import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAl
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
+import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -482,6 +483,7 @@ function DashboardPage() {
         )}
       </div>
       <PWAInstallButton />
+      <NewUserInstallPrompt />
     </div>
   );
 }

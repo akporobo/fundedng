@@ -34,6 +34,9 @@ function RegisterPage() {
     });
     setLoading(false);
     if (error) return setError(error.message);
+    // Mark this session as "freshly registered" so the dashboard can prompt
+    // them to install the app to their device. One-shot — cleared after use.
+    try { localStorage.setItem("fng-new-user", "1"); } catch { /* ignore */ }
     navigate({ to: "/dashboard" });
   };
 
