@@ -50,6 +50,7 @@ function Countdown({ readyAt, onElapsed }: { readyAt: number; onElapsed: () => v
 
 export function PendingAccounts({ userId }: { userId: string }) {
   const [orders, setOrders] = useState<PendingOrder[]>([]);
+  const [myTickets, setMyTickets] = useState<any[]>([]);
   const [openTicketFor, setOpenTicketFor] = useState<PendingOrder | null>(null);
   const [subject, setSubject] = useState("My account login is not ready");
   const [message, setMessage] = useState("");
@@ -77,6 +78,14 @@ export function PendingAccounts({ userId }: { userId: string }) {
       .in("order_id", list.map((o) => o.id));
     const fulfilled = new Set((existing ?? []).map((r: any) => r.order_id));
     setOrders(list.filter((o) => !fulfilled.has(o.id)));
+
+    const { data: ticketRows } = await supabase
+      .from("tickets")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setMyTickets((ticketRows ?? []) as any[]);
   };
 
   useEffect(() => {
@@ -101,9 +110,10 @@ export function PendingAccounts({ userId }: { userId: string }) {
     toast.success("Ticket opened — admin will get back to you shortly.");
     setOpenTicketFor(null);
     setMessage("");
+    load();
   };
 
-  if (orders.length === 0) return null;
+  if (orders.length === 0 && myTickets.length === 0) return null;
 
   return (
     <>
@@ -143,6 +153,31 @@ export function PendingAccounts({ userId }: { userId: string }) {
             </div>
           );
         })}
+
+        {myTickets.length > 0 && (
+          <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
+            <div className="font-display text-lg font-bold">Your tickets</div>
+            <div className="mt-3 space-y-2">
+              {myTickets.map((t) => (
+                <div key={t.id} className="rounded-md border border-border bg-background p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{t.subject}</div>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-display tracking-wider ${t.status === "open" ? "border-warning/40 text-warning" : "border-primary/40 text-primary"}`}>
+                      {t.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{t.message}</p>
+                  {t.admin_reply && (
+                    <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 p-2">
+                      <div className="text-[10px] font-display uppercase tracking-wider text-primary">Admin reply</div>
+                      <p className="mt-1 whitespace-pre-wrap">{t.admin_reply}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={!!openTicketFor} onOpenChange={(v) => !v && setOpenTicketFor(null)}>
