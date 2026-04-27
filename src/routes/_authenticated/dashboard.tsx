@@ -376,6 +376,28 @@ function DashboardPage() {
                         )}
                       </div>
                     )}
+                    {selected.current_phase >= 2 && selected.status === "active" && (
+                      <div className="mt-5 rounded-md border border-gold/30 bg-gold/5 p-4">
+                        {fundedRequested ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-warning" />
+                            <span className="font-display">Funded approval requested — awaiting admin review.</span>
+                          </div>
+                        ) : canRequestFunded ? (
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="text-sm">
+                              <div className="font-display font-semibold text-gold">🏆 You hit the {target}% target!</div>
+                              <p className="text-xs text-muted-foreground">Request funded approval — an admin will review and fund your account.</p>
+                            </div>
+                            <Button size="sm" onClick={requestFunded}>Request Funded Approval</Button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Reach {target}% profit ({formatNaira(Math.ceil(start * (1 + target / 100)))} equity) to request funded approval.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {snapshots.length > 1 && (
