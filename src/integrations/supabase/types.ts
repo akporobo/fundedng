@@ -796,6 +796,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      request_phase2: { Args: { _account_id: string }; Returns: boolean }
       seed_demo_data: { Args: never; Returns: Json }
     }
     Enums: {
