@@ -233,6 +233,51 @@ function AdminConsole() {
 
   useEffect(() => { load(); loadChallenges(); }, []);
 
+  const loadTickets = async () => {
+    const { data, error } = await supabase
+      .from("tickets")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) return console.error("[admin] tickets load failed:", error);
+    const rows = (data ?? []) as any[];
+    const userIds = Array.from(new Set(rows.map((t) => t.user_id)));
+    const profMap = new Map<string, any>();
+    if (userIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
+    }
+    setTickets(rows.map((t) => ({ ...t, profiles: profMap.get(t.user_id) ?? null })));
+  };
+
+  useEffect(() => { loadTickets(); }, []);
+
+  const sendReply = async (t: any) => {
+    const reply = (replyDraft[t.id] ?? "").trim();
+    if (!reply) return toast.error("Type a reply first");
+    setReplySaving(t.id);
+    const { error } = await supabase
+      .from("tickets")
+      .update({ admin_reply: reply, status: "closed" } as never)
+      .eq("id", t.id);
+    setReplySaving(null);
+    if (error) return toast.error(error.message);
+    toast.success("Reply sent — ticket closed");
+    setReplyDraft((d) => ({ ...d, [t.id]: "" }));
+    loadTickets();
+  };
+
+  const reopenTicket = async (t: any) => {
+    const { error } = await supabase
+      .from("tickets")
+      .update({ status: "open" } as never)
+      .eq("id", t.id);
+    if (error) return toast.error(error.message);
+    loadTickets();
+  };
+
   const openDeliver = (req: any) => {
     setDeliverFor(req);
     setForm({ login: "", password: "", investor: "", server: "" });
