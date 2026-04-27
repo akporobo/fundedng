@@ -17,6 +17,7 @@ import { CertificateCard, type Certificate } from "@/components/certificates/Cer
 import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
+import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -215,6 +216,8 @@ function DashboardPage() {
             <Button size="sm" variant="outline" onClick={signOut}><LogOut className="mr-1 h-4 w-4"/>Sign out</Button>
           </div>
         </div>
+
+        {user && <PendingAccounts userId={user.id} />}
 
         {accounts.length === 0 ? (
           <div className="mt-10 overflow-hidden rounded-2xl border border-primary/40 bg-card p-8 md:p-12">

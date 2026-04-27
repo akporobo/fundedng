@@ -141,22 +141,10 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         img.onerror = () => reject(new Error("image load failed"));
       });
       const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxW = pageW - margin * 2;
-      const maxH = pageH - margin * 2;
-      const ratio = img.width / img.height;
-      let w = maxW;
-      let h = w / ratio;
-      if (h > maxH) {
-        h = maxH;
-        w = h * ratio;
-      }
-      const x = (pageW - w) / 2;
-      const y = (pageH - h) / 2;
-      pdf.addImage(dataUrl, "PNG", x, y, w, h);
+      // Square 1:1 page (1080x1080 in points → ~152mm)
+      const sizeMm = 152;
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [sizeMm, sizeMm] });
+      pdf.addImage(dataUrl, "PNG", 0, 0, sizeMm, sizeMm);
       pdf.save(`${filename}.pdf`);
       toast.success("Certificate PDF saved");
     } catch (e) {
@@ -175,7 +163,7 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
     <div className="space-y-3">
       <div
         ref={cardRef}
-        className="relative aspect-[1/1.4] w-full overflow-hidden rounded-2xl text-white"
+        className="relative mx-auto aspect-square w-full max-w-[540px] overflow-hidden rounded-2xl text-white"
         style={{
           background:
             "radial-gradient(ellipse at 50% 0%, #0a1410 0%, #050a08 55%, #000000 100%)",
@@ -235,12 +223,12 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         )}
 
         {/* Header */}
-        <div className="relative pt-10 text-center">
-          <div className="font-display text-xl font-black tracking-[0.15em] sm:text-2xl">
+        <div className="relative pt-6 text-center sm:pt-8">
+          <div className="font-display text-lg font-black tracking-[0.15em] sm:text-xl">
             FUNDED<span style={{ color: accent }}>NG</span>
           </div>
           <div
-            className="mt-1 text-[8px] font-semibold uppercase tracking-[0.35em] sm:text-[10px]"
+            className="mt-1 text-[7px] font-semibold uppercase tracking-[0.35em] sm:text-[9px]"
             style={{ color: accent }}
           >
             Nigeria's Prop Trading Firm
@@ -248,7 +236,7 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         </div>
 
         {/* Laurel / chart icon */}
-        <div className="relative mt-5 flex justify-center">
+        <div className="relative mt-3 flex justify-center sm:mt-4">
           <div className="flex items-center gap-2">
             <span
               className="block h-px w-10"
@@ -263,12 +251,12 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         </div>
 
         {/* Title block */}
-        <div className="relative mt-4 px-6 text-center sm:px-10">
-          <div className="font-display text-4xl font-black uppercase leading-none tracking-tight text-white sm:text-6xl">
+        <div className="relative mt-3 px-6 text-center sm:px-8">
+          <div className="font-display text-3xl font-black uppercase leading-none tracking-tight text-white sm:text-5xl">
             {isPayout ? "PAYOUT" : "FUNDED"}
           </div>
           <div
-            className="font-display mt-2 text-base font-bold uppercase tracking-[0.25em] sm:text-xl"
+            className="font-display mt-1 text-sm font-bold uppercase tracking-[0.25em] sm:text-base"
             style={{ color: accent }}
           >
             {isPayout ? "Certificate" : "Trader Certificate"}
@@ -276,12 +264,12 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         </div>
 
         {/* Recipient */}
-        <div className="relative mt-6 px-6 text-center sm:px-10">
-          <div className="text-[9px] font-semibold uppercase tracking-[0.3em] text-white/85 sm:text-xs">
+        <div className="relative mt-4 px-6 text-center sm:px-8">
+          <div className="text-[8px] font-semibold uppercase tracking-[0.3em] text-white/85 sm:text-[11px]">
             {isPayout ? "Proudly Presented To" : "This Certifies That"}
           </div>
           <div
-            className="mt-2 text-3xl sm:text-5xl"
+            className="mt-1 text-2xl sm:text-4xl"
             style={{
               fontFamily: "'Pinyon Script', 'Great Vibes', cursive",
               color: accent,
@@ -299,11 +287,11 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         {/* Body */}
         {isPayout ? (
           <>
-            <div className="relative mt-4 px-6 text-center sm:px-10">
+            <div className="relative mt-3 px-6 text-center sm:px-8">
               <div className="text-xs font-bold sm:text-sm" style={{ color: accent }}>
                 Congratulations!
               </div>
-              <p className="mt-1 text-[10px] leading-relaxed text-white/85 sm:text-xs">
+              <p className="mt-1 text-[10px] leading-snug text-white/85 sm:text-[11px]">
                 You have received a payout from FundedNG
                 <br />
                 for your outstanding performance.
@@ -311,64 +299,58 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
             </div>
 
             {/* Payout amount box */}
-            <div className="relative mt-4 px-6 sm:px-10">
+            <div className="relative mt-3 px-6 sm:px-8">
               <div
-                className="rounded-md border-2 p-3 text-center sm:p-4"
+                className="rounded-md border-2 p-2 text-center sm:p-3"
                 style={{ borderColor: accent }}
               >
                 <div
-                  className="text-[9px] font-bold uppercase tracking-[0.3em] sm:text-[11px]"
+                  className="text-[8px] font-bold uppercase tracking-[0.3em] sm:text-[10px]"
                   style={{ color: accent }}
                 >
                   Payout Amount
                 </div>
-                <div className="font-display mt-1 text-2xl font-black tracking-tight text-white sm:text-4xl">
+                <div className="font-display mt-1 text-xl font-black tracking-tight text-white sm:text-3xl">
                   {formatNaira(cert.payout_amount ?? 0)}
                 </div>
-                <div className="mt-1 text-[9px] text-white/80 sm:text-[11px]">
+                <div className="mt-1 text-[8px] text-white/80 sm:text-[10px]">
                   {numberToWords(cert.payout_amount ?? 0)} Naira Only
                 </div>
               </div>
             </div>
 
             {/* Two columns: date + method */}
-            <div className="relative mt-4 grid grid-cols-2 gap-3 px-6 sm:px-10">
+            <div className="relative mt-3 grid grid-cols-2 gap-3 px-6 sm:px-8">
               <div>
                 <div
-                  className="text-[8px] font-bold uppercase tracking-[0.25em] sm:text-[10px]"
+                  className="text-[7px] font-bold uppercase tracking-[0.25em] sm:text-[9px]"
                   style={{ color: accent }}
                 >
                   Payout Date
                 </div>
-                <div className="mt-1 text-[11px] text-white sm:text-sm">{dateStr}</div>
+                <div className="mt-1 text-[10px] text-white sm:text-xs">{dateStr}</div>
               </div>
               <div>
                 <div
-                  className="text-[8px] font-bold uppercase tracking-[0.25em] sm:text-[10px]"
+                  className="text-[7px] font-bold uppercase tracking-[0.25em] sm:text-[9px]"
                   style={{ color: accent }}
                 >
                   Payment Method
                 </div>
-                <div className="mt-1 text-[11px] text-white sm:text-sm">Bank Transfer</div>
+                <div className="mt-1 text-[10px] text-white sm:text-xs">Bank Transfer</div>
               </div>
             </div>
           </>
         ) : (
           <>
-            <p className="relative mt-4 px-6 text-center text-[10px] leading-relaxed text-white/85 sm:px-10 sm:text-xs">
+            <p className="relative mt-3 px-6 text-center text-[10px] leading-snug text-white/85 sm:px-8 sm:text-[11px]">
               has successfully passed all evaluation phases
               <br />
               and is now a funded trader of FundedNG.
-              <br />
-              You have proven your skill, discipline, and
-              <br />
-              consistency. We are proud to have you
-              <br />
-              on our team.
             </p>
 
             {/* Stats row */}
-            <div className="relative mt-5 grid grid-cols-4 gap-2 px-6 text-center sm:px-10">
+            <div className="relative mt-3 grid grid-cols-4 gap-2 px-6 text-center sm:px-8">
               {[
                 { v: "24h", l: "Payouts" },
                 { v: "80%", l: "Profit Split" },
@@ -377,12 +359,12 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
               ].map((s) => (
                 <div key={s.l}>
                   <div
-                    className="font-display text-base font-black sm:text-xl"
+                    className="font-display text-sm font-black sm:text-lg"
                     style={{ color: accent }}
                   >
                     {s.v}
                   </div>
-                  <div className="mt-0.5 text-[8px] uppercase tracking-wider text-white/70 sm:text-[10px]">
+                  <div className="mt-0.5 text-[7px] uppercase tracking-wider text-white/70 sm:text-[9px]">
                     {s.l}
                   </div>
                 </div>
@@ -392,11 +374,11 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         )}
 
         {/* Footer: signature + cert id */}
-        <div className="absolute inset-x-0 bottom-6 px-6 sm:px-10">
+        <div className="absolute inset-x-0 bottom-5 px-6 sm:px-8">
           <div className="flex items-end justify-between gap-4">
             <div>
               <div
-                className="text-2xl text-white sm:text-3xl"
+                className="text-xl text-white sm:text-2xl"
                 style={{
                   fontFamily: "'Pinyon Script', 'Great Vibes', cursive",
                   lineHeight: 1,
@@ -405,11 +387,11 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
                 Byemi
               </div>
               <div
-                className="mt-1 h-px w-28"
+                className="mt-1 h-px w-24"
                 style={{ background: accent }}
               />
               <div
-                className="font-display mt-1 text-[8px] font-bold tracking-[0.2em] sm:text-[10px]"
+                className="font-display mt-1 text-[7px] font-bold tracking-[0.2em] sm:text-[9px]"
                 style={{ color: accent }}
               >
                 CEO, FUNDEDNG
@@ -418,16 +400,16 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
 
             <div className="text-right">
               <div
-                className="font-display text-[8px] font-bold uppercase tracking-[0.25em] sm:text-[10px]"
+                className="font-display text-[7px] font-bold uppercase tracking-[0.25em] sm:text-[9px]"
                 style={{ color: accent }}
               >
                 {isPayout ? "Certificate ID" : "Date"}
               </div>
-              <div className="mt-1 font-mono text-[10px] text-white sm:text-xs">
+              <div className="mt-1 font-mono text-[9px] text-white sm:text-[11px]">
                 {isPayout ? cert.certificate_number : dateStr}
               </div>
               {!isPayout && (
-                <div className="mt-1 font-mono text-[8px] text-white/60 sm:text-[10px]">
+                <div className="mt-1 font-mono text-[7px] text-white/60 sm:text-[9px]">
                   {cert.certificate_number}
                 </div>
               )}
@@ -446,7 +428,7 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={downloadPdf}>
-              <FileText className="mr-2 h-4 w-4" /> PDF (A4 portrait)
+              <FileText className="mr-2 h-4 w-4" /> PDF (1080×1080)
             </DropdownMenuItem>
             <DropdownMenuItem onClick={downloadPng}>
               <FileImage className="mr-2 h-4 w-4" /> PNG image

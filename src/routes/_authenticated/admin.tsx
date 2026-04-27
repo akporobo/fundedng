@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -53,6 +54,10 @@ function AdminConsole() {
   const [delivering, setDelivering] = useState(false);
   const [deliverFor, setDeliverFor] = useState<any | null>(null);
   const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
+  // Tickets
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replySaving, setReplySaving] = useState<string | null>(null);
   // Manual equity input per account row (admin-only)
   const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
@@ -229,6 +234,51 @@ function AdminConsole() {
 
   useEffect(() => { load(); loadChallenges(); }, []);
 
+  const loadTickets = async () => {
+    const { data, error } = await supabase
+      .from("tickets")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) return console.error("[admin] tickets load failed:", error);
+    const rows = (data ?? []) as any[];
+    const userIds = Array.from(new Set(rows.map((t) => t.user_id)));
+    const profMap = new Map<string, any>();
+    if (userIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
+    }
+    setTickets(rows.map((t) => ({ ...t, profiles: profMap.get(t.user_id) ?? null })));
+  };
+
+  useEffect(() => { loadTickets(); }, []);
+
+  const sendReply = async (t: any) => {
+    const reply = (replyDraft[t.id] ?? "").trim();
+    if (!reply) return toast.error("Type a reply first");
+    setReplySaving(t.id);
+    const { error } = await supabase
+      .from("tickets")
+      .update({ admin_reply: reply, status: "closed" } as never)
+      .eq("id", t.id);
+    setReplySaving(null);
+    if (error) return toast.error(error.message);
+    toast.success("Reply sent — ticket closed");
+    setReplyDraft((d) => ({ ...d, [t.id]: "" }));
+    loadTickets();
+  };
+
+  const reopenTicket = async (t: any) => {
+    const { error } = await supabase
+      .from("tickets")
+      .update({ status: "open" } as never)
+      .eq("id", t.id);
+    if (error) return toast.error(error.message);
+    loadTickets();
+  };
+
   const openDeliver = (req: any) => {
     setDeliverFor(req);
     setForm({ login: "", password: "", investor: "", server: "" });
@@ -283,6 +333,48 @@ function AdminConsole() {
     const { error } = await supabase.from("trader_accounts").update(patch as never).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Account updated");
+    load();
+  };
+
+  // Phase 1 → Phase 2: reset equity to starting balance and bump phase.
+  const approvePhase2 = async (a: any) => {
+    if (a.current_phase >= 2) return toast.error("Already in Phase 2 or beyond");
+    if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
+    const { error } = await supabase.from("trader_accounts").update({
+      current_phase: 2,
+      current_equity: a.starting_balance,
+      phase1_passed_at: new Date().toISOString(),
+      status: "active",
+    } as never).eq("id", a.id);
+    if (error) return toast.error(error.message);
+    // Reset snapshot baseline so charts restart from the new equity.
+    await supabase.from("account_snapshots").insert({
+      trader_account_id: a.id,
+      equity: a.starting_balance,
+      balance: a.starting_balance,
+      profit: 0,
+      drawdown_percent: 0,
+    } as never);
+    await supabase.from("notifications").insert({
+      user_id: a.user_id,
+      title: "🎯 Phase 1 Passed",
+      message: "Congratulations — you're now in Phase 2. Your equity has been reset to the starting balance.",
+      type: "success",
+    } as never);
+    toast.success("Phase 2 approved");
+    load();
+  };
+
+  const approveFunded = async (a: any) => {
+    if (a.status === "funded") return toast.error("Already funded");
+    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}?`)) return;
+    const { error } = await supabase.from("trader_accounts").update({
+      status: "funded",
+      phase2_passed_at: new Date().toISOString(),
+      funded_at: new Date().toISOString(),
+    } as never).eq("id", a.id);
+    if (error) return toast.error(error.message);
+    toast.success("Account funded");
     load();
   };
 
@@ -349,6 +441,14 @@ function AdminConsole() {
               <TabsTrigger value="payouts">Payouts</TabsTrigger>
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
               <TabsTrigger value="challenges">Challenges</TabsTrigger>
+              <TabsTrigger value="tickets">
+                Tickets
+                {tickets.filter((t) => t.status === "open").length > 0 && (
+                  <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
+                    {tickets.filter((t) => t.status === "open").length}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -432,8 +532,12 @@ function AdminConsole() {
                   <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
                   <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
                   <div className="flex flex-wrap gap-1">
-                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "passed" })}>Pass</Button>
-                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "funded", funded_at: new Date().toISOString() })}>Fund</Button>
+                    {a.current_phase < 2 && a.status === "active" && (
+                      <Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button>
+                    )}
+                    {a.current_phase >= 2 && a.status === "active" && (
+                      <Button size="sm" onClick={() => approveFunded(a)}>Approve Funded</Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
                   </div>
                 </div>
@@ -462,7 +566,7 @@ function AdminConsole() {
                     {equitySaving === a.id ? "Saving…" : "Record snapshot"}
                   </Button>
                   <p className="basis-full text-[11px] text-muted-foreground">
-                    Creates a snapshot — drawdown & phase rules run automatically.
+                    Creates a snapshot. Drawdown breach is automatic; phase progression is manual via the buttons above.
                   </p>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-background p-3 text-xs">
@@ -572,6 +676,63 @@ function AdminConsole() {
                 </tbody>
               </table>
             </div>
+          </TabsContent>
+
+          <TabsContent value="tickets" className="mt-6 space-y-3">
+            {tickets.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                No support tickets yet.
+              </div>
+            ) : tickets.map((t) => (
+              <div key={t.id} className="rounded-xl border border-border bg-card p-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="font-semibold">{t.subject}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t.profiles?.full_name ?? "—"} · {new Date(t.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`font-display ${t.status === "open" ? "border-warning/40 text-warning" : "border-primary/40 text-primary"}`}
+                  >
+                    {t.status.toUpperCase()}
+                  </Badge>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-sm">
+                  {t.message}
+                </p>
+                {t.admin_reply ? (
+                  <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                    <div className="text-[10px] font-display uppercase tracking-wider text-primary">Your reply</div>
+                    <p className="mt-1 whitespace-pre-wrap">{t.admin_reply}</p>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <div className="flex-1 min-w-[240px]">
+                    <Label htmlFor={`reply-${t.id}`} className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {t.admin_reply ? "Update reply" : "Reply"}
+                    </Label>
+                    <Textarea
+                      id={`reply-${t.id}`}
+                      rows={2}
+                      value={replyDraft[t.id] ?? ""}
+                      onChange={(e) => setReplyDraft((d) => ({ ...d, [t.id]: e.target.value }))}
+                      placeholder="Type your reply…"
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button size="sm" onClick={() => sendReply(t)} disabled={replySaving === t.id}>
+                    {replySaving === t.id ? "Sending…" : "Send & close"}
+                  </Button>
+                  {t.status === "closed" && (
+                    <Button size="sm" variant="outline" onClick={() => reopenTicket(t)}>
+                      Reopen
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
           </TabsContent>
         </Tabs>
       </div>
