@@ -286,6 +286,48 @@ function AdminConsole() {
     load();
   };
 
+  // Phase 1 → Phase 2: reset equity to starting balance and bump phase.
+  const approvePhase2 = async (a: any) => {
+    if (a.current_phase >= 2) return toast.error("Already in Phase 2 or beyond");
+    if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
+    const { error } = await supabase.from("trader_accounts").update({
+      current_phase: 2,
+      current_equity: a.starting_balance,
+      phase1_passed_at: new Date().toISOString(),
+      status: "active",
+    } as never).eq("id", a.id);
+    if (error) return toast.error(error.message);
+    // Reset snapshot baseline so charts restart from the new equity.
+    await supabase.from("account_snapshots").insert({
+      trader_account_id: a.id,
+      equity: a.starting_balance,
+      balance: a.starting_balance,
+      profit: 0,
+      drawdown_percent: 0,
+    } as never);
+    await supabase.from("notifications").insert({
+      user_id: a.user_id,
+      title: "🎯 Phase 1 Passed",
+      message: "Congratulations — you're now in Phase 2. Your equity has been reset to the starting balance.",
+      type: "success",
+    } as never);
+    toast.success("Phase 2 approved");
+    load();
+  };
+
+  const approveFunded = async (a: any) => {
+    if (a.status === "funded") return toast.error("Already funded");
+    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}?`)) return;
+    const { error } = await supabase.from("trader_accounts").update({
+      status: "funded",
+      phase2_passed_at: new Date().toISOString(),
+      funded_at: new Date().toISOString(),
+    } as never).eq("id", a.id);
+    if (error) return toast.error(error.message);
+    toast.success("Account funded");
+    load();
+  };
+
   const submitEquity = async (account: any) => {
     const raw = equityDraft[account.id]?.trim();
     if (!raw) return toast.error("Enter an equity value");
