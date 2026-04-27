@@ -276,54 +276,6 @@ function BuyPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Post-purchase install prompt */}
-      <Dialog open={postPurchaseOpen} onOpenChange={setPostPurchaseOpen}>
-        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-2xl">🎉 Account purchased!</DialogTitle>
-            <DialogDescription>
-              Install the FundedNG app to manage your challenge from your phone — get instant
-              alerts on equity, drawdown and payout updates.
-            </DialogDescription>
-          </DialogHeader>
-          {isIOS && !isStandalone && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
-              <div className="font-display mb-2 font-semibold">Install on iPhone / iPad</div>
-              <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                Tap the <Share className="inline h-3.5 w-3.5" /> Share button in Safari, then
-                <PlusIcon className="inline h-3.5 w-3.5" /> <strong>Add to Home Screen</strong>.
-              </p>
-            </div>
-          )}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setPostPurchaseOpen(false);
-                navigate({ to: "/dashboard" });
-              }}
-              className="font-display"
-            >
-              <Smartphone className="mr-2 h-4 w-4" /> Continue to Dashboard
-            </Button>
-            {!isIOS && installAvailable && (
-              <Button
-                className="font-display"
-                onClick={async () => {
-                  const ok = await installPwa();
-                  if (!ok) {
-                    toast.info("Use your browser menu → 'Install app' / 'Add to Home Screen'.");
-                  }
-                  setPostPurchaseOpen(false);
-                  navigate({ to: "/dashboard" });
-                }}
-              >
-                <Download className="mr-2 h-4 w-4" /> Install App
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
