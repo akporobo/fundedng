@@ -20,6 +20,33 @@ export const Route = createFileRoute("/api/deliver-account")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          // ---- AuthZ: admins only ----
+          const authHeader = request.headers.get("authorization");
+          const token = authHeader?.startsWith("Bearer ")
+            ? authHeader.slice("Bearer ".length).trim()
+            : null;
+          if (!token) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+          }
+          const { data: userData, error: authErr } =
+            await supabaseAdmin.auth.getUser(token);
+          if (authErr || !userData?.user) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+          }
+          const { data: roles, error: roleErr } = await supabaseAdmin
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userData.user.id);
+          if (roleErr) {
+            return Response.json({ error: roleErr.message }, { status: 500 });
+          }
+          if (!roles?.some((r) => r.role === "admin")) {
+            return Response.json(
+              { error: "Forbidden — admins only" },
+              { status: 403 },
+            );
+          }
+
           const body = (await request.json()) as {
             order_id?: string;
             mt5_login?: string;
