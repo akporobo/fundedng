@@ -228,7 +228,8 @@ function BuyPage() {
 
               <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
                 <span className="font-display block font-semibold text-warning">Rules reminder</span>
-                No automated trading. No copy trading. Trade at least once every 7 days.
+                Trade only on your FundedNG MT5 evaluation account. No automated
+                trading. No copy trading. Place at least one trade every 7 days.
               </div>
 
               <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background/50 p-3 text-xs">
