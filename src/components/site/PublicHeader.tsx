@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Brand } from "./Brand";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
 const PUBLIC_NAV = [
@@ -65,6 +66,7 @@ export function PublicHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <ThemeToggle />
           <Link
             to="/auth/login"
             className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
@@ -77,15 +79,18 @@ export function PublicHeader() {
         </div>
 
         {/* Mobile hamburger */}
-        <button
+        <div className="flex items-center gap-1 md:hidden">
+          <ThemeToggle />
+          <button
           type="button"
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="grid h-10 w-10 place-items-center rounded-md text-foreground hover:bg-muted md:hidden"
+          className="grid h-10 w-10 place-items-center rounded-md text-foreground hover:bg-muted"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu sheet */}
