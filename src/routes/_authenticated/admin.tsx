@@ -441,6 +441,14 @@ function AdminConsole() {
               <TabsTrigger value="payouts">Payouts</TabsTrigger>
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
               <TabsTrigger value="challenges">Challenges</TabsTrigger>
+              <TabsTrigger value="tickets">
+                Tickets
+                {tickets.filter((t) => t.status === "open").length > 0 && (
+                  <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
+                    {tickets.filter((t) => t.status === "open").length}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
 
