@@ -141,22 +141,10 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
         img.onerror = () => reject(new Error("image load failed"));
       });
       const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxW = pageW - margin * 2;
-      const maxH = pageH - margin * 2;
-      const ratio = img.width / img.height;
-      let w = maxW;
-      let h = w / ratio;
-      if (h > maxH) {
-        h = maxH;
-        w = h * ratio;
-      }
-      const x = (pageW - w) / 2;
-      const y = (pageH - h) / 2;
-      pdf.addImage(dataUrl, "PNG", x, y, w, h);
+      // Square 1:1 page (1080x1080 in points → ~152mm)
+      const sizeMm = 152;
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [sizeMm, sizeMm] });
+      pdf.addImage(dataUrl, "PNG", 0, 0, sizeMm, sizeMm);
       pdf.save(`${filename}.pdf`);
       toast.success("Certificate PDF saved");
     } catch (e) {
@@ -175,7 +163,7 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
     <div className="space-y-3">
       <div
         ref={cardRef}
-        className="relative aspect-[1/1.4] w-full overflow-hidden rounded-2xl text-white"
+        className="relative mx-auto aspect-square w-full max-w-[540px] overflow-hidden rounded-2xl text-white"
         style={{
           background:
             "radial-gradient(ellipse at 50% 0%, #0a1410 0%, #050a08 55%, #000000 100%)",
