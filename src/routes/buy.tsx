@@ -69,13 +69,13 @@ function BuyPage() {
       return;
     }
     const PaystackPop = (window as unknown as { PaystackPop?: { setup: (opts: Record<string, unknown>) => { openIframe: () => void } } }).PaystackPop;
-    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+    const publicKey = PAYSTACK_PUBLIC_KEY;
     if (!PaystackPop) {
       setError("Payment system is still loading. Please try again in a moment.");
       return;
     }
     if (!publicKey) {
-      setError("Payment is not configured yet. Set VITE_PAYSTACK_PUBLIC_KEY in your environment.");
+      setError("Payment is not configured yet.");
       return;
     }
 
