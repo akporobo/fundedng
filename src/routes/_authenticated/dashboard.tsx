@@ -338,6 +338,28 @@ function DashboardPage() {
                         <Progress value={Math.min(100, (ddPct/maxDD)*100)} />
                       </div>
                     </div>
+                    {selected.current_phase < 2 && selected.status === "active" && (
+                      <div className="mt-5 rounded-md border border-primary/30 bg-primary/5 p-4">
+                        {phase2Requested ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-warning" />
+                            <span className="font-display">Phase 2 approval requested — awaiting admin review.</span>
+                          </div>
+                        ) : canRequestPhase2 ? (
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="text-sm">
+                              <div className="font-display font-semibold text-primary">🎯 You hit the {target}% target!</div>
+                              <p className="text-xs text-muted-foreground">Request phase 2 approval — an admin will review and progress your account.</p>
+                            </div>
+                            <Button size="sm" onClick={requestPhase2}>Request Phase 2 Approval</Button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Reach {target}% profit ({formatNaira(Math.ceil(start * (1 + target / 100)))} equity) to request phase 2 approval.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {snapshots.length > 1 && (
