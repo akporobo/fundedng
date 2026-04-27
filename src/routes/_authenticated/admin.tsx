@@ -508,7 +508,7 @@ function AdminConsole() {
                     {equitySaving === a.id ? "Saving…" : "Record snapshot"}
                   </Button>
                   <p className="basis-full text-[11px] text-muted-foreground">
-                    Creates a snapshot — drawdown & phase rules run automatically.
+                    Creates a snapshot. Drawdown breach is automatic; phase progression is manual via the buttons above.
                   </p>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-background p-3 text-xs">
