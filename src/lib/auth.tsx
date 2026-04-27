@@ -38,11 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
     setProfile((profileRes.data as Profile | null) ?? null);
+    // Admin status comes EXCLUSIVELY from the user_roles table — no email
+    // shortcuts, no client-side allow-lists. Server-side checks must use the
+    // same source of truth.
     const roleAdmin = !!rolesRes.data?.some((r) => r.role === "admin");
-    // Hardcoded super admin: bypass DB role check.
-    const email = (await supabase.auth.getUser()).data.user?.email?.toLowerCase();
-    const hardcodedAdmin = email === "akporhiunue@gmail.com";
-    setIsAdmin(roleAdmin || hardcodedAdmin);
+    setIsAdmin(roleAdmin);
   };
 
   const refresh = async () => {
