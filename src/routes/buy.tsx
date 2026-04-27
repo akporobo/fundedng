@@ -82,6 +82,65 @@ function BuyPage() {
 
     setLoading(true); setError("");
 
+    let paymentHandled = false;
+    const verifyPayment = async (transaction: { reference: string }) => {
+      if (paymentHandled) return;
+      paymentHandled = true;
+      // Verify payment SERVER-SIDE before trusting the browser callback.
+      // The browser cannot prove a payment really happened — Paystack must.
+      if (!session?.access_token) {
+        setLoading(false);
+        setError("Your session expired. Please sign in again.");
+        return;
+      }
+      try {
+        const res = await fetch("/api/verify-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            reference: transaction.reference,
+            challenge_id: selected.id,
+          }),
+        });
+        const result = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          order_id?: string;
+          error?: string;
+        };
+        if (!res.ok || !result.ok || !result.order_id) {
+          setLoading(false);
+          setError(result.error ?? "Payment verification failed");
+          return;
+        }
+
+        toast.success("Payment confirmed! Your account is being prepared — you'll get a notification within minutes.");
+
+        fetch("/api/notify-new-purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: result.order_id }),
+          keepalive: true,
+        }).catch(() => {});
+
+        await new Promise((r) => setTimeout(r, 250));
+        setLoading(false);
+        setConfirmOpen(false);
+        setPostPurchaseOpen(true);
+      } catch (e) {
+        setLoading(false);
+        setError(e instanceof Error ? e.message : "Payment verification failed");
+      }
+    };
+
+    const handlePaymentClose = () => {
+      if (paymentHandled) return;
+      setLoading(false);
+      toast.info("Payment cancelled.");
+    };
+
     const handler = PaystackPop.setup({
       key: publicKey,
       email: user.email,
@@ -93,63 +152,21 @@ function BuyPage() {
         challenge_name: selected.name,
         user_id: user.id,
       },
-      onSuccess: async (transaction: { reference: string }) => {
-        // Verify payment SERVER-SIDE before trusting `onSuccess`.
-        // The browser cannot prove a payment really happened — Paystack must.
-        if (!session?.access_token) {
-          setLoading(false);
-          setError("Your session expired. Please sign in again.");
-          return;
-        }
-        try {
-          const res = await fetch("/api/verify-payment", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              reference: transaction.reference,
-              challenge_id: selected.id,
-            }),
-          });
-          const result = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            order_id?: string;
-            error?: string;
-          };
-          if (!res.ok || !result.ok || !result.order_id) {
-            setLoading(false);
-            setError(result.error ?? "Payment verification failed");
-            return;
-          }
-
-          toast.success("Payment confirmed! Your account is being prepared — you'll get a notification within minutes.");
-
-          // Tell the server to notify admins so they can deliver manually.
-          fetch("/api/notify-new-purchase", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ order_id: result.order_id }),
-            keepalive: true,
-          }).catch(() => {});
-
-          await new Promise((r) => setTimeout(r, 250));
-          setLoading(false);
-          setConfirmOpen(false);
-          setPostPurchaseOpen(true);
-        } catch (e) {
-          setLoading(false);
-          setError(e instanceof Error ? e.message : "Payment verification failed");
-        }
-      },
-      onCancel: () => {
-        setLoading(false);
-        toast.info("Payment cancelled.");
-      },
+      callback: verifyPayment,
+      onSuccess: verifyPayment,
+      onClose: handlePaymentClose,
+      onCancel: handlePaymentClose,
     });
 
-    handler.openIframe();
+    setConfirmOpen(false);
+    window.setTimeout(() => {
+      try {
+        handler.openIframe();
+      } catch (e) {
+        setLoading(false);
+        setError(e instanceof Error ? e.message : "Payment could not be opened");
+      }
+    }, 0);
   };
 
   return (
