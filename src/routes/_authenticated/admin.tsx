@@ -677,6 +677,63 @@ function AdminConsole() {
               </table>
             </div>
           </TabsContent>
+
+          <TabsContent value="tickets" className="mt-6 space-y-3">
+            {tickets.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                No support tickets yet.
+              </div>
+            ) : tickets.map((t) => (
+              <div key={t.id} className="rounded-xl border border-border bg-card p-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="font-semibold">{t.subject}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t.profiles?.full_name ?? "—"} · {new Date(t.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`font-display ${t.status === "open" ? "border-warning/40 text-warning" : "border-primary/40 text-primary"}`}
+                  >
+                    {t.status.toUpperCase()}
+                  </Badge>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-sm">
+                  {t.message}
+                </p>
+                {t.admin_reply ? (
+                  <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                    <div className="text-[10px] font-display uppercase tracking-wider text-primary">Your reply</div>
+                    <p className="mt-1 whitespace-pre-wrap">{t.admin_reply}</p>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <div className="flex-1 min-w-[240px]">
+                    <Label htmlFor={`reply-${t.id}`} className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {t.admin_reply ? "Update reply" : "Reply"}
+                    </Label>
+                    <Textarea
+                      id={`reply-${t.id}`}
+                      rows={2}
+                      value={replyDraft[t.id] ?? ""}
+                      onChange={(e) => setReplyDraft((d) => ({ ...d, [t.id]: e.target.value }))}
+                      placeholder="Type your reply…"
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button size="sm" onClick={() => sendReply(t)} disabled={replySaving === t.id}>
+                    {replySaving === t.id ? "Sending…" : "Send & close"}
+                  </Button>
+                  {t.status === "closed" && (
+                    <Button size="sm" variant="outline" onClick={() => reopenTicket(t)}>
+                      Reopen
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </TabsContent>
         </Tabs>
       </div>
 
