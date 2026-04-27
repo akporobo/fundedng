@@ -36,7 +36,7 @@ function AgreementPage() {
     <div className="min-h-screen">
       <PublicHeader />
 
-      <section className="relative overflow-hidden border-b border-border bg-surface pt-16">
+      <section className="relative overflow-hidden border-b border-border bg-surface">
         <div className="absolute inset-0 gradient-radial-primary opacity-20" />
         <div className="relative mx-auto max-w-4xl px-4 py-16 text-center md:px-6 md:py-20">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">LEGAL</Badge>
