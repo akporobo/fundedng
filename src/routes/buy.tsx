@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useInstallPrompt } from "@/components/PWAInstallButton";
 import { Brand } from "@/components/site/Brand";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
+import { PAYSTACK_PUBLIC_KEY } from "@/lib/paystack-config";
 import { NotificationBell } from "@/components/site/NotificationBell";
 import { AppSidebar, MobileBottomNav } from "@/components/site/AppShell";
 
