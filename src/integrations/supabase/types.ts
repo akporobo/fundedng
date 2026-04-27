@@ -653,6 +653,7 @@ export type Database = {
           order_id: string
           phase1_passed_at: string | null
           phase2_passed_at: string | null
+          phase2_requested_at: string | null
           provider: string
           starting_balance: number
           status: Database["public"]["Enums"]["account_status"]
@@ -676,6 +677,7 @@ export type Database = {
           order_id: string
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
+          phase2_requested_at?: string | null
           provider?: string
           starting_balance: number
           status?: Database["public"]["Enums"]["account_status"]
@@ -699,6 +701,7 @@ export type Database = {
           order_id?: string
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
+          phase2_requested_at?: string | null
           provider?: string
           starting_balance?: number
           status?: Database["public"]["Enums"]["account_status"]
