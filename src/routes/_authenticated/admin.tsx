@@ -474,8 +474,12 @@ function AdminConsole() {
                   <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
                   <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
                   <div className="flex flex-wrap gap-1">
-                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "passed" })}>Pass</Button>
-                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "funded", funded_at: new Date().toISOString() })}>Fund</Button>
+                    {a.current_phase < 2 && a.status === "active" && (
+                      <Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button>
+                    )}
+                    {a.current_phase >= 2 && a.status === "active" && (
+                      <Button size="sm" onClick={() => approveFunded(a)}>Approve Funded</Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
                   </div>
                 </div>
