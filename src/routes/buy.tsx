@@ -14,6 +14,7 @@ import { useInstallPrompt } from "@/components/PWAInstallButton";
 import { Brand } from "@/components/site/Brand";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
 import { NotificationBell } from "@/components/site/NotificationBell";
+import { AppSidebar, MobileBottomNav } from "@/components/site/AppShell";
 
 export const Route = createFileRoute("/buy")({
   validateSearch: z.object({ challenge: z.string().optional() }),
@@ -151,49 +152,40 @@ function BuyPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Sticky header: works for both signed-in and signed-out visitors */}
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
-        <Brand />
-        <div className="flex items-center gap-1 md:gap-2">
-          <ThemeToggle />
-          {isAuthenticated ? (
-            <>
-              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-                <Link to="/dashboard">
-                  <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                className="sm:hidden"
-                aria-label="Dashboard"
-              >
-                <Link to="/dashboard">
-                  <LayoutDashboard className="h-4 w-4" />
-                </Link>
-              </Button>
-              <NotificationBell />
-            </>
-          ) : (
-            <>
-              <Link
-                to="/auth/login"
-                className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-              >
-                Sign In
-              </Link>
-              <Button asChild size="sm" className="font-display">
-                <Link to="/auth/register">Get Funded</Link>
-              </Button>
-            </>
-          )}
-        </div>
-      </header>
+    <div className="min-h-screen md:flex">
+      {/* Authenticated visitors get the persistent sidebar + bottom nav so
+          /buy stays inside the app shell exactly like every other signed-in
+          page. Guests get a lightweight sticky public header. */}
+      {isAuthenticated && <AppSidebar />}
 
-      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
+      <div className={`min-w-0 flex-1 ${isAuthenticated ? "md:ml-60" : ""}`}>
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
+          <div className={isAuthenticated ? "md:hidden" : ""}>
+            <Brand />
+          </div>
+          {isAuthenticated && <div className="hidden md:block" />}
+          <div className="flex items-center gap-1 md:gap-2">
+            <ThemeToggle />
+            {isAuthenticated ? (
+              <NotificationBell />
+            ) : (
+              <>
+                <Link
+                  to="/auth/login"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+                >
+                  Sign In
+                </Link>
+                <Button asChild size="sm" className="font-display">
+                  <Link to="/auth/register">Get Funded</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        </header>
+
+        <main className={isAuthenticated ? "pb-24 md:pb-0" : ""}>
+          <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
         <div className="text-center">
           <Badge variant="outline" className="font-display border-primary/40 text-primary">SELECT YOUR CHALLENGE</Badge>
           <h1 className="font-display mt-4 text-4xl font-bold">Get Funded Today</h1>
@@ -251,7 +243,11 @@ function BuyPage() {
             </p>
           </div>
         )}
+          </div>
+        </main>
       </div>
+
+      {isAuthenticated && <MobileBottomNav />}
 
       <Dialog open={confirmOpen} onOpenChange={(o) => !loading && setConfirmOpen(o)}>
         <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-lg">
