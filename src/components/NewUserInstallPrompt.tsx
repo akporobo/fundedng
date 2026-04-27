@@ -117,9 +117,9 @@ export function NewUserInstallPrompt() {
           <Button variant="outline" onClick={close} className="font-display">
             <Smartphone className="mr-2 h-4 w-4" /> Maybe later
           </Button>
-          {!isIOS && available && (
+          {!isIOS && (
             <Button className="font-display" onClick={handleInstall}>
-              <Download className="mr-2 h-4 w-4" /> Install App
+              <Download className="mr-2 h-4 w-4" /> Install Now
             </Button>
           )}
         </div>
