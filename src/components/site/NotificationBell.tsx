@@ -35,16 +35,7 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   // Initial load + realtime subscription
   useEffect(() => {
@@ -75,13 +66,20 @@ export function NotificationBell() {
 
   // Click outside on desktop
   useEffect(() => {
-    if (!open || isMobile) return;
+    if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onTouch = (e: TouchEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open, isMobile]);
+    document.addEventListener("touchstart", onTouch);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onTouch);
+    };
+  }, [open]);
 
   const fetchItems = async () => {
     if (!user) return;
@@ -186,23 +184,17 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && !isMobile && (
-        <div className="absolute right-0 top-12 z-[60] w-[360px] overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
+      {open && (
+        <div
+          className={cn(
+            "absolute right-0 top-12 z-[60] overflow-hidden rounded-xl border border-border bg-background shadow-2xl",
+            // Mobile: anchor to right of bell, span most of viewport width.
+            // Desktop: fixed 360px panel.
+            "w-[min(22rem,calc(100vw-1.5rem))] md:w-[360px]",
+          )}
+        >
           {Panel}
         </div>
-      )}
-
-      {open && isMobile && (
-        <>
-          <div
-            className="fixed inset-0 z-[70] bg-black/50"
-            onClick={() => setOpen(false)}
-          />
-          <div className="fixed inset-x-0 bottom-0 z-[71] max-h-[80vh] overflow-hidden rounded-t-2xl border-t border-border bg-background pb-[env(safe-area-inset-bottom)] shadow-2xl">
-            <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-muted" />
-            {Panel}
-          </div>
-        </>
       )}
     </div>
   );

@@ -185,9 +185,9 @@ function Index() {
         <Brand />
         <p className="mx-auto mt-4 max-w-2xl text-xs text-muted-foreground">
           FundedNG is a proprietary trading evaluation platform. Challenge fees
-          fund operational costs. All evaluations run on simulated MT5 accounts —
-          you trade real-market prices but no real-money risk. Past performance
-          does not guarantee future results.
+          fund operational costs. All evaluations run on FundedNG MT5 evaluation
+          accounts — you trade real-market prices in a controlled evaluation
+          environment. Past performance does not guarantee future results.
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
           <Link to="/rules" className="text-muted-foreground hover:text-primary">Rules</Link>

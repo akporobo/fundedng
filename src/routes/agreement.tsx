@@ -54,10 +54,10 @@ function AgreementPage() {
         <Section icon={ScrollText} title="1. About FundedNG">
           <p>
             FundedNG ("we", "us", "our") is a Nigerian proprietary trading evaluation
-            platform. We provide simulated MT5 demo accounts on the Exness server and
-            evaluate traders' performance against published rules. Successful traders
+            platform. We provide MT5 evaluation accounts on the FundedNG server and
+            assess traders' performance against published rules. Successful traders
             receive payouts denominated in Naira from our company funds, calculated as
-            a percentage of the simulated profits achieved.
+            a percentage of the evaluation profits achieved.
           </p>
           <p>
             FundedNG is not a broker, not a deposit-taking institution, and does not
@@ -67,11 +67,11 @@ function AgreementPage() {
 
         <Section icon={ShieldCheck} title="2. Trader Agreement">
           <p>
-            By purchasing a challenge you agree to trade only on the demo account
-            provisioned by FundedNG, to follow all published rules (see{" "}
+            By purchasing a challenge you agree to trade only on the MT5 evaluation
+            account provisioned by FundedNG, to follow all published rules (see{" "}
             <Link to="/rules" className="text-primary hover:underline">/rules</Link>),
             and to refrain from any prohibited strategies including but not limited
-            to high-frequency tick scalping that exploits demo-feed latency,
+            to high-frequency tick scalping that exploits evaluation-feed latency,
             cross-account hedging, copy trading from a third party, undisclosed
             expert advisors, and any form of price manipulation.
           </p>
@@ -109,9 +109,9 @@ function AgreementPage() {
 
         <Section icon={Wallet} title="4. Payouts & KYC">
           <p>
-            Funded traders keep 80% of simulated profits, paid in Naira. Payouts are
-            processed within 7 days of request (typically 2-3 days) to a verified
-            Nigerian bank account.
+            Funded traders keep 80% of evaluation profits, paid in Naira. Payouts are
+            processed within 24 hours of approval, with a 7-day cycle between requests,
+            to a verified Nigerian bank account.
           </p>
           <p>
             We require basic KYC — your full legal name, phone number, and a

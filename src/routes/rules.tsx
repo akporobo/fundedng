@@ -86,7 +86,7 @@ function RulesPage() {
               </div>
               <h3 className="font-display mt-4 text-2xl font-bold">Min 3-Minute Trade Duration</h3>
               <p className="mt-3 text-muted-foreground">
-                All manually closed trades must be held for at least 3 minutes from open to close. This prevents tick-scalping and stale-quote abuse on the demo feed.
+                All manually closed trades must be held for at least 3 minutes from open to close. This prevents tick-scalping and stale-quote abuse on the FundedNG evaluation feed.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Stop-loss and take-profit hits are fully exempt.</li>
@@ -126,12 +126,12 @@ function RulesPage() {
               {
                 icon: AlertTriangle,
                 title: "What Counts As A Breach",
-                body: "Equity dropping to 20% drawdown — even momentarily on a spike — is a breach. So is any attempt to manipulate price, abuse demo server latency, or coordinate trades across accounts.",
+                body: "Equity dropping to 20% drawdown — even momentarily on a spike — is a breach. So is any attempt to manipulate price, abuse evaluation-server latency, or coordinate trades across accounts.",
               },
               {
                 icon: Ban,
                 title: "Prohibited Strategies",
-                body: "No HFT, no tick scalping that exploits demo feed delays, no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
+                body: "No HFT, no tick scalping that exploits evaluation-feed delays, no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
               },
               {
                 icon: ShieldCheck,
@@ -141,7 +141,7 @@ function RulesPage() {
               {
                 icon: CheckCircle2,
                 title: "Allowed Instruments",
-                body: "All FX pairs, gold, silver, indices and crypto CFDs available on the Exness MT5 demo server.",
+                body: "All FX pairs, gold, silver, indices and crypto CFDs available on the FundedNG MT5 evaluation server.",
               },
               {
                 icon: Wallet,
@@ -169,7 +169,7 @@ function RulesPage() {
       <section className="border-b border-border">
         <div className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
           <h2 className="font-display text-4xl font-bold">Ready to put the rules to the test?</h2>
-          <p className="mt-3 text-muted-foreground">Pick a challenge size and start trading on a live Exness MT5 demo.</p>
+          <p className="mt-3 text-muted-foreground">Pick a challenge size and start trading on a FundedNG MT5 evaluation account.</p>
           <Link to="/buy" className="mt-8 inline-block">
             <Button size="lg" className="font-display">Start Challenge <ArrowRight className="ml-2 h-4 w-4" /></Button>
           </Link>

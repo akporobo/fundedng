@@ -22,7 +22,9 @@ export function AppShell() {
   const { pathname } = useLocation();
   const { user, profile, isAdmin, signOut } = useAuth();
 
-  // Hide the shell on full-screen chat where the composer needs the bottom space.
+  // The chat conversation route uses a full-viewport layout for the composer,
+  // so it bypasses the shell entirely. Every other authenticated page gets
+  // the sticky top bar, desktop sidebar and mobile bottom nav.
   const isChat = /^\/community\/[^/]+/.test(pathname);
 
   if (isChat) {
