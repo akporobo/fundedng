@@ -8,12 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira } from "@/lib/utils";
-import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Download, Smartphone, Share, Plus as PlusIcon } from "lucide-react";
+import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers } from "lucide-react";
 import { toast } from "sonner";
-import { useInstallPrompt } from "@/components/PWAInstallButton";
 import { Brand } from "@/components/site/Brand";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
-import { PAYSTACK_PUBLIC_KEY } from "@/lib/paystack-config";
 import { NotificationBell } from "@/components/site/NotificationBell";
 import { AppSidebar, MobileBottomNav } from "@/components/site/AppShell";
 
@@ -31,14 +29,12 @@ function BuyPage() {
   const { isAuthenticated, user, session } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const { available: installAvailable, install: installPwa, isIOS, isStandalone } = useInstallPrompt();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [selected, setSelected] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
-  const [postPurchaseOpen, setPostPurchaseOpen] = useState(false);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -69,104 +65,42 @@ function BuyPage() {
       setError("You need to be signed in with an email.");
       return;
     }
-    const PaystackPop = (window as unknown as { PaystackPop?: { setup: (opts: Record<string, unknown>) => { openIframe: () => void } } }).PaystackPop;
-    const publicKey = PAYSTACK_PUBLIC_KEY;
-    if (!PaystackPop) {
-      setError("Payment system is still loading. Please try again in a moment.");
-      return;
-    }
-    if (!publicKey) {
-      setError("Payment is not configured yet.");
+    if (!session?.access_token) {
+      setError("Your session expired. Please sign in again.");
       return;
     }
 
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
 
-    let paymentHandled = false;
-    const verifyPayment = async (transaction: { reference: string }) => {
-      if (paymentHandled) return;
-      paymentHandled = true;
-      // Verify payment SERVER-SIDE before trusting the browser callback.
-      // The browser cannot prove a payment really happened — Paystack must.
-      if (!session?.access_token) {
+    try {
+      // Initialize the transaction server-side and redirect to Paystack's
+      // hosted checkout page. After payment, Paystack redirects the user to
+      // /payment/callback, which calls /api/verify-payment to finalize.
+      const res = await fetch("/api/initialize-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ challenge_id: selected.id }),
+      });
+      const result = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        authorization_url?: string;
+        error?: string;
+      };
+      if (!res.ok || !result.ok || !result.authorization_url) {
         setLoading(false);
-        setError("Your session expired. Please sign in again.");
+        setError(result.error ?? "Could not start payment");
         return;
       }
-      try {
-        const res = await fetch("/api/verify-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            reference: transaction.reference,
-            challenge_id: selected.id,
-          }),
-        });
-        const result = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          order_id?: string;
-          error?: string;
-        };
-        if (!res.ok || !result.ok || !result.order_id) {
-          setLoading(false);
-          setError(result.error ?? "Payment verification failed");
-          return;
-        }
-
-        toast.success("Payment confirmed! Your account is being prepared — you'll get a notification within minutes.");
-
-        fetch("/api/notify-new-purchase", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order_id: result.order_id }),
-          keepalive: true,
-        }).catch(() => {});
-
-        await new Promise((r) => setTimeout(r, 250));
-        setLoading(false);
-        setConfirmOpen(false);
-        setPostPurchaseOpen(true);
-      } catch (e) {
-        setLoading(false);
-        setError(e instanceof Error ? e.message : "Payment verification failed");
-      }
-    };
-
-    const handlePaymentClose = () => {
-      if (paymentHandled) return;
+      toast.message("Redirecting to Paystack…");
+      window.location.href = result.authorization_url;
+    } catch (e) {
       setLoading(false);
-      toast.info("Payment cancelled.");
-    };
-
-    const handler = PaystackPop.setup({
-      key: publicKey,
-      email: user.email,
-      amount: selected.price_naira * 100, // amount in kobo
-      currency: "NGN",
-      ref: `FNG-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
-      metadata: {
-        challenge_id: selected.id,
-        challenge_name: selected.name,
-        user_id: user.id,
-      },
-      callback: verifyPayment,
-      onSuccess: verifyPayment,
-      onClose: handlePaymentClose,
-      onCancel: handlePaymentClose,
-    });
-
-    setConfirmOpen(false);
-    window.setTimeout(() => {
-      try {
-        handler.openIframe();
-      } catch (e) {
-        setLoading(false);
-        setError(e instanceof Error ? e.message : "Payment could not be opened");
-      }
-    }, 0);
+      setError(e instanceof Error ? e.message : "Could not start payment");
+    }
   };
 
   return (
