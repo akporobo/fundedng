@@ -26,7 +26,7 @@ interface Challenge {
 }
 
 function BuyPage() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const { available: installAvailable, install: installPwa, isIOS, isStandalone } = useInstallPrompt();
@@ -37,11 +37,6 @@ function BuyPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [postPurchaseOpen, setPostPurchaseOpen] = useState(false);
-
-  // Gate: /buy requires auth — redirect unauthenticated visitors to register.
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) navigate({ to: "/auth/register" });
-  }, [isLoading, isAuthenticated, navigate]);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
