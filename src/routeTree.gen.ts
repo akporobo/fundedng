@@ -14,6 +14,7 @@ import { Route as BuyRouteImport } from './routes/buy'
 import { Route as AgreementRouteImport } from './routes/agreement'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PaymentCallbackRouteImport } from './routes/payment.callback'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
@@ -21,6 +22,7 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-pas
 import { Route as ApiVerifyPaymentRouteImport } from './routes/api.verify-payment'
 import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
 import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-new-purchase'
+import { Route as ApiInitializePaymentRouteImport } from './routes/api.initialize-payment'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -53,6 +55,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentCallbackRoute = PaymentCallbackRouteImport.update({
+  id: '/payment/callback',
+  path: '/payment/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
@@ -88,6 +95,11 @@ const ApiProvisionAccountRoute = ApiProvisionAccountRouteImport.update({
 const ApiNotifyNewPurchaseRoute = ApiNotifyNewPurchaseRouteImport.update({
   id: '/api/notify-new-purchase',
   path: '/api/notify-new-purchase',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInitializePaymentRoute = ApiInitializePaymentRouteImport.update({
+  id: '/api/initialize-payment',
+  path: '/api/initialize-payment',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
@@ -148,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
@@ -155,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/payment/callback': typeof PaymentCallbackRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
@@ -169,6 +183,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
@@ -176,6 +191,7 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/payment/callback': typeof PaymentCallbackRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
@@ -193,6 +209,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
@@ -200,6 +217,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/payment/callback': typeof PaymentCallbackRoute
   '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
@@ -217,6 +235,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
+    | '/api/initialize-payment'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/api/verify-payment'
@@ -224,6 +243,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/auth/reset-password'
+    | '/payment/callback'
     | '/community/$slug'
     | '/api/public/push-event'
     | '/community/'
@@ -238,6 +258,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/api/deliver-account'
+    | '/api/initialize-payment'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/api/verify-payment'
@@ -245,6 +266,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/auth/reset-password'
+    | '/payment/callback'
     | '/community/$slug'
     | '/api/public/push-event'
     | '/community'
@@ -261,6 +283,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
     | '/api/deliver-account'
+    | '/api/initialize-payment'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/api/verify-payment'
@@ -268,6 +291,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/auth/reset-password'
+    | '/payment/callback'
     | '/_authenticated/community/$slug'
     | '/api/public/push-event'
     | '/_authenticated/community/'
@@ -281,6 +305,7 @@ export interface RootRouteChildren {
   BuyRoute: typeof BuyRoute
   RulesRoute: typeof RulesRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
+  ApiInitializePaymentRoute: typeof ApiInitializePaymentRoute
   ApiNotifyNewPurchaseRoute: typeof ApiNotifyNewPurchaseRoute
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
   ApiVerifyPaymentRoute: typeof ApiVerifyPaymentRoute
@@ -288,6 +313,7 @@ export interface RootRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
+  PaymentCallbackRoute: typeof PaymentCallbackRoute
   ApiPublicPushEventRoute: typeof ApiPublicPushEventRoute
   ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
 }
@@ -327,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment/callback': {
+      id: '/payment/callback'
+      path: '/payment/callback'
+      fullPath: '/payment/callback'
+      preLoaderRoute: typeof PaymentCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/reset-password': {
@@ -376,6 +409,13 @@ declare module '@tanstack/react-router' {
       path: '/api/notify-new-purchase'
       fullPath: '/api/notify-new-purchase'
       preLoaderRoute: typeof ApiNotifyNewPurchaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/initialize-payment': {
+      id: '/api/initialize-payment'
+      path: '/api/initialize-payment'
+      fullPath: '/api/initialize-payment'
+      preLoaderRoute: typeof ApiInitializePaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/deliver-account': {
@@ -485,6 +525,7 @@ const rootRouteChildren: RootRouteChildren = {
   BuyRoute: BuyRoute,
   RulesRoute: RulesRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
+  ApiInitializePaymentRoute: ApiInitializePaymentRoute,
   ApiNotifyNewPurchaseRoute: ApiNotifyNewPurchaseRoute,
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
   ApiVerifyPaymentRoute: ApiVerifyPaymentRoute,
@@ -492,6 +533,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
+  PaymentCallbackRoute: PaymentCallbackRoute,
   ApiPublicPushEventRoute: ApiPublicPushEventRoute,
   ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,
 }
