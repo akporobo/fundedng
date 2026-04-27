@@ -199,11 +199,26 @@ function DashboardPage() {
     profitPct >= target;
   const phase2Requested = !!selected?.phase2_requested_at;
 
+  const canRequestFunded =
+    !!selected &&
+    selected.status === "active" &&
+    selected.current_phase >= 2 &&
+    profitPct >= target;
+  const fundedRequested = !!selected?.funded_requested_at;
+
   const requestPhase2 = async () => {
     if (!selected) return;
     const { error } = await supabase.rpc("request_phase2", { _account_id: selected.id });
     if (error) return toast.error(error.message);
     toast.success("Phase 2 approval requested. An admin will review shortly.");
+    load();
+  };
+
+  const requestFunded = async () => {
+    if (!selected) return;
+    const { error } = await supabase.rpc("request_funded", { _account_id: selected.id });
+    if (error) return toast.error(error.message);
+    toast.success("Funded approval requested. An admin will review shortly.");
     load();
   };
 
