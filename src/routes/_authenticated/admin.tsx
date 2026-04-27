@@ -379,6 +379,7 @@ function AdminConsole() {
       status: "funded",
       phase2_passed_at: new Date().toISOString(),
       funded_at: new Date().toISOString(),
+      funded_requested_at: null,
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
     toast.success("Account funded");
