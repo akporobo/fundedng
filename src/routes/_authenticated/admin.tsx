@@ -170,7 +170,7 @@ function AdminConsole() {
         ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds)
         : Promise.resolve({ data: [] as any[] }),
       challengeIds.length
-        ? supabase.from("challenges").select("id, name, account_size").in("id", challengeIds)
+        ? supabase.from("challenges").select("id, name, account_size, profit_target_percent").in("id", challengeIds)
         : Promise.resolve({ data: [] as any[] }),
       orderIds.length
         ? supabase.from("orders").select("id, status").in("id", orderIds)
@@ -201,6 +201,12 @@ function AdminConsole() {
       orders: ordMap.get(r.order_id) ?? null,
     }));
 
+    // Surface accounts that have requested phase 2 first, then active.
+    accList.sort((a: any, b: any) => {
+      const ar = a.phase2_requested_at && a.status === "active" && a.current_phase < 2 ? 1 : 0;
+      const br = b.phase2_requested_at && b.status === "active" && b.current_phase < 2 ? 1 : 0;
+      return br - ar;
+    });
     setAccounts(accList);
     setPayouts(poList);
     setPendingRequests(hydrated);
@@ -344,6 +350,7 @@ function AdminConsole() {
       current_phase: 2,
       current_equity: a.starting_balance,
       phase1_passed_at: new Date().toISOString(),
+      phase2_requested_at: null,
       status: "active",
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
@@ -532,9 +539,32 @@ function AdminConsole() {
                   <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
                   <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
                   <div className="flex flex-wrap gap-1">
-                    {a.current_phase < 2 && a.status === "active" && (
-                      <Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button>
-                    )}
+                    {(() => {
+                      if (a.current_phase >= 2 || a.status !== "active") return null;
+                      const target = Number(a.challenges?.profit_target_percent ?? 10);
+                      const equity = Number(a.current_equity ?? a.starting_balance);
+                      const required = Number(a.starting_balance) * (1 + target / 100);
+                      const hit = equity >= required;
+                      const requested = !!a.phase2_requested_at;
+                      return (
+                        <>
+                          {requested && (
+                            <Badge variant="outline" className="font-display border-warning/40 text-warning">
+                              PHASE 2 REQUESTED
+                            </Badge>
+                          )}
+                          {hit ? (
+                            <Button size="sm" onClick={() => approvePhase2(a)}>
+                              Phase 1 passed → Approve Phase 2
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">
+                              Needs {formatNaira(Math.ceil(required))} equity ({target}% target)
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                     {a.current_phase >= 2 && a.status === "active" && (
                       <Button size="sm" onClick={() => approveFunded(a)}>Approve Funded</Button>
                     )}
