@@ -22,10 +22,14 @@ export function AppShell() {
   const { pathname } = useLocation();
   const { user, profile, isAdmin, signOut } = useAuth();
 
-  // On the full-screen chat route the composer lives at the bottom, so we
-  // hide the mobile bottom-nav there. The top bar + desktop sidebar stay
-  // visible for navigation consistency.
+  // The chat conversation route uses a full-viewport layout for the composer,
+  // so it bypasses the shell entirely. Every other authenticated page gets
+  // the sticky top bar, desktop sidebar and mobile bottom nav.
   const isChat = /^\/community\/[^/]+/.test(pathname);
+
+  if (isChat) {
+    return <Outlet />;
+  }
 
   const initials = (profile?.full_name || user?.email || "U")
     .split(" ")
@@ -110,18 +114,13 @@ export function AppShell() {
           <NotificationBell />
         </header>
 
-        <main className={cn(isChat ? "pb-0" : "pb-24 md:pb-0")}>
+        <main className="pb-24 md:pb-0">
           <Outlet />
         </main>
       </div>
 
       {/* Mobile bottom nav */}
-      <nav
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-xl md:hidden",
-          isChat && "hidden",
-        )}
-      >
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-xl md:hidden">
         <div className="mx-auto flex h-16 max-w-lg items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
           {NAV.map((item) => {
             const active = item.match(pathname);
