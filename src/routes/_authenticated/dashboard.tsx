@@ -26,6 +26,7 @@ interface Account {
   starting_balance: number; current_equity: number | null; current_phase: number;
   status: "active" | "breached" | "passed" | "funded";
   challenge_id: string;
+  phase2_requested_at: string | null;
   challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
 interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; }
