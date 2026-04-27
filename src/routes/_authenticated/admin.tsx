@@ -201,6 +201,12 @@ function AdminConsole() {
       orders: ordMap.get(r.order_id) ?? null,
     }));
 
+    // Surface accounts that have requested phase 2 first, then active.
+    accList.sort((a: any, b: any) => {
+      const ar = a.phase2_requested_at && a.status === "active" && a.current_phase < 2 ? 1 : 0;
+      const br = b.phase2_requested_at && b.status === "active" && b.current_phase < 2 ? 1 : 0;
+      return br - ar;
+    });
     setAccounts(accList);
     setPayouts(poList);
     setPendingRequests(hydrated);
