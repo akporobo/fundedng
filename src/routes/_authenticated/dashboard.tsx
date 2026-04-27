@@ -230,7 +230,7 @@ function DashboardPage() {
                 </p>
                 <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
                   {[
-                    "Instant MT5 demo account on Exness",
+                    "Instant FundedNG MT5 evaluation account",
                     "Just 3 trading rules — 20% drawdown, trade every 7 days, 3-min minimum hold",
                     "80% profit split, paid in Naira",
                     "Full equity & drawdown tracking on this dashboard",
