@@ -422,14 +422,29 @@ function AdminConsole() {
 
   const approveFunded = async (a: any) => {
     if (a.status === "funded") return toast.error("Already funded");
-    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}?`)) return;
+    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
     const { error } = await supabase.from("trader_accounts").update({
       status: "funded",
+      current_equity: a.starting_balance,
       phase2_passed_at: new Date().toISOString(),
       funded_at: new Date().toISOString(),
       funded_requested_at: null,
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
+    // Reset snapshot baseline so the funded account chart restarts from starting balance.
+    await supabase.from("account_snapshots").insert({
+      trader_account_id: a.id,
+      equity: a.starting_balance,
+      balance: a.starting_balance,
+      profit: 0,
+      drawdown_percent: 0,
+    } as never);
+    await supabase.from("notifications").insert({
+      user_id: a.user_id,
+      title: "🏆 You're Funded!",
+      message: "Congratulations — your account is now funded. Equity has been reset to the starting balance. Start trading and request payouts.",
+      type: "success",
+    } as never);
     toast.success("Account funded");
     load();
   };
