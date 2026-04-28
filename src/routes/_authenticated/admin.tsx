@@ -58,6 +58,10 @@ function AdminConsole() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
   const [replySaving, setReplySaving] = useState<string | null>(null);
+  // Affiliate management
+  const [affPayouts, setAffPayouts] = useState<any[]>([]);
+  const [freeClaims, setFreeClaims] = useState<any[]>([]);
+  const [affSaving, setAffSaving] = useState<string | null>(null);
   // Manual equity input per account row (admin-only)
   const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
