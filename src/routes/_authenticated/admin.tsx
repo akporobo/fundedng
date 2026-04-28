@@ -505,6 +505,14 @@ function AdminConsole() {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="affiliate">
+                Affiliate
+                {(affPayouts.filter((p) => p.status === "pending").length + freeClaims.filter((c) => c.status === "pending").length) > 0 && (
+                  <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
+                    {affPayouts.filter((p) => p.status === "pending").length + freeClaims.filter((c) => c.status === "pending").length}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
 
