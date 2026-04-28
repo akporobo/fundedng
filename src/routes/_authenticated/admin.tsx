@@ -269,6 +269,46 @@ function AdminConsole() {
 
   useEffect(() => { loadTickets(); }, []);
 
+  const loadAffiliate = async () => {
+    const [pRes, cRes] = await Promise.all([
+      supabase.from("affiliate_payouts").select("*").order("requested_at", { ascending: false }),
+      supabase.from("affiliate_free_account_claims").select("*").order("created_at", { ascending: false }),
+    ]);
+    const payRows = (pRes.data ?? []) as any[];
+    const claimRows = (cRes.data ?? []) as any[];
+    const userIds = Array.from(new Set([
+      ...payRows.map((r) => r.user_id),
+      ...claimRows.map((r) => r.user_id),
+    ]));
+    const profMap = new Map<string, any>();
+    if (userIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles").select("id, full_name").in("id", userIds);
+      (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
+    }
+    setAffPayouts(payRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+    setFreeClaims(claimRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+  };
+  useEffect(() => { loadAffiliate(); }, []);
+
+  const setAffPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
+    setAffSaving(id);
+    const { error } = await supabase.from("affiliate_payouts").update({ status } as never).eq("id", id);
+    setAffSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${status}`);
+    loadAffiliate();
+  };
+
+  const setFreeClaimStatus = async (id: string, status: "fulfilled" | "rejected") => {
+    setAffSaving(id);
+    const { error } = await supabase.from("affiliate_free_account_claims").update({ status } as never).eq("id", id);
+    setAffSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${status}`);
+    loadAffiliate();
+  };
+
   const sendReply = async (t: any) => {
     const reply = (replyDraft[t.id] ?? "").trim();
     if (!reply) return toast.error("Type a reply first");
