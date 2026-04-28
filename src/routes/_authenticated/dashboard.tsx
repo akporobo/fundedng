@@ -145,7 +145,7 @@ function DashboardPage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
-  const refresh = async () => {
+  const refreshDashboard = async () => {
     await load();
     if (selected) {
       const { data } = await supabase
@@ -244,7 +244,7 @@ function DashboardPage() {
             <p className="text-sm text-muted-foreground">Welcome back, {profile?.full_name || user?.email}</p>
           </div>
           <div className="flex gap-2">
-            <RefreshButton onRefresh={refresh} />
+            <RefreshButton onRefresh={refreshDashboard} />
             {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
               <Button
                 size="sm"
