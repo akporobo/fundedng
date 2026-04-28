@@ -58,6 +58,10 @@ function AdminConsole() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
   const [replySaving, setReplySaving] = useState<string | null>(null);
+  // Affiliate management
+  const [affPayouts, setAffPayouts] = useState<any[]>([]);
+  const [freeClaims, setFreeClaims] = useState<any[]>([]);
+  const [affSaving, setAffSaving] = useState<string | null>(null);
   // Manual equity input per account row (admin-only)
   const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
@@ -265,6 +269,46 @@ function AdminConsole() {
 
   useEffect(() => { loadTickets(); }, []);
 
+  const loadAffiliate = async () => {
+    const [pRes, cRes] = await Promise.all([
+      supabase.from("affiliate_payouts").select("*").order("requested_at", { ascending: false }),
+      supabase.from("affiliate_free_account_claims").select("*").order("created_at", { ascending: false }),
+    ]);
+    const payRows = (pRes.data ?? []) as any[];
+    const claimRows = (cRes.data ?? []) as any[];
+    const userIds = Array.from(new Set([
+      ...payRows.map((r) => r.user_id),
+      ...claimRows.map((r) => r.user_id),
+    ]));
+    const profMap = new Map<string, any>();
+    if (userIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles").select("id, full_name").in("id", userIds);
+      (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
+    }
+    setAffPayouts(payRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+    setFreeClaims(claimRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+  };
+  useEffect(() => { loadAffiliate(); }, []);
+
+  const setAffPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
+    setAffSaving(id);
+    const { error } = await supabase.from("affiliate_payouts").update({ status } as never).eq("id", id);
+    setAffSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${status}`);
+    loadAffiliate();
+  };
+
+  const setFreeClaimStatus = async (id: string, status: "fulfilled" | "rejected") => {
+    setAffSaving(id);
+    const { error } = await supabase.from("affiliate_free_account_claims").update({ status } as never).eq("id", id);
+    setAffSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${status}`);
+    loadAffiliate();
+  };
+
   const sendReply = async (t: any) => {
     const reply = (replyDraft[t.id] ?? "").trim();
     if (!reply) return toast.error("Type a reply first");
@@ -458,6 +502,14 @@ function AdminConsole() {
                 {tickets.filter((t) => t.status === "open").length > 0 && (
                   <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
                     {tickets.filter((t) => t.status === "open").length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="affiliate">
+                Affiliate
+                {(affPayouts.filter((p) => p.status === "pending").length + freeClaims.filter((c) => c.status === "pending").length) > 0 && (
+                  <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
+                    {affPayouts.filter((p) => p.status === "pending").length + freeClaims.filter((c) => c.status === "pending").length}
                   </span>
                 )}
               </TabsTrigger>
@@ -792,6 +844,79 @@ function AdminConsole() {
                 </div>
               </div>
             ))}
+          </TabsContent>
+
+          <TabsContent value="affiliate" className="mt-6 space-y-6">
+            <div>
+              <h3 className="font-display text-lg font-bold">Payout Requests</h3>
+              <div className="mt-3 space-y-3">
+                {affPayouts.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                    No affiliate payout requests yet.
+                  </div>
+                ) : affPayouts.map((p) => {
+                  const bd = p.bank_details ?? {};
+                  return (
+                    <div key={p.id} className="rounded-xl border border-border bg-card p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="font-semibold">{p.profiles?.full_name ?? "—"} · {formatNaira(p.amount_naira)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Requested {new Date(p.requested_at).toLocaleString()}
+                          </div>
+                          {bd.account_number && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {bd.bank_name} · {bd.account_number} · {bd.account_name}
+                            </div>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="capitalize">{p.status}</Badge>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {p.status === "pending" && (
+                          <>
+                            <Button size="sm" onClick={() => setAffPayoutStatus(p.id, "approved")} disabled={affSaving === p.id}>Approve</Button>
+                            <Button size="sm" variant="outline" onClick={() => setAffPayoutStatus(p.id, "rejected")} disabled={affSaving === p.id}>Reject</Button>
+                          </>
+                        )}
+                        {p.status === "approved" && (
+                          <Button size="sm" onClick={() => setAffPayoutStatus(p.id, "paid")} disabled={affSaving === p.id}>Mark as paid</Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-display text-lg font-bold">Free Account Claims</h3>
+              <div className="mt-3 space-y-3">
+                {freeClaims.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                    No free-account claims yet.
+                  </div>
+                ) : freeClaims.map((c) => (
+                  <div key={c.id} className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">{c.profiles?.full_name ?? "—"} · Free {formatNaira(c.account_size)} challenge</div>
+                        <div className="text-xs text-muted-foreground">
+                          Claimed {new Date(c.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="capitalize">{c.status}</Badge>
+                    </div>
+                    {c.status === "pending" && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button size="sm" onClick={() => setFreeClaimStatus(c.id, "fulfilled")} disabled={affSaving === c.id}>Mark fulfilled</Button>
+                        <Button size="sm" variant="outline" onClick={() => setFreeClaimStatus(c.id, "rejected")} disabled={affSaving === c.id}>Reject</Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Home, PlusCircle, Users, User, ShieldCheck, LogOut } from "lucide-react";
+import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift } from "lucide-react";
 import { Brand } from "./Brand";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: Home, match: (p: string) => p.startsWith("/dashboard") },
   { to: "/buy", label: "Buy", icon: PlusCircle, match: (p: string) => p.startsWith("/buy") },
+  { to: "/affiliate", label: "Affiliate", icon: Gift, match: (p: string) => p.startsWith("/affiliate") },
   { to: "/community", label: "Community", icon: Users, match: (p: string) => p.startsWith("/community") },
   { to: "/profile", label: "Profile", icon: User, match: (p: string) => p.startsWith("/profile") },
 ] as const;

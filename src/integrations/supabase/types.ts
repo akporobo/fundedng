@@ -100,6 +100,138 @@ export type Database = {
           },
         ]
       }
+      affiliate_commissions: {
+        Row: {
+          affiliate_user_id: string
+          amount_naira: number
+          created_at: string
+          id: string
+          order_id: string
+          referred_user_id: string
+          status: string
+        }
+        Insert: {
+          affiliate_user_id: string
+          amount_naira: number
+          created_at?: string
+          id?: string
+          order_id: string
+          referred_user_id: string
+          status?: string
+        }
+        Update: {
+          affiliate_user_id?: string
+          amount_naira?: number
+          created_at?: string
+          id?: string
+          order_id?: string
+          referred_user_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      affiliate_free_account_claims: {
+        Row: {
+          account_size: number
+          created_at: string
+          id: string
+          status: string
+          trader_account_id: string | null
+          user_id: string
+        }
+        Insert: {
+          account_size?: number
+          created_at?: string
+          id?: string
+          status?: string
+          trader_account_id?: string | null
+          user_id: string
+        }
+        Update: {
+          account_size?: number
+          created_at?: string
+          id?: string
+          status?: string
+          trader_account_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      affiliate_payouts: {
+        Row: {
+          admin_note: string | null
+          amount_naira: number
+          approved_at: string | null
+          bank_details: Json | null
+          created_at: string
+          id: string
+          paid_at: string | null
+          requested_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount_naira: number
+          approved_at?: string | null
+          bank_details?: Json | null
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          requested_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount_naira?: number
+          approved_at?: string | null
+          bank_details?: Json | null
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      affiliate_profiles: {
+        Row: {
+          code: string
+          created_at: string
+          free_accounts_claimed: number
+          free_accounts_credited: number
+          id: string
+          total_earned_naira: number
+          total_paid_naira: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          free_accounts_claimed?: number
+          free_accounts_credited?: number
+          id?: string
+          total_earned_naira?: number
+          total_paid_naira?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          free_accounts_claimed?: number
+          free_accounts_credited?: number
+          id?: string
+          total_earned_naira?: number
+          total_paid_naira?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_config: {
         Row: {
           key: string
@@ -540,6 +672,7 @@ export type Database = {
           id: string
           kyc_verified: boolean
           phone: string | null
+          referred_by: string | null
           updated_at: string
         }
         Insert: {
@@ -551,6 +684,7 @@ export type Database = {
           id: string
           kyc_verified?: boolean
           phone?: string | null
+          referred_by?: string | null
           updated_at?: string
         }
         Update: {
@@ -562,6 +696,7 @@ export type Database = {
           id?: string
           kyc_verified?: boolean
           phone?: string | null
+          referred_by?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -596,6 +731,30 @@ export type Database = {
           updated_at?: string
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          first_paid_at: string | null
+          id: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string
+          first_paid_at?: string | null
+          id?: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string
+          first_paid_at?: string | null
+          id?: string
+          referred_user_id?: string
+          referrer_id?: string
         }
         Relationships: []
       }
@@ -780,7 +939,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attach_referral: { Args: { _code: string }; Returns: boolean }
       claim_admin_if_unclaimed: { Args: never; Returns: boolean }
+      claim_free_account: { Args: never; Returns: string }
+      generate_affiliate_code: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -799,6 +961,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      request_affiliate_payout: { Args: { _amount: number }; Returns: string }
       request_funded: { Args: { _account_id: string }; Returns: boolean }
       request_phase2: { Args: { _account_id: string }; Returns: boolean }
       seed_demo_data: { Args: never; Returns: Json }
