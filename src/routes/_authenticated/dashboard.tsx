@@ -30,7 +30,7 @@ interface Account {
   funded_requested_at: string | null;
   challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
-interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; }
+interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; trader_account_id?: string; }
 interface Notification { id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; }
 
 function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
