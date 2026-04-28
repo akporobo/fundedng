@@ -845,6 +845,79 @@ function AdminConsole() {
               </div>
             ))}
           </TabsContent>
+
+          <TabsContent value="affiliate" className="mt-6 space-y-6">
+            <div>
+              <h3 className="font-display text-lg font-bold">Payout Requests</h3>
+              <div className="mt-3 space-y-3">
+                {affPayouts.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                    No affiliate payout requests yet.
+                  </div>
+                ) : affPayouts.map((p) => {
+                  const bd = p.bank_details ?? {};
+                  return (
+                    <div key={p.id} className="rounded-xl border border-border bg-card p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="font-semibold">{p.profiles?.full_name ?? "—"} · {formatNaira(p.amount_naira)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Requested {new Date(p.requested_at).toLocaleString()}
+                          </div>
+                          {bd.account_number && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {bd.bank_name} · {bd.account_number} · {bd.account_name}
+                            </div>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="capitalize">{p.status}</Badge>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {p.status === "pending" && (
+                          <>
+                            <Button size="sm" onClick={() => setAffPayoutStatus(p.id, "approved")} disabled={affSaving === p.id}>Approve</Button>
+                            <Button size="sm" variant="outline" onClick={() => setAffPayoutStatus(p.id, "rejected")} disabled={affSaving === p.id}>Reject</Button>
+                          </>
+                        )}
+                        {p.status === "approved" && (
+                          <Button size="sm" onClick={() => setAffPayoutStatus(p.id, "paid")} disabled={affSaving === p.id}>Mark as paid</Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-display text-lg font-bold">Free Account Claims</h3>
+              <div className="mt-3 space-y-3">
+                {freeClaims.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                    No free-account claims yet.
+                  </div>
+                ) : freeClaims.map((c) => (
+                  <div key={c.id} className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">{c.profiles?.full_name ?? "—"} · Free {formatNaira(c.account_size)} challenge</div>
+                        <div className="text-xs text-muted-foreground">
+                          Claimed {new Date(c.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="capitalize">{c.status}</Badge>
+                    </div>
+                    {c.status === "pending" && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button size="sm" onClick={() => setFreeClaimStatus(c.id, "fulfilled")} disabled={affSaving === c.id}>Mark fulfilled</Button>
+                        <Button size="sm" variant="outline" onClick={() => setFreeClaimStatus(c.id, "rejected")} disabled={affSaving === c.id}>Reject</Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
