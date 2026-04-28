@@ -18,6 +18,7 @@ import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -144,6 +145,18 @@ function DashboardPage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
+  const refresh = async () => {
+    await load();
+    if (selected) {
+      const { data } = await supabase
+        .from("account_snapshots")
+        .select("snapshot_time, equity")
+        .eq("trader_account_id", selected.id)
+        .order("snapshot_time");
+      setSnapshots((data as { snapshot_time: string; equity: number }[]) ?? []);
+    }
+    toast.success("Dashboard updated");
+  };
   useEffect(() => {
     if (!selected) return;
     supabase.from("account_snapshots").select("snapshot_time, equity").eq("trader_account_id", selected.id).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number }[]) ?? []));
@@ -231,6 +244,7 @@ function DashboardPage() {
             <p className="text-sm text-muted-foreground">Welcome back, {profile?.full_name || user?.email}</p>
           </div>
           <div className="flex gap-2">
+            <RefreshButton onRefresh={refresh} />
             {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
               <Button
                 size="sm"
