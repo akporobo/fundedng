@@ -44,7 +44,10 @@ export function NewUserInstallPrompt() {
       /* ignore */
     }
 
-    if (!isNew) return;
+    // Show if explicitly flagged as new OR if we've never shown the prompt
+    // before on this device (covers email-confirmation flow where the
+    // localStorage flag may have been set on a different device/session).
+    if (!isNew && alreadyShown) return;
     if (alreadyShown) {
       // Cleanup stale new-user flag — they've already seen the prompt.
       try { localStorage.removeItem(NEW_USER_FLAG); } catch { /* ignore */ }
