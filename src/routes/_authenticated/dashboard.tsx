@@ -466,14 +466,20 @@ function DashboardPage() {
                   {(selected.status === "passed" || selected.status === "funded") && (
                     <>
                       {(() => {
-                        const lastPayout = payouts.find((p) => ["approved", "paid"].includes(p.status));
-                        const anchorIso = lastPayout?.created_at ?? (selected as Account & { funded_at?: string | null }).funded_at;
-                        const anchor = anchorIso ? new Date(anchorIso) : new Date();
-                        const next = new Date(anchor.getTime() + 7 * 86400000);
-                        const ready = next.getTime() <= Date.now();
+                        // Account-scoped: only count payouts for THIS funded account.
+                        const lastPayout = payouts.find(
+                          (p) => ["approved", "paid"].includes(p.status) &&
+                                 (p as Payout & { trader_account_id?: string }).trader_account_id === selected.id
+                        );
+                        // Cooldown only kicks in AFTER the first approved/paid payout.
+                        // Before that, the trader can request immediately (assuming KYC verified + profit).
+                        const next = lastPayout
+                          ? new Date(new Date(lastPayout.created_at).getTime() + 7 * 86400000)
+                          : null;
+                        const ready = !next || next.getTime() <= Date.now();
                         return (
                           <>
-                            <PayoutCountdown nextPayoutDate={next} />
+                            {next && <PayoutCountdown nextPayoutDate={next} />}
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
                               <p className="mt-1 text-sm text-muted-foreground">
