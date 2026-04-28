@@ -2,6 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import { AuthProvider } from "@/lib/auth";
 import { NotificationsProvider } from "@/lib/notifications";
 import { Toaster } from "@/components/ui/sonner";
+import { ReferralCapture } from "@/components/ReferralCapture";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -84,6 +85,7 @@ function RootComponent() {
   return (
     <AuthProvider>
       <NotificationsProvider>
+        <ReferralCapture />
         <Outlet />
         <Toaster />
       </NotificationsProvider>
