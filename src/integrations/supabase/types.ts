@@ -940,6 +940,7 @@ export type Database = {
     }
     Functions: {
       attach_referral: { Args: { _code: string }; Returns: boolean }
+      auto_pay_approved_affiliate_payouts: { Args: never; Returns: number }
       claim_admin_if_unclaimed: { Args: never; Returns: boolean }
       claim_free_account: { Args: never; Returns: string }
       generate_affiliate_code: { Args: never; Returns: string }
