@@ -14,6 +14,7 @@ import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -501,7 +502,10 @@ function AdminConsole() {
   return (
     <>
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        <h1 className="font-display text-3xl font-bold">Admin Console</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-3xl font-bold">Admin Console</h1>
+          <RefreshButton onRefresh={async () => { await load(); toast.success("Admin data updated"); }} />
+        </div>
         <Tabs defaultValue="stats" className="mt-6">
           <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
             <TabsList className="w-max min-w-full">
