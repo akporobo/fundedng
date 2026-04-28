@@ -18,6 +18,7 @@ import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -30,7 +31,7 @@ interface Account {
   funded_requested_at: string | null;
   challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
-interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; }
+interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; trader_account_id?: string; }
 interface Notification { id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; }
 
 function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
@@ -144,6 +145,18 @@ function DashboardPage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
+  const refreshDashboard = async () => {
+    await load();
+    if (selected) {
+      const { data } = await supabase
+        .from("account_snapshots")
+        .select("snapshot_time, equity")
+        .eq("trader_account_id", selected.id)
+        .order("snapshot_time");
+      setSnapshots((data as { snapshot_time: string; equity: number }[]) ?? []);
+    }
+    toast.success("Dashboard updated");
+  };
   useEffect(() => {
     if (!selected) return;
     supabase.from("account_snapshots").select("snapshot_time, equity").eq("trader_account_id", selected.id).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number }[]) ?? []));
@@ -231,6 +244,7 @@ function DashboardPage() {
             <p className="text-sm text-muted-foreground">Welcome back, {profile?.full_name || user?.email}</p>
           </div>
           <div className="flex gap-2">
+            <RefreshButton onRefresh={refreshDashboard} />
             {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
               <Button
                 size="sm"
@@ -466,14 +480,20 @@ function DashboardPage() {
                   {(selected.status === "passed" || selected.status === "funded") && (
                     <>
                       {(() => {
-                        const lastPayout = payouts.find((p) => ["approved", "paid"].includes(p.status));
-                        const anchorIso = lastPayout?.created_at ?? (selected as Account & { funded_at?: string | null }).funded_at;
-                        const anchor = anchorIso ? new Date(anchorIso) : new Date();
-                        const next = new Date(anchor.getTime() + 7 * 86400000);
-                        const ready = next.getTime() <= Date.now();
+                        // Account-scoped: only count payouts for THIS funded account.
+                        const lastPayout = payouts.find(
+                          (p) => ["approved", "paid"].includes(p.status) &&
+                                 (p as Payout & { trader_account_id?: string }).trader_account_id === selected.id
+                        );
+                        // Cooldown only kicks in AFTER the first approved/paid payout.
+                        // Before that, the trader can request immediately (assuming KYC verified + profit).
+                        const next = lastPayout
+                          ? new Date(new Date(lastPayout.created_at).getTime() + 7 * 86400000)
+                          : null;
+                        const ready = !next || next.getTime() <= Date.now();
                         return (
                           <>
-                            <PayoutCountdown nextPayoutDate={next} />
+                            {next && <PayoutCountdown nextPayoutDate={next} />}
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
                               <p className="mt-1 text-sm text-muted-foreground">

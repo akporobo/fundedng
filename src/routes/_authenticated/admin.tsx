@@ -14,6 +14,7 @@ import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -422,14 +423,29 @@ function AdminConsole() {
 
   const approveFunded = async (a: any) => {
     if (a.status === "funded") return toast.error("Already funded");
-    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}?`)) return;
+    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
     const { error } = await supabase.from("trader_accounts").update({
       status: "funded",
+      current_equity: a.starting_balance,
       phase2_passed_at: new Date().toISOString(),
       funded_at: new Date().toISOString(),
       funded_requested_at: null,
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
+    // Reset snapshot baseline so the funded account chart restarts from starting balance.
+    await supabase.from("account_snapshots").insert({
+      trader_account_id: a.id,
+      equity: a.starting_balance,
+      balance: a.starting_balance,
+      profit: 0,
+      drawdown_percent: 0,
+    } as never);
+    await supabase.from("notifications").insert({
+      user_id: a.user_id,
+      title: "🏆 You're Funded!",
+      message: "Congratulations — your account is now funded. Equity has been reset to the starting balance. Start trading and request payouts.",
+      type: "success",
+    } as never);
     toast.success("Account funded");
     load();
   };
@@ -486,7 +502,10 @@ function AdminConsole() {
   return (
     <>
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        <h1 className="font-display text-3xl font-bold">Admin Console</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-3xl font-bold">Admin Console</h1>
+          <RefreshButton onRefresh={async () => { await load(); toast.success("Admin data updated"); }} />
+        </div>
         <Tabs defaultValue="stats" className="mt-6">
           <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
             <TabsList className="w-max min-w-full">

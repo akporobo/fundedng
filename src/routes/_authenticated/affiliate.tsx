@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { Copy, Users, Wallet, Gift, Send, Share2 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/affiliate")({
   component: AffiliatePage,
@@ -100,9 +101,12 @@ function AffiliatePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold">Affiliate Program</h1>
-        <p className="text-sm text-muted-foreground">Earn 10% on every sale you refer. Get a free 200k challenge for every 5 paid referrals.</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Affiliate Program</h1>
+          <p className="text-sm text-muted-foreground">Earn 10% on every sale you refer. Get a free 200k challenge for every 5 paid referrals.</p>
+        </div>
+        <RefreshButton onRefresh={async () => { await load(); toast.success("Affiliate data updated"); }} />
       </div>
 
       {/* Referral link */}
