@@ -121,7 +121,7 @@ function RulesPage() {
               {
                 icon: Wallet,
                 title: "Profit Split & Payouts",
-                body: "Funded traders keep 80% of profits. Payouts are processed within 7 days of request (typically 2-3 days) to your verified Nigerian bank account or USDT wallet.",
+                body: "Funded traders keep 80% of profits. Payouts are processed within 24 hours of admin approval to your verified Nigerian bank account or USDT wallet. You can request a payout once every 7 days.",
               },
               {
                 icon: AlertTriangle,

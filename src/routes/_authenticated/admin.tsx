@@ -63,6 +63,15 @@ function AdminConsole() {
   const [affPayouts, setAffPayouts] = useState<any[]>([]);
   const [freeClaims, setFreeClaims] = useState<any[]>([]);
   const [affSaving, setAffSaving] = useState<string | null>(null);
+  // Free-account claim delivery dialog (separate from order delivery)
+  const [deliverClaimFor, setDeliverClaimFor] = useState<any | null>(null);
+  const [claimForm, setClaimForm] = useState({ login: "", password: "", investor: "", server: "" });
+  const [deliveringClaim, setDeliveringClaim] = useState(false);
+  // Telegram settings
+  const [tgBotToken, setTgBotToken] = useState("");
+  const [tgChatId, setTgChatId] = useState("");
+  const [tgSaving, setTgSaving] = useState(false);
+  const [tgTesting, setTgTesting] = useState(false);
   // Manual equity input per account row (admin-only)
   const [equityDraft, setEquityDraft] = useState<Record<string, string>>({});
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
@@ -273,13 +282,13 @@ function AdminConsole() {
   const loadAffiliate = async () => {
     const [pRes, cRes] = await Promise.all([
       supabase.from("affiliate_payouts").select("*").order("requested_at", { ascending: false }),
-      supabase.from("affiliate_free_account_claims").select("*").order("created_at", { ascending: false }),
+      supabase.from("affiliate_free_accounts").select("*").order("created_at", { ascending: false }),
     ]);
     const payRows = (pRes.data ?? []) as any[];
     const claimRows = (cRes.data ?? []) as any[];
     const userIds = Array.from(new Set([
       ...payRows.map((r) => r.user_id),
-      ...claimRows.map((r) => r.user_id),
+      ...claimRows.map((r) => r.affiliate_id),
     ]));
     const profMap = new Map<string, any>();
     if (userIds.length) {
@@ -288,7 +297,7 @@ function AdminConsole() {
       (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
     }
     setAffPayouts(payRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
-    setFreeClaims(claimRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+    setFreeClaims(claimRows.map((r) => ({ ...r, profiles: profMap.get(r.affiliate_id) ?? null })));
   };
   useEffect(() => { loadAffiliate(); }, []);
 
@@ -301,13 +310,78 @@ function AdminConsole() {
     loadAffiliate();
   };
 
-  const setFreeClaimStatus = async (id: string, status: "fulfilled" | "rejected") => {
+  const setFreeClaimStatus = async (id: string, status: "rejected") => {
     setAffSaving(id);
-    const { error } = await supabase.from("affiliate_free_account_claims").update({ status } as never).eq("id", id);
+    const { error } = await supabase.from("affiliate_free_accounts").update({ status } as never).eq("id", id);
     setAffSaving(null);
     if (error) return toast.error(error.message);
     toast.success(`Marked ${status}`);
     loadAffiliate();
+  };
+
+  // Open the deliver-credentials dialog for an affiliate free-account claim.
+  const openDeliverClaim = (claim: any) => {
+    setDeliverClaimFor(claim);
+    setClaimForm({ login: "", password: "", investor: "", server: "" });
+  };
+
+  const submitDeliverClaim = async () => {
+    if (!deliverClaimFor) return;
+    if (!claimForm.login.trim() || !claimForm.password.trim() || !claimForm.server.trim()) {
+      return toast.error("Login, password and server are required");
+    }
+    setDeliveringClaim(true);
+    const { error } = await supabase
+      .from("affiliate_free_accounts")
+      .update({
+        status: "fulfilled",
+        mt5_login: claimForm.login.trim(),
+        mt5_password: claimForm.password.trim(),
+        investor_password: claimForm.investor.trim() || null,
+        mt5_server: claimForm.server.trim(),
+        fulfilled_at: new Date().toISOString(),
+      } as never)
+      .eq("id", deliverClaimFor.id);
+    setDeliveringClaim(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Delivered free account: login ${claimForm.login}`);
+    setDeliverClaimFor(null);
+    loadAffiliate();
+  };
+
+  // ---- Telegram settings ----
+  const loadTelegramConfig = async () => {
+    const { data } = await supabase
+      .from("app_config")
+      .select("key, value")
+      .in("key", ["telegram_bot_token", "telegram_chat_id"]);
+    (data ?? []).forEach((row: any) => {
+      if (row.key === "telegram_bot_token") setTgBotToken(row.value ?? "");
+      if (row.key === "telegram_chat_id") setTgChatId(row.value ?? "");
+    });
+  };
+  useEffect(() => { loadTelegramConfig(); }, []);
+
+  const saveTelegram = async () => {
+    setTgSaving(true);
+    const rows = [
+      { key: "telegram_bot_token", value: tgBotToken.trim() },
+      { key: "telegram_chat_id", value: tgChatId.trim() },
+    ];
+    const { error } = await supabase.from("app_config").upsert(rows as never, { onConflict: "key" });
+    setTgSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Telegram settings saved");
+  };
+
+  const testTelegram = async () => {
+    setTgTesting(true);
+    const { error } = await supabase.rpc("send_telegram", {
+      p_message: "✅ <b>FundedNG admin test</b>\nTelegram notifications are wired up.",
+    });
+    setTgTesting(false);
+    if (error) return toast.error(error.message);
+    toast.success("Test message sent — check your Telegram");
   };
 
   const sendReply = async (t: any) => {
@@ -921,19 +995,46 @@ function AdminConsole() {
                       <div>
                         <div className="font-semibold">{c.profiles?.full_name ?? "—"} · Free {formatNaira(c.account_size)} challenge</div>
                         <div className="text-xs text-muted-foreground">
-                          Claimed {new Date(c.created_at).toLocaleString()}
+                          Batch #{c.referral_batch} · Claimed {new Date(c.created_at).toLocaleString()}
+                          {c.mt5_login && <> · Login <span className="font-mono">{c.mt5_login}</span></>}
                         </div>
                       </div>
                       <Badge variant="outline" className="capitalize">{c.status}</Badge>
                     </div>
                     {c.status === "pending" && (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Button size="sm" onClick={() => setFreeClaimStatus(c.id, "fulfilled")} disabled={affSaving === c.id}>Mark fulfilled</Button>
+                        <Button size="sm" onClick={() => openDeliverClaim(c)} disabled={affSaving === c.id}>Deliver account</Button>
                         <Button size="sm" variant="outline" onClick={() => setFreeClaimStatus(c.id, "rejected")} disabled={affSaving === c.id}>Reject</Button>
                       </div>
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-border bg-card p-6">
+              <h3 className="font-display text-lg font-bold">📲 Telegram Admin Notifications</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Get realtime pings for new orders, payout requests, free-account claims, support tickets and account-delivery requests.
+                Create a bot via <a className="text-primary underline" href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a>,
+                then send your bot a message and find your <span className="font-mono">chat_id</span> at
+                {" "}<a className="text-primary underline" href="https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates" target="_blank" rel="noreferrer">api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</a>.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="tg-token">Bot token</Label>
+                  <Input id="tg-token" type="password" value={tgBotToken} onChange={(e) => setTgBotToken(e.target.value)} placeholder="123456:ABC..." />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="tg-chat">Chat ID</Label>
+                  <Input id="tg-chat" value={tgChatId} onChange={(e) => setTgChatId(e.target.value)} placeholder="e.g. 123456789 or -100123..." />
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={saveTelegram} disabled={tgSaving}>{tgSaving ? "Saving…" : "Save settings"}</Button>
+                <Button variant="outline" onClick={testTelegram} disabled={tgTesting || !tgBotToken || !tgChatId}>
+                  {tgTesting ? "Sending…" : "Send test message"}
+                </Button>
               </div>
             </div>
           </TabsContent>
@@ -975,6 +1076,46 @@ function AdminConsole() {
             <Button variant="outline" onClick={() => setDeliverFor(null)} disabled={delivering}>Cancel</Button>
             <Button onClick={submitDelivery} disabled={delivering}>
               {delivering ? "Delivering…" : "Deliver to trader"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deliverClaimFor} onOpenChange={(o) => !o && setDeliverClaimFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deliver free affiliate account</DialogTitle>
+            <DialogDescription>
+              {deliverClaimFor && (
+                <>
+                  Affiliate: <span className="font-medium">{deliverClaimFor.profiles?.full_name ?? "—"}</span> ·{" "}
+                  Free {formatNaira(deliverClaimFor.account_size ?? 200000)} challenge (batch #{deliverClaimFor.referral_batch})
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-login">MT5 Login</Label>
+              <Input id="claim-login" value={claimForm.login} onChange={(e) => setClaimForm({ ...claimForm, login: e.target.value })} placeholder="e.g. 12345678" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-server">Server</Label>
+              <Input id="claim-server" value={claimForm.server} onChange={(e) => setClaimForm({ ...claimForm, server: e.target.value })} placeholder="e.g. Exness-MT5Demo" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-password">Master password</Label>
+              <Input id="claim-password" value={claimForm.password} onChange={(e) => setClaimForm({ ...claimForm, password: e.target.value })} placeholder="Trading password" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-investor">Investor password (optional)</Label>
+              <Input id="claim-investor" value={claimForm.investor} onChange={(e) => setClaimForm({ ...claimForm, investor: e.target.value })} placeholder="Read-only password" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeliverClaimFor(null)} disabled={deliveringClaim}>Cancel</Button>
+            <Button onClick={submitDeliverClaim} disabled={deliveringClaim}>
+              {deliveringClaim ? "Delivering…" : "Deliver to affiliate"}
             </Button>
           </DialogFooter>
         </DialogContent>

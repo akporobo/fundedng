@@ -166,7 +166,7 @@ function BuyPage() {
                 <div className="font-display mt-2 text-3xl font-bold text-primary">{formatNaira(c.account_size)}</div>
                 <div className="text-xs text-muted-foreground">account size</div>
                 <div className="mt-5 space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
-                  {[`${c.profit_target_percent}% profit target`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"80% profit split","Payouts within 7 days"].map(f=>(
+                  {[`${c.profit_target_percent}% profit target`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"80% profit split","Payouts in 24hrs"].map(f=>(
                     <div key={f} className="flex items-center gap-2"><Diamond className="h-3 w-3 text-primary"/> {f}</div>
                   ))}
                 </div>
