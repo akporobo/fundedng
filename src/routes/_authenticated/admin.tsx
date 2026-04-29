@@ -1081,6 +1081,46 @@ function AdminConsole() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!deliverClaimFor} onOpenChange={(o) => !o && setDeliverClaimFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deliver free affiliate account</DialogTitle>
+            <DialogDescription>
+              {deliverClaimFor && (
+                <>
+                  Affiliate: <span className="font-medium">{deliverClaimFor.profiles?.full_name ?? "—"}</span> ·{" "}
+                  Free {formatNaira(deliverClaimFor.account_size ?? 200000)} challenge (batch #{deliverClaimFor.referral_batch})
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-login">MT5 Login</Label>
+              <Input id="claim-login" value={claimForm.login} onChange={(e) => setClaimForm({ ...claimForm, login: e.target.value })} placeholder="e.g. 12345678" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-server">Server</Label>
+              <Input id="claim-server" value={claimForm.server} onChange={(e) => setClaimForm({ ...claimForm, server: e.target.value })} placeholder="e.g. Exness-MT5Demo" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-password">Master password</Label>
+              <Input id="claim-password" value={claimForm.password} onChange={(e) => setClaimForm({ ...claimForm, password: e.target.value })} placeholder="Trading password" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="claim-investor">Investor password (optional)</Label>
+              <Input id="claim-investor" value={claimForm.investor} onChange={(e) => setClaimForm({ ...claimForm, investor: e.target.value })} placeholder="Read-only password" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeliverClaimFor(null)} disabled={deliveringClaim}>Cancel</Button>
+            <Button onClick={submitDeliverClaim} disabled={deliveringClaim}>
+              {deliveringClaim ? "Delivering…" : "Deliver to affiliate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!kycTarget} onOpenChange={(o) => !o && !kycVerifying && setKycTarget(null)}>
         <DialogContent>
           <DialogHeader>
