@@ -157,6 +157,57 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_free_accounts: {
+        Row: {
+          account_size: number | null
+          admin_note: string | null
+          affiliate_id: string
+          challenge_name: string | null
+          claimed_at: string
+          created_at: string
+          fulfilled_at: string | null
+          id: string
+          investor_password: string | null
+          mt5_login: string | null
+          mt5_password: string | null
+          mt5_server: string | null
+          referral_batch: number
+          status: string
+        }
+        Insert: {
+          account_size?: number | null
+          admin_note?: string | null
+          affiliate_id: string
+          challenge_name?: string | null
+          claimed_at?: string
+          created_at?: string
+          fulfilled_at?: string | null
+          id?: string
+          investor_password?: string | null
+          mt5_login?: string | null
+          mt5_password?: string | null
+          mt5_server?: string | null
+          referral_batch: number
+          status?: string
+        }
+        Update: {
+          account_size?: number | null
+          admin_note?: string | null
+          affiliate_id?: string
+          challenge_name?: string | null
+          claimed_at?: string
+          created_at?: string
+          fulfilled_at?: string | null
+          id?: string
+          investor_password?: string | null
+          mt5_login?: string | null
+          mt5_password?: string | null
+          mt5_server?: string | null
+          referral_batch?: number
+          status?: string
+        }
+        Relationships: []
+      }
       affiliate_payouts: {
         Row: {
           admin_note: string | null
@@ -670,8 +721,10 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          is_affiliate: boolean
           kyc_verified: boolean
           phone: string | null
+          referral_code: string | null
           referred_by: string | null
           updated_at: string
         }
@@ -682,8 +735,10 @@ export type Database = {
           created_at?: string
           full_name?: string
           id: string
+          is_affiliate?: boolean
           kyc_verified?: boolean
           phone?: string | null
+          referral_code?: string | null
           referred_by?: string | null
           updated_at?: string
         }
@@ -694,8 +749,10 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          is_affiliate?: boolean
           kyc_verified?: boolean
           phone?: string | null
+          referral_code?: string | null
           referred_by?: string | null
           updated_at?: string
         }
@@ -944,6 +1001,10 @@ export type Database = {
       claim_admin_if_unclaimed: { Args: never; Returns: boolean }
       claim_free_account: { Args: never; Returns: string }
       generate_affiliate_code: { Args: never; Returns: string }
+      get_affiliate_claimable_batch: {
+        Args: { p_affiliate_id: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -965,7 +1026,7 @@ export type Database = {
       request_affiliate_payout: { Args: { _amount: number }; Returns: string }
       request_funded: { Args: { _account_id: string }; Returns: boolean }
       request_phase2: { Args: { _account_id: string }; Returns: boolean }
-      seed_demo_data: { Args: never; Returns: Json }
+      send_telegram: { Args: { p_message: string }; Returns: undefined }
     }
     Enums: {
       account_status: "active" | "breached" | "passed" | "funded"
