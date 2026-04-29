@@ -14,4 +14,4 @@
  *   3. Publish → Update.
  */
 export const PAYSTACK_PUBLIC_KEY =
-  "pk_test_5a216d7dee102e9bf64839b88c5888b953c09f5d";
+  "pk_test_64d51d8df21c9b1efd78c0651a1be0b6804a7b72";
