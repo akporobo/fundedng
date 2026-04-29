@@ -24,6 +24,19 @@ interface AffiliateProfile {
 interface Referral { id: string; referred_user_id: string; first_paid_at: string | null; created_at: string; }
 interface Commission { id: string; order_id: string; amount_naira: number; status: string; created_at: string; }
 interface Payout { id: string; amount_naira: number; status: string; requested_at: string; }
+interface FreeAccount {
+  id: string;
+  status: string;
+  referral_batch: number;
+  account_size: number | null;
+  challenge_name: string | null;
+  mt5_login: string | null;
+  mt5_password: string | null;
+  investor_password: string | null;
+  mt5_server: string | null;
+  fulfilled_at: string | null;
+  created_at: string;
+}
 
 function AffiliatePage() {
   const { user, profile } = useAuth();
@@ -31,6 +44,7 @@ function AffiliatePage() {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [freeAccounts, setFreeAccounts] = useState<FreeAccount[]>([]);
   const [pendingReserved, setPendingReserved] = useState(0);
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -38,11 +52,12 @@ function AffiliatePage() {
 
   const load = async () => {
     if (!user) return;
-    const [a, r, c, p] = await Promise.all([
+    const [a, r, c, p, fa] = await Promise.all([
       supabase.from("affiliate_profiles").select("code,total_earned_naira,total_paid_naira,free_accounts_credited,free_accounts_claimed").eq("user_id", user.id).maybeSingle(),
       supabase.from("referrals").select("*").eq("referrer_id", user.id).order("created_at", { ascending: false }),
       supabase.from("affiliate_commissions").select("*").eq("affiliate_user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("affiliate_payouts").select("*").eq("user_id", user.id).order("requested_at", { ascending: false }),
+      supabase.from("affiliate_free_accounts").select("*").eq("affiliate_id", user.id).order("created_at", { ascending: false }),
     ]);
     setAp((a.data as AffiliateProfile | null) ?? null);
     setReferrals((r.data as Referral[]) ?? []);
@@ -50,6 +65,7 @@ function AffiliatePage() {
     const list = (p.data as Payout[]) ?? [];
     setPayouts(list);
     setPendingReserved(list.filter((x) => ["pending","approved"].includes(x.status)).reduce((s,x)=>s+Number(x.amount_naira),0));
+    setFreeAccounts((fa.data as FreeAccount[]) ?? []);
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
@@ -138,9 +154,38 @@ function AffiliatePage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="font-display text-base font-bold">🎁 You have {freeAvailable} free 200k challenge account{freeAvailable>1?"s":""} available</div>
-              <p className="mt-1 text-sm text-muted-foreground">Claim one at a time. An admin will provision it after you click claim.</p>
+              <p className="mt-1 text-sm text-muted-foreground">1 free account per 5 paid referrals · max 5 lifetime · admin will deliver MT5 credentials shortly after you claim.</p>
             </div>
             <Button onClick={claimFree} disabled={claiming} className="font-display"><Gift className="mr-1 h-4 w-4"/>{claiming ? "Claiming..." : "Claim 1 Free Account"}</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Delivered & pending free accounts */}
+      {freeAccounts.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-border bg-card p-6">
+          <div className="font-display text-base font-bold">Your Free Account Claims</div>
+          <div className="mt-3 divide-y divide-border">
+            {freeAccounts.map((fa) => (
+              <div key={fa.id} className="py-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-display font-semibold">Batch #{fa.referral_batch} · {formatNaira(fa.account_size ?? 200000)}</div>
+                  <Badge variant="outline" className="capitalize">{fa.status}</Badge>
+                </div>
+                {fa.status === "fulfilled" && fa.mt5_login ? (
+                  <div className="mt-2 grid gap-1 rounded-md border border-border bg-background p-3 font-mono text-xs">
+                    <div>Login: <span className="font-bold text-foreground">{fa.mt5_login}</span></div>
+                    <div>Server: <span className="font-bold text-foreground">{fa.mt5_server}</span></div>
+                    <div>Password: <span className="font-bold text-foreground">{fa.mt5_password}</span></div>
+                    {fa.investor_password && <div>Investor pw: <span className="font-bold text-foreground">{fa.investor_password}</span></div>}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {fa.status === "pending" ? "Waiting for admin to deliver MT5 credentials." : `Status: ${fa.status}`}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -148,7 +193,7 @@ function AffiliatePage() {
       {/* Payout request */}
       <div className="mt-6 rounded-2xl border border-border bg-card p-6">
         <div className="font-display text-base font-bold">Request a Payout</div>
-        <p className="mt-1 text-sm text-muted-foreground">Minimum ₦5,000 · processed within 24hrs of admin approval · 3-day interval between payouts.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Minimum ₦5,000 · processed within 24hrs of admin approval · one request per 7 days.</p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <Input
             type="text"
