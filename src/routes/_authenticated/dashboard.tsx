@@ -276,7 +276,7 @@ function DashboardPage() {
                   You don't have an active challenge yet
                 </h2>
                 <p className="mt-3 text-muted-foreground">
-                  Pick an account size, pass two simple phases, and get funded up to ₦2,000,000 — with payouts within 7 days.
+                  Pick an account size, pass two simple phases, and get funded up to ₦2,000,000 — with payouts processed within 24hrs of approval.
                 </p>
                 <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
                   {[
@@ -497,7 +497,7 @@ function DashboardPage() {
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
                               <p className="mt-1 text-sm text-muted-foreground">
-                                80% of profits paid to your verified bank account, processed within 24hrs of approval. Payout cycle every 7 days, min 10% / max 50% of account size.
+                                80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days, min 10% / max 50% of account size.
                               </p>
                               {!profile?.kyc_verified && (
                                 <Alert variant="destructive" className="mt-3">
