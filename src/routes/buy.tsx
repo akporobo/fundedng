@@ -23,6 +23,9 @@ export const Route = createFileRoute("/buy")({
 interface Challenge {
   id: string; name: string; account_size: number; price_naira: number;
   profit_target_percent: number; max_drawdown_percent: number; phases: number;
+  challenge_type?: "standard" | "instant" | null;
+  max_daily_drawdown_percent?: number | null;
+  max_trading_days?: number | null;
 }
 
 function BuyPage() {
@@ -35,6 +38,7 @@ function BuyPage() {
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [planType, setPlanType] = useState<"standard" | "instant">("standard");
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -43,10 +47,17 @@ function BuyPage() {
         setChallenges(list);
         if (search.challenge) {
           const found = list.find((c) => c.id === search.challenge);
-          if (found) setSelected(found);
+          if (found) {
+            setSelected(found);
+            setPlanType(found.challenge_type === "instant" ? "instant" : "standard");
+          }
         }
       });
   }, [search.challenge]);
+
+  const visibleChallenges = challenges.filter((c) =>
+    planType === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"
+  );
 
   const openConfirm = () => {
     if (!selected) return setError("Select a challenge first");
@@ -144,15 +155,48 @@ function BuyPage() {
           <p className="mt-2 text-muted-foreground">Choose your account size. Pass 2 phases. Withdraw your profits.</p>
         </div>
 
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
-          {challenges.map((c, i) => {
+        {/* Plan-type toggle (Standard vs Instant) */}
+        <div className="mt-8 flex justify-center">
+          <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
+            <button
+              type="button"
+              onClick={() => { setPlanType("standard"); setSelected(null); }}
+              className={`font-display rounded-full px-5 py-2 text-xs tracking-wider transition-all ${planType === "standard" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              2-STEP CHALLENGE
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPlanType("instant"); setSelected(null); }}
+              className={`font-display relative rounded-full px-5 py-2 text-xs tracking-wider transition-all ${planType === "instant" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              INSTANT FUNDING
+              <span className="ml-2 rounded-full bg-warning/20 px-2 py-0.5 text-[9px] font-bold text-warning">1-STEP</span>
+            </button>
+          </div>
+        </div>
+
+        {planType === "instant" && (
+          <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-primary/30 bg-primary/5 p-4 text-center text-sm text-muted-foreground">
+            <span className="font-display block text-primary">⚡ Premium 1-Step Evaluation</span>
+            Skip Phase 2 entirely. Hit 15% profit in 5–45 trading days, respect 10% daily / 20% total drawdown, and you're funded.
+          </div>
+        )}
+
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {visibleChallenges.map((c, i) => {
             const active = selected?.id === c.id;
+            const isInstant = c.challenge_type === "instant";
             return (
               <button key={c.id} onClick={() => setSelected(c)}
                 className={`relative rounded-xl border bg-card p-7 text-left transition-all ${
                   active ? "border-primary glow-primary -translate-y-1" : "border-border hover:border-primary/40"
                 }`}>
-                {i===1 && (
+                {isInstant ? (
+                  <div className="font-display absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-warning px-3 py-1 text-[10px] font-bold tracking-wider text-warning-foreground">
+                    1-STEP
+                  </div>
+                ) : i===1 && (
                   <div className="font-display absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-bold tracking-wider text-primary-foreground">
                     POPULAR
                   </div>
@@ -166,7 +210,22 @@ function BuyPage() {
                 <div className="font-display mt-2 text-3xl font-bold text-primary">{formatNaira(c.account_size)}</div>
                 <div className="text-xs text-muted-foreground">account size</div>
                 <div className="mt-5 space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
-                  {[`${c.profit_target_percent}% profit target`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"80% profit split","Payouts in 24hrs"].map(f=>(
+                  {(isInstant
+                    ? [
+                        `${c.profit_target_percent}% profit target`,
+                        `${c.max_daily_drawdown_percent ?? 10}% max daily drawdown`,
+                        `${c.max_drawdown_percent}% max total drawdown`,
+                        `${c.max_trading_days ?? 45} day max window`,
+                        "1-step to funded",
+                        "80% profit split",
+                      ]
+                    : [
+                        `${c.profit_target_percent}% profit target`,
+                        `${c.max_drawdown_percent}% max drawdown`,
+                        `${c.phases} phases to funded`,
+                        "80% profit split",
+                        "Payouts in 24hrs",
+                      ]).map(f=>(
                     <div key={f} className="flex items-center gap-2"><Diamond className="h-3 w-3 text-primary"/> {f}</div>
                   ))}
                 </div>
@@ -175,6 +234,11 @@ function BuyPage() {
               </button>
             );
           })}
+          {visibleChallenges.length === 0 && (
+            <div className="md:col-span-3 rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+              No {planType === "instant" ? "Instant Funding" : "Standard"} challenges available right now.
+            </div>
+          )}
         </div>
 
         {selected && (
@@ -216,13 +280,23 @@ function BuyPage() {
               </DialogHeader>
 
               <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
-                {[
-                  { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
-                  { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
-                  { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
-                  { icon: Wallet, label: "Profit split", value: "80%" },
-                { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
-                ].map((r) => (
+                {(selected.challenge_type === "instant"
+                  ? [
+                      { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
+                      { icon: Zap, label: "Max daily drawdown", value: `${selected.max_daily_drawdown_percent ?? 10}%` },
+                      { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
+                      { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
+                      { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
+                      { icon: Wallet, label: "Profit split", value: "80%" },
+                    ]
+                  : [
+                      { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
+                      { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
+                      { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
+                      { icon: Wallet, label: "Profit split", value: "80%" },
+                      { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
+                    ]
+                ).map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-muted-foreground">
                       <r.icon className="h-4 w-4 text-primary" /> {r.label}

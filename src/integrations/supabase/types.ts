@@ -352,10 +352,13 @@ export type Database = {
       challenges: {
         Row: {
           account_size: number
+          challenge_type: string
           created_at: string
           id: string
           is_active: boolean
+          max_daily_drawdown_percent: number | null
           max_drawdown_percent: number
+          max_trading_days: number | null
           min_trading_days: number
           name: string
           phases: number
@@ -364,10 +367,13 @@ export type Database = {
         }
         Insert: {
           account_size: number
+          challenge_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
+          max_daily_drawdown_percent?: number | null
           max_drawdown_percent?: number
+          max_trading_days?: number | null
           min_trading_days?: number
           name: string
           phases?: number
@@ -376,10 +382,13 @@ export type Database = {
         }
         Update: {
           account_size?: number
+          challenge_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
+          max_daily_drawdown_percent?: number | null
           max_drawdown_percent?: number
+          max_trading_days?: number | null
           min_trading_days?: number
           name?: string
           phases?: number

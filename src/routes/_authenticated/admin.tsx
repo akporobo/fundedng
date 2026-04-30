@@ -92,6 +92,9 @@ function AdminConsole() {
     max_drawdown_percent: 20,
     phases: 2,
     is_active: true,
+    challenge_type: "standard",
+    max_daily_drawdown_percent: 10,
+    max_trading_days: 45,
   };
   const [challengeForm, setChallengeForm] = useState<any>(blankChallenge);
   const [savingChallenge, setSavingChallenge] = useState(false);
@@ -128,6 +131,15 @@ function AdminConsole() {
       max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
       phases: Number(challengeForm.phases),
       is_active: !!challengeForm.is_active,
+      challenge_type: challengeForm.challenge_type === "instant" ? "instant" : "standard",
+      max_daily_drawdown_percent:
+        challengeForm.challenge_type === "instant"
+          ? Number(challengeForm.max_daily_drawdown_percent) || null
+          : null,
+      max_trading_days:
+        challengeForm.challenge_type === "instant"
+          ? Number(challengeForm.max_trading_days) || null
+          : null,
     };
     let error;
     if (editingChallenge?.id) {
@@ -819,9 +831,14 @@ function AdminConsole() {
                       <div className="font-display font-semibold">{c.name}</div>
                       <div className="text-xs text-muted-foreground">{formatNaira(c.account_size)} account</div>
                     </div>
-                    <Badge variant="outline" className={`font-display ${c.is_active ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
-                      {c.is_active ? "ACTIVE" : "INACTIVE"}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      {c.challenge_type === "instant" && (
+                        <Badge className="font-display bg-primary/20 text-primary border-primary/40 border">INSTANT</Badge>
+                      )}
+                      <Badge variant="outline" className={`font-display ${c.is_active ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
+                        {c.is_active ? "ACTIVE" : "INACTIVE"}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div><span className="text-muted-foreground">Fee:</span> <span className="font-display text-primary">{formatNaira(c.price_naira)}</span></div>
@@ -848,6 +865,7 @@ function AdminConsole() {
                 <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Type</th>
                     <th className="px-4 py-3 text-left">Account Size</th>
                     <th className="px-4 py-3 text-left">Fee</th>
                     <th className="px-4 py-3 text-left">Target %</th>
@@ -861,6 +879,11 @@ function AdminConsole() {
                   {challengeList.map((c) => (
                     <tr key={c.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-3 font-display font-semibold">{c.name}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={`font-display ${c.challenge_type === "instant" ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
+                          {c.challenge_type === "instant" ? "INSTANT" : "STANDARD"}
+                        </Badge>
+                      </td>
                       <td className="px-4 py-3">{formatNaira(c.account_size)}</td>
                       <td className="px-4 py-3 font-display text-primary">{formatNaira(c.price_naira)}</td>
                       <td className="px-4 py-3">{c.profit_target_percent}%</td>
@@ -875,7 +898,7 @@ function AdminConsole() {
                     </tr>
                   ))}
                   {challengeList.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No challenges yet.</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">No challenges yet.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1176,6 +1199,25 @@ function AdminConsole() {
               <Label htmlFor="ch-name">Name</Label>
               <Input id="ch-name" value={challengeForm.name} onChange={(e) => setChallengeForm({ ...challengeForm, name: e.target.value })} placeholder="e.g. Starter" />
             </div>
+            <div className="grid gap-1.5">
+              <Label>Challenge type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChallengeForm({ ...challengeForm, challenge_type: "standard", phases: 2 })}
+                  className={`rounded-md border px-3 py-2 text-sm font-display ${challengeForm.challenge_type !== "instant" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+                >
+                  2-Step Standard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChallengeForm({ ...challengeForm, challenge_type: "instant", phases: 1 })}
+                  className={`rounded-md border px-3 py-2 text-sm font-display ${challengeForm.challenge_type === "instant" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+                >
+                  1-Step Instant
+                </button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="ch-size">Account Size (₦)</Label>
@@ -1201,6 +1243,18 @@ function AdminConsole() {
                 <Checkbox id="ch-active" checked={!!challengeForm.is_active} onCheckedChange={(v) => setChallengeForm({ ...challengeForm, is_active: !!v })} />
                 <Label htmlFor="ch-active" className="cursor-pointer">Active</Label>
               </div>
+              {challengeForm.challenge_type === "instant" && (
+                <>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="ch-daily-dd">Max Daily Drawdown %</Label>
+                    <Input id="ch-daily-dd" type="number" min={0} step="0.01" value={challengeForm.max_daily_drawdown_percent ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_daily_drawdown_percent: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="ch-max-days">Max Trading Days</Label>
+                    <Input id="ch-max-days" type="number" min={1} value={challengeForm.max_trading_days ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_trading_days: e.target.value })} />
+                  </div>
+                </>
+              )}
             </div>
             {Number(challengeForm.price_naira) > 0 && Number(challengeForm.account_size) > 0 && (
               <div className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
