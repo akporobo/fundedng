@@ -92,6 +92,9 @@ function AdminConsole() {
     max_drawdown_percent: 20,
     phases: 2,
     is_active: true,
+    challenge_type: "standard",
+    max_daily_drawdown_percent: 10,
+    max_trading_days: 45,
   };
   const [challengeForm, setChallengeForm] = useState<any>(blankChallenge);
   const [savingChallenge, setSavingChallenge] = useState(false);
@@ -128,6 +131,15 @@ function AdminConsole() {
       max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
       phases: Number(challengeForm.phases),
       is_active: !!challengeForm.is_active,
+      challenge_type: challengeForm.challenge_type === "instant" ? "instant" : "standard",
+      max_daily_drawdown_percent:
+        challengeForm.challenge_type === "instant"
+          ? Number(challengeForm.max_daily_drawdown_percent) || null
+          : null,
+      max_trading_days:
+        challengeForm.challenge_type === "instant"
+          ? Number(challengeForm.max_trading_days) || null
+          : null,
     };
     let error;
     if (editingChallenge?.id) {
