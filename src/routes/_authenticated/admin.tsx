@@ -831,9 +831,14 @@ function AdminConsole() {
                       <div className="font-display font-semibold">{c.name}</div>
                       <div className="text-xs text-muted-foreground">{formatNaira(c.account_size)} account</div>
                     </div>
-                    <Badge variant="outline" className={`font-display ${c.is_active ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
-                      {c.is_active ? "ACTIVE" : "INACTIVE"}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      {c.challenge_type === "instant" && (
+                        <Badge className="font-display bg-primary/20 text-primary border-primary/40 border">INSTANT</Badge>
+                      )}
+                      <Badge variant="outline" className={`font-display ${c.is_active ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
+                        {c.is_active ? "ACTIVE" : "INACTIVE"}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div><span className="text-muted-foreground">Fee:</span> <span className="font-display text-primary">{formatNaira(c.price_naira)}</span></div>
@@ -860,6 +865,7 @@ function AdminConsole() {
                 <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Type</th>
                     <th className="px-4 py-3 text-left">Account Size</th>
                     <th className="px-4 py-3 text-left">Fee</th>
                     <th className="px-4 py-3 text-left">Target %</th>
@@ -873,6 +879,11 @@ function AdminConsole() {
                   {challengeList.map((c) => (
                     <tr key={c.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-3 font-display font-semibold">{c.name}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={`font-display ${c.challenge_type === "instant" ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>
+                          {c.challenge_type === "instant" ? "INSTANT" : "STANDARD"}
+                        </Badge>
+                      </td>
                       <td className="px-4 py-3">{formatNaira(c.account_size)}</td>
                       <td className="px-4 py-3 font-display text-primary">{formatNaira(c.price_naira)}</td>
                       <td className="px-4 py-3">{c.profit_target_percent}%</td>
@@ -887,7 +898,7 @@ function AdminConsole() {
                     </tr>
                   ))}
                   {challengeList.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No challenges yet.</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">No challenges yet.</td></tr>
                   )}
                 </tbody>
               </table>
