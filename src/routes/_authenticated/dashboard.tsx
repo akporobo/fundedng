@@ -76,7 +76,7 @@ function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
         </div>
       )}
       <p className="mt-4 text-[11px] text-muted-foreground">
-        Payout rules: min 10% of account size · max 50% per cycle · processed within 24hrs of approval
+        Payout rules: min 10% / max 50% per cycle · 80/20 split · first payout capped at 10% of the 50% cap · processed within 24hrs of approval
       </p>
     </div>
   );
