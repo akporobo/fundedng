@@ -100,7 +100,6 @@ function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankName, setBankName] = useState("");
-  const [bankAccountName, setBankAccountName] = useState("");
   const [bankCode, setBankCode] = useState("");
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
   const [verifyingKyc, setVerifyingKyc] = useState(false);
@@ -108,7 +107,6 @@ function DashboardPage() {
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
     setBankName(profile?.bank_name ?? "");
-    setBankAccountName(profile?.bank_account_name ?? profile?.full_name ?? "");
   }, [profile]);
 
   // Load Nigerian bank list (Paystack) once.
