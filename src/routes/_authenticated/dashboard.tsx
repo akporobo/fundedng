@@ -19,6 +19,8 @@ import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { RefreshButton } from "@/components/ui/refresh-button";
+import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
@@ -74,7 +76,7 @@ function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
         </div>
       )}
       <p className="mt-4 text-[11px] text-muted-foreground">
-        Payout rules: min 10% of account size · max 50% per cycle · processed within 24hrs of approval
+        Payout rules: min 10% / max 50% per cycle · 80/20 split · first payout capped at 10% of the 50% cap · processed within 24hrs of approval
       </p>
     </div>
   );
@@ -98,34 +100,50 @@ function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankName, setBankName] = useState("");
-  const [bankAccountName, setBankAccountName] = useState("");
-  const [savingKyc, setSavingKyc] = useState(false);
+  const [bankCode, setBankCode] = useState("");
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
+  const [verifyingKyc, setVerifyingKyc] = useState(false);
 
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
     setBankName(profile?.bank_name ?? "");
-    setBankAccountName(profile?.bank_account_name ?? profile?.full_name ?? "");
   }, [profile]);
 
-  const saveBankDetails = async () => {
+  // Load Nigerian bank list (Paystack) once.
+  useEffect(() => {
+    let alive = true;
+    listNigerianBanks()
+      .then((res) => {
+        if (!alive) return;
+        if (res.ok) setBanks(res.banks);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const verifyBankWithPaystack = async () => {
     const acct = bankAccountNumber.replace(/\s+/g, "");
     if (!/^\d{10}$/.test(acct)) return toast.error("Account number must be 10 digits.");
-    if (!bankName.trim()) return toast.error("Bank name is required.");
-    if (!bankAccountName.trim()) return toast.error("Account holder name is required.");
-    setSavingKyc(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        bank_account_number: acct,
-        bank_name: bankName.trim(),
-        bank_account_name: bankAccountName.trim(),
-        kyc_verified: false, // re-verification required when changed
-      } as never)
-      .eq("id", user!.id);
-    setSavingKyc(false);
-    if (error) return toast.error(error.message);
-    toast.success("Bank details saved. Awaiting admin verification.");
-    await refresh();
+    if (!bankCode) return toast.error("Select your bank.");
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session) return toast.error("Please sign in again.");
+    const bank = banks.find((b) => b.code === bankCode);
+    setVerifyingKyc(true);
+    try {
+      const res = await verifyKycPaystack({
+        data: {
+          accessToken: sess.session.access_token,
+          accountNumber: acct,
+          bankCode,
+          bankName: bank?.name ?? bankName.trim() ?? "",
+        },
+      });
+      if (!res.ok) return toast.error(res.error);
+      toast.success(`Verified · ${res.accountName}`);
+      await refresh();
+    } finally {
+      setVerifyingKyc(false);
+    }
   };
 
   const load = async () => {
@@ -173,9 +191,26 @@ function DashboardPage() {
     const maxPayout = selected.starting_balance * 0.5;
     const traderShare = Math.floor(profit * 0.8);
     if (profit <= 0) return toast.error("No profit available to withdraw.");
+
+    // First payout for this account is capped at 10% of the 50% max
+    // (i.e., 5% of starting balance) — paid 80/20 like all subsequent payouts.
+    const hasPriorPayout = payouts.some(
+      (p) =>
+        ["approved", "paid"].includes(p.status) &&
+        (p as Payout & { trader_account_id?: string }).trader_account_id === selected.id,
+    );
+    const cap = hasPriorPayout
+      ? Math.floor(maxPayout) // standard 50% cap
+      : Math.floor(maxPayout * 0.1); // first payout: 10% of the 50% max
+
     if (traderShare < minPayout)
       return toast.error(`Minimum payout is ${formatNaira(minPayout)} (10% of account size).`);
-    const amount = Math.min(traderShare, Math.floor(maxPayout));
+    const amount = Math.min(traderShare, cap);
+    if (!hasPriorPayout) {
+      toast.message(
+        `First payout is capped at ${formatNaira(cap)} (10% of your 50% profit cap). Subsequent payouts use the full 50% cap.`,
+      );
+    }
     setSubmitting(true);
     const { error } = await supabase.from("payouts").insert({
       user_id: user!.id,
@@ -451,29 +486,48 @@ function DashboardPage() {
                           KYC — Payout Bank Account
                         </h3>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          The account holder name must match the name registered on your trader account. Payouts are sent only to this account.
+                          We verify your bank instantly via Paystack. The account name must match the name on your trader profile. Payouts go only to this account.
                         </p>
                       </div>
                       <Badge className={`font-display ${profile?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
                         {profile?.kyc_verified ? "VERIFIED" : "PENDING"}
                       </Badge>
                     </div>
-                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    {profile?.kyc_verified ? (
+                      <div className="mt-5 rounded-md border border-border bg-background p-3 text-sm">
+                        <div className="text-[11px] text-muted-foreground">Verified bank account</div>
+                        <div className="font-display mt-1 text-primary break-words">
+                          {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
+                        </div>
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          Need to change it? Re-verify with new details — KYC will reset until the new account passes.
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className="mt-5 grid gap-3 md:grid-cols-2">
                       <div>
                         <Label htmlFor="bank-acct">Account number</Label>
                         <Input id="bank-acct" inputMode="numeric" maxLength={10} placeholder="10-digit NUBAN" className="mt-1 font-mono" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value.replace(/\D/g, ""))} />
                       </div>
                       <div>
-                        <Label htmlFor="bank-name">Bank</Label>
-                        <Input id="bank-name" placeholder="e.g. GTBank" className="mt-1" value={bankName} onChange={(e) => setBankName(e.target.value)} maxLength={60} />
-                      </div>
-                      <div>
-                        <Label htmlFor="acct-name">Account holder name</Label>
-                        <Input id="acct-name" placeholder="As registered on trader account" className="mt-1" value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} maxLength={120} />
+                        <Label htmlFor="bank-select">Bank</Label>
+                        <Select value={bankCode} onValueChange={(v) => { setBankCode(v); setBankName(banks.find((b) => b.code === v)?.name ?? ""); }}>
+                          <SelectTrigger id="bank-select" className="mt-1">
+                            <SelectValue placeholder={banks.length ? "Select your bank" : "Loading banks…"} />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {banks.map((b) => (
+                              <SelectItem key={b.code} value={b.code}>{b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" className="mt-4" onClick={saveBankDetails} disabled={savingKyc}>
-                      <Landmark className="mr-1 h-4 w-4"/>{savingKyc ? "Saving…" : "Save bank details"}
+                    <p className="mt-3 text-[11px] text-muted-foreground">
+                      We'll fetch the registered account name from your bank and approve KYC instantly if it matches your profile name (<span className="font-display text-foreground">{profile?.full_name || "—"}</span>).
+                    </p>
+                    <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10}>
+                      <Landmark className="mr-1 h-4 w-4"/>{verifyingKyc ? "Verifying…" : profile?.kyc_verified ? "Re-verify bank" : "Verify bank account"}
                     </Button>
                   </div>
 
@@ -497,7 +551,10 @@ function DashboardPage() {
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
                               <p className="mt-1 text-sm text-muted-foreground">
-                                80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days, min 10% / max 50% of account size.
+                                80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days · min 10% / max 50% of account size.
+                              </p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                <span className="font-display text-foreground">First payout:</span> capped at 10% of your 50% profit cap. Subsequent payouts use the full 50% cap. All payouts use the standard 80/20 split.
                               </p>
                               {!profile?.kyc_verified && (
                                 <Alert variant="destructive" className="mt-3">
