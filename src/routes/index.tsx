@@ -16,6 +16,9 @@ export const Route = createFileRoute("/")({ component: Index });
 interface Challenge {
   id: string; name: string; account_size: number; price_naira: number;
   profit_target_percent: number; max_drawdown_percent: number; phases: number;
+  challenge_type?: "standard" | "instant" | null;
+  max_daily_drawdown_percent?: number | null;
+  max_trading_days?: number | null;
 }
 
 function Index() {
@@ -33,6 +36,9 @@ function Index() {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
       .then(({ data }) => setChallenges((data as Challenge[]) ?? []));
   }, []);
+
+  const standardChallenges = challenges.filter((c) => c.challenge_type !== "instant");
+  const instantChallenges = challenges.filter((c) => c.challenge_type === "instant");
 
   return (
     <div className="min-h-screen">
@@ -132,10 +138,11 @@ function Index() {
         <div className="mx-auto max-w-6xl px-4 py-20 md:px-6">
           <div className="text-center">
             <Badge variant="outline" className="font-display border-primary/40 text-primary">PRICING</Badge>
-            <h2 className="font-display mt-4 text-4xl font-bold">Choose Your Account</h2>
+            <h2 className="font-display mt-4 text-4xl font-bold">2-Step Challenge</h2>
+            <p className="mt-2 text-muted-foreground">Pass 2 phases. Get funded. Start small or go big.</p>
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {(challenges.length ? challenges : [
+            {(standardChallenges.length ? standardChallenges : [
               { id:"1", name:"Starter", account_size:200000, price_naira:7500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
               { id:"2", name:"Growth", account_size:500000, price_naira:17500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
               { id:"3", name:"Pro", account_size:1000000, price_naira:32000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
@@ -165,6 +172,83 @@ function Index() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Instant Funding — Premium 1-Step */}
+      <section className="relative overflow-hidden border-b border-border bg-surface">
+        <div className="absolute inset-0 gradient-radial-primary opacity-20" />
+        <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6">
+          <div className="text-center">
+            <Badge className="font-display bg-warning/20 text-warning border border-warning/40">⚡ PREMIUM · 1-STEP</Badge>
+            <h2 className="font-display mt-4 text-4xl font-bold">
+              Instant <span className="text-primary text-glow">Funding</span>
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+              Skip Phase 2 entirely. Hit one profit target and you're funded. Built
+              for serious traders ready to scale fast — no second evaluation, no waiting.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-4">
+            {[
+              { label: "Profit Target", value: "15%" },
+              { label: "Max Daily DD", value: "10%" },
+              { label: "Max Total DD", value: "20%" },
+              { label: "Trading Window", value: "5–45 days" },
+            ].map((r) => (
+              <div key={r.label} className="rounded-xl border border-primary/30 bg-card p-5 text-center">
+                <div className="font-display text-2xl font-bold text-primary">{r.value}</div>
+                <div className="mt-1 text-xs uppercase tracking-wider text-muted-foreground">{r.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {(instantChallenges.length ? instantChallenges : [
+              { id:"i1", name:"Instant 1.5M", account_size:1500000, price_naira:120000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
+              { id:"i2", name:"Instant 2M", account_size:2000000, price_naira:155000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
+              { id:"i3", name:"Instant 3M", account_size:3000000, price_naira:225000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
+            ]).map((c) => (
+              <div key={c.id} className="relative rounded-xl border border-primary/40 bg-card p-8 glow-primary">
+                <div className="font-display absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-warning px-3 py-1 text-[10px] font-bold tracking-wider text-warning-foreground">
+                  1-STEP
+                </div>
+                <div className="font-display text-xs tracking-[0.2em] text-muted-foreground">{c.name.toUpperCase()}</div>
+                <div className="font-display mt-2 text-4xl font-bold text-primary">{formatNaira(c.account_size)}</div>
+                <div className="text-sm text-muted-foreground">funded account</div>
+                <div className="mt-6 space-y-2 border-t border-border pt-6">
+                  {[
+                    `${c.profit_target_percent}% profit target (1 step)`,
+                    `${c.max_daily_drawdown_percent ?? 10}% max daily drawdown`,
+                    `${c.max_drawdown_percent}% max total drawdown`,
+                    `${c.max_trading_days ?? 45}-day max trading window`,
+                    "Min 5 trading days",
+                    "80% profit split · 24h payouts",
+                  ].map(f => (
+                    <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4 text-primary" /> {f}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">one-time fee</span>
+                  <span className="font-display text-2xl font-bold">{formatNaira(c.price_naira)}</span>
+                </div>
+                <Link to="/buy" search={{ challenge: c.id }} className="mt-5 block">
+                  <Button className="w-full font-display">
+                    Get Instant Funded <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-muted-foreground">
+            Instant Funding is for proven traders. The 1-step path is faster but
+            stricter — daily drawdown is enforced and the evaluation must complete
+            within {instantChallenges[0]?.max_trading_days ?? 45} trading days.
+          </p>
         </div>
       </section>
 
