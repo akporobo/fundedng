@@ -1188,6 +1188,25 @@ function AdminConsole() {
               <Label htmlFor="ch-name">Name</Label>
               <Input id="ch-name" value={challengeForm.name} onChange={(e) => setChallengeForm({ ...challengeForm, name: e.target.value })} placeholder="e.g. Starter" />
             </div>
+            <div className="grid gap-1.5">
+              <Label>Challenge type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChallengeForm({ ...challengeForm, challenge_type: "standard", phases: 2 })}
+                  className={`rounded-md border px-3 py-2 text-sm font-display ${challengeForm.challenge_type !== "instant" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+                >
+                  2-Step Standard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChallengeForm({ ...challengeForm, challenge_type: "instant", phases: 1 })}
+                  className={`rounded-md border px-3 py-2 text-sm font-display ${challengeForm.challenge_type === "instant" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+                >
+                  1-Step Instant
+                </button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="ch-size">Account Size (₦)</Label>
@@ -1213,6 +1232,18 @@ function AdminConsole() {
                 <Checkbox id="ch-active" checked={!!challengeForm.is_active} onCheckedChange={(v) => setChallengeForm({ ...challengeForm, is_active: !!v })} />
                 <Label htmlFor="ch-active" className="cursor-pointer">Active</Label>
               </div>
+              {challengeForm.challenge_type === "instant" && (
+                <>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="ch-daily-dd">Max Daily Drawdown %</Label>
+                    <Input id="ch-daily-dd" type="number" min={0} step="0.01" value={challengeForm.max_daily_drawdown_percent ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_daily_drawdown_percent: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="ch-max-days">Max Trading Days</Label>
+                    <Input id="ch-max-days" type="number" min={1} value={challengeForm.max_trading_days ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_trading_days: e.target.value })} />
+                  </div>
+                </>
+              )}
             </div>
             {Number(challengeForm.price_naira) > 0 && Number(challengeForm.account_size) > 0 && (
               <div className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
