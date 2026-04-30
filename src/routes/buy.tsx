@@ -280,13 +280,23 @@ function BuyPage() {
               </DialogHeader>
 
               <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
-                {[
-                  { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
-                  { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
-                  { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
-                  { icon: Wallet, label: "Profit split", value: "80%" },
-                { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
-                ].map((r) => (
+                {(selected.challenge_type === "instant"
+                  ? [
+                      { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
+                      { icon: Zap, label: "Max daily drawdown", value: `${selected.max_daily_drawdown_percent ?? 10}%` },
+                      { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
+                      { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
+                      { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
+                      { icon: Wallet, label: "Profit split", value: "80%" },
+                    ]
+                  : [
+                      { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
+                      { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
+                      { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
+                      { icon: Wallet, label: "Profit split", value: "80%" },
+                      { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
+                    ]
+                ).map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-muted-foreground">
                       <r.icon className="h-4 w-4 text-primary" /> {r.label}
