@@ -488,29 +488,48 @@ function DashboardPage() {
                           KYC — Payout Bank Account
                         </h3>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          The account holder name must match the name registered on your trader account. Payouts are sent only to this account.
+                          We verify your bank instantly via Paystack. The account name must match the name on your trader profile. Payouts go only to this account.
                         </p>
                       </div>
                       <Badge className={`font-display ${profile?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
                         {profile?.kyc_verified ? "VERIFIED" : "PENDING"}
                       </Badge>
                     </div>
-                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    {profile?.kyc_verified ? (
+                      <div className="mt-5 rounded-md border border-border bg-background p-3 text-sm">
+                        <div className="text-[11px] text-muted-foreground">Verified bank account</div>
+                        <div className="font-display mt-1 text-primary break-words">
+                          {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
+                        </div>
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          Need to change it? Re-verify with new details — KYC will reset until the new account passes.
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className="mt-5 grid gap-3 md:grid-cols-2">
                       <div>
                         <Label htmlFor="bank-acct">Account number</Label>
                         <Input id="bank-acct" inputMode="numeric" maxLength={10} placeholder="10-digit NUBAN" className="mt-1 font-mono" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value.replace(/\D/g, ""))} />
                       </div>
                       <div>
-                        <Label htmlFor="bank-name">Bank</Label>
-                        <Input id="bank-name" placeholder="e.g. GTBank" className="mt-1" value={bankName} onChange={(e) => setBankName(e.target.value)} maxLength={60} />
-                      </div>
-                      <div>
-                        <Label htmlFor="acct-name">Account holder name</Label>
-                        <Input id="acct-name" placeholder="As registered on trader account" className="mt-1" value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} maxLength={120} />
+                        <Label htmlFor="bank-select">Bank</Label>
+                        <Select value={bankCode} onValueChange={(v) => { setBankCode(v); setBankName(banks.find((b) => b.code === v)?.name ?? ""); }}>
+                          <SelectTrigger id="bank-select" className="mt-1">
+                            <SelectValue placeholder={banks.length ? "Select your bank" : "Loading banks…"} />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {banks.map((b) => (
+                              <SelectItem key={b.code} value={b.code}>{b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" className="mt-4" onClick={saveBankDetails} disabled={savingKyc}>
-                      <Landmark className="mr-1 h-4 w-4"/>{savingKyc ? "Saving…" : "Save bank details"}
+                    <p className="mt-3 text-[11px] text-muted-foreground">
+                      We'll fetch the registered account name from your bank and approve KYC instantly if it matches your profile name (<span className="font-display text-foreground">{profile?.full_name || "—"}</span>).
+                    </p>
+                    <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10}>
+                      <Landmark className="mr-1 h-4 w-4"/>{verifyingKyc ? "Verifying…" : profile?.kyc_verified ? "Re-verify bank" : "Verify bank account"}
                     </Button>
                   </div>
 
