@@ -551,7 +551,10 @@ function DashboardPage() {
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
                               <p className="mt-1 text-sm text-muted-foreground">
-                                80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days, min 10% / max 50% of account size.
+                                80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days · min 10% / max 50% of account size.
+                              </p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                <span className="font-display text-foreground">First payout:</span> capped at 10% of your 50% profit cap. Subsequent payouts use the full 50% cap. All payouts use the standard 80/20 split.
                               </p>
                               {!profile?.kyc_verified && (
                                 <Alert variant="destructive" className="mt-3">
