@@ -193,6 +193,7 @@ function Index() {
           <div className="mt-10 grid gap-4 md:grid-cols-4">
             {[
               { label: "Profit Target", value: "10%" },
+              { label: "Scalping Rules", value: "No Scalping" },
               { label: "Max Daily DD", value: "5%" },
               { label: "Max Total DD", value: "15%" },
               { label: "Trading Window", value: "5–45 days" },
