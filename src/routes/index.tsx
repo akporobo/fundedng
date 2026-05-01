@@ -192,9 +192,9 @@ function Index() {
 
           <div className="mt-10 grid gap-4 md:grid-cols-4">
             {[
-              { label: "Profit Target", value: "15%" },
-              { label: "Max Daily DD", value: "10%" },
-              { label: "Max Total DD", value: "20%" },
+              { label: "Profit Target", value: "10%" },
+              { label: "Max Daily DD", value: "5%" },
+              { label: "Max Total DD", value: "15%" },
               { label: "Trading Window", value: "5–45 days" },
             ].map((r) => (
               <div key={r.label} className="rounded-xl border border-primary/30 bg-card p-5 text-center">
