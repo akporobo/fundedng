@@ -3,40 +3,65 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 
 const REF_KEY = "fng-ref";
+const PARTNER_REF_KEY = "fng-partner-ref";
 
 /**
  * Reads ?ref=CODE from any URL on the site, persists it in localStorage,
  * and once a user signs in (and has no referrer yet) attaches the referral
- * via attach_referral RPC. Domain-agnostic by design.
+ * via attach_referral RPC. Also tries the same code as a Partner promo code:
+ * tracks the click immediately and attaches partner referral after signin.
+ * Domain-agnostic by design.
  */
 export function ReferralCapture() {
   const { user } = useAuth();
 
-  // 1. Capture ?ref=CODE from URL into localStorage
+  // 1. Capture ?ref=CODE from URL into localStorage + record partner click
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("ref");
       if (code && code.length >= 4) {
-        localStorage.setItem(REF_KEY, code.toUpperCase());
+        const upper = code.toUpperCase();
+        localStorage.setItem(REF_KEY, upper);
+        localStorage.setItem(PARTNER_REF_KEY, upper);
+        // Fire-and-forget partner click tracker (RPC returns false if not a partner code)
+        supabase
+          .rpc("track_partner_click", {
+            _code: upper,
+            _ua: navigator.userAgent,
+            _ref: document.referrer || undefined,
+          })
+          .then(() => { /* ignore */ });
       }
     } catch {
       /* ignore */
     }
   }, []);
 
-  // 2. After signin, attach the referral (server-side validates self-ref + dups)
+  // 2. After signin, attach affiliate + partner referrals (server validates)
   useEffect(() => {
     if (!user) return;
     let code: string | null = null;
-    try { code = localStorage.getItem(REF_KEY); } catch { /* ignore */ }
-    if (!code) return;
-    supabase.rpc("attach_referral", { _code: code }).then(({ data, error }) => {
-      if (!error && data) {
-        try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ }
-      }
-    });
+    let pcode: string | null = null;
+    try {
+      code = localStorage.getItem(REF_KEY);
+      pcode = localStorage.getItem(PARTNER_REF_KEY);
+    } catch { /* ignore */ }
+    if (code) {
+      supabase.rpc("attach_referral", { _code: code }).then(({ data, error }) => {
+        if (!error && data) {
+          try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ }
+        }
+      });
+    }
+    if (pcode) {
+      supabase.rpc("attach_partner_referral", { _code: pcode }).then(({ data, error }) => {
+        if (!error && data) {
+          try { localStorage.removeItem(PARTNER_REF_KEY); } catch { /* ignore */ }
+        }
+      });
+    }
   }, [user]);
 
   return null;

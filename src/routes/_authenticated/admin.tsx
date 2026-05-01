@@ -63,6 +63,15 @@ function AdminConsole() {
   const [affPayouts, setAffPayouts] = useState<any[]>([]);
   const [freeClaims, setFreeClaims] = useState<any[]>([]);
   const [affSaving, setAffSaving] = useState<string | null>(null);
+  // Partner management
+  const [partners, setPartners] = useState<any[]>([]);
+  const [partnerPayouts, setPartnerPayouts] = useState<any[]>([]);
+  const [partnerSaving, setPartnerSaving] = useState<string | null>(null);
+  const [newPartnerEmail, setNewPartnerEmail] = useState("");
+  const [newPartnerRate, setNewPartnerRate] = useState("20");
+  const [addingPartner, setAddingPartner] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<any | null>(null);
+  const [editRateValue, setEditRateValue] = useState("");
   // Free-account claim delivery dialog (separate from order delivery)
   const [deliverClaimFor, setDeliverClaimFor] = useState<any | null>(null);
   const [claimForm, setClaimForm] = useState({ login: "", password: "", investor: "", server: "" });
@@ -312,6 +321,73 @@ function AdminConsole() {
     setFreeClaims(claimRows.map((r) => ({ ...r, profiles: profMap.get(r.affiliate_id) ?? null })));
   };
   useEffect(() => { loadAffiliate(); }, []);
+
+  const loadPartners = async () => {
+    const [pRes, payRes] = await Promise.all([
+      supabase.from("partner_profiles").select("*").order("created_at", { ascending: false }),
+      supabase.from("partner_payouts").select("*").order("requested_at", { ascending: false }),
+    ]);
+    const partnerRows = (pRes.data ?? []) as any[];
+    const payRows = (payRes.data ?? []) as any[];
+    const userIds = Array.from(new Set([
+      ...partnerRows.map((r) => r.user_id),
+      ...payRows.map((r) => r.partner_id),
+    ]));
+    const profMap = new Map<string, any>();
+    if (userIds.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+      (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
+    }
+    setPartners(partnerRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+    setPartnerPayouts(payRows.map((r) => ({ ...r, profiles: profMap.get(r.partner_id) ?? null })));
+  };
+  useEffect(() => { loadPartners(); }, []);
+
+  const addPartner = async () => {
+    const email = newPartnerEmail.trim();
+    const rate = Number(newPartnerRate);
+    if (!email) return toast.error("Email is required");
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) return toast.error("Commission must be 0-100");
+    setAddingPartner(true);
+    const { error } = await supabase.rpc("assign_partner_role", { _email: email, _commission_rate: rate });
+    setAddingPartner(false);
+    if (error) return toast.error(error.message);
+    toast.success("Partner added");
+    setNewPartnerEmail("");
+    setNewPartnerRate("20");
+    loadPartners();
+  };
+
+  const saveCommissionRate = async () => {
+    if (!editingPartner) return;
+    const rate = Number(editRateValue);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) return toast.error("Commission must be 0-100");
+    setPartnerSaving(editingPartner.id);
+    const { error } = await supabase.from("partner_profiles").update({ commission_rate: rate } as never).eq("id", editingPartner.id);
+    setPartnerSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success("Commission rate updated");
+    setEditingPartner(null);
+    loadPartners();
+  };
+
+  const togglePartnerActive = async (p: any) => {
+    setPartnerSaving(p.id);
+    const { error } = await supabase.from("partner_profiles").update({ is_active: !p.is_active } as never).eq("id", p.id);
+    setPartnerSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(p.is_active ? "Deactivated" : "Activated");
+    loadPartners();
+  };
+
+  const setPartnerPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
+    setPartnerSaving(id);
+    const { error } = await supabase.from("partner_payouts").update({ status } as never).eq("id", id);
+    setPartnerSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${status}`);
+    loadPartners();
+  };
 
   const setAffPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
     setAffSaving(id);
@@ -615,6 +691,14 @@ function AdminConsole() {
                 {(affPayouts.filter((p) => p.status === "pending").length + freeClaims.filter((c) => c.status === "pending").length) > 0 && (
                   <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
                     {affPayouts.filter((p) => p.status === "pending").length + freeClaims.filter((c) => c.status === "pending").length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="partners">
+                Partners
+                {partnerPayouts.filter((p) => p.status === "pending").length > 0 && (
+                  <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
+                    {partnerPayouts.filter((p) => p.status === "pending").length}
                   </span>
                 )}
               </TabsTrigger>
@@ -1061,8 +1145,121 @@ function AdminConsole() {
               </div>
             </div>
           </TabsContent>
+
+          <TabsContent value="partners" className="mt-6 space-y-6">
+            {/* Add new partner */}
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="font-display text-base font-bold">Assign Partner Role</div>
+              <p className="mt-1 text-xs text-muted-foreground">Enter the user's email and commission rate. Promo code is auto-generated from their name.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,140px,auto]">
+                <Input placeholder="user@example.com" value={newPartnerEmail} onChange={(e) => setNewPartnerEmail(e.target.value)} />
+                <Input type="number" min={0} max={100} step={0.5} placeholder="Rate %" value={newPartnerRate} onChange={(e) => setNewPartnerRate(e.target.value)} />
+                <Button onClick={addPartner} disabled={addingPartner}>{addingPartner ? "Adding…" : "Add Partner"}</Button>
+              </div>
+            </div>
+
+            {/* Partners list */}
+            <div>
+              <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">All Partners</div>
+              {partners.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">No partners yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {partners.map((p) => {
+                    const pendingForThis = partnerPayouts.filter((pp) => pp.partner_id === p.user_id && pp.status === "pending").length;
+                    const balance = Math.max(0, Number(p.total_earned_naira ?? 0) - Number(p.total_paid_naira ?? 0));
+                    return (
+                      <div key={p.id} className="rounded-xl border border-border bg-card p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-display font-semibold">
+                              {p.profiles?.full_name ?? "—"}
+                              <span className="ml-2 font-mono text-xs text-primary">{p.promo_code}</span>
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Commission: <span className="font-bold text-foreground">{p.commission_rate}%</span> ·
+                              Earned: <span className="font-bold text-foreground">{formatNaira(p.total_earned_naira)}</span> ·
+                              Paid: {formatNaira(p.total_paid_naira)} ·
+                              Available: <span className="font-bold text-foreground">{formatNaira(balance)}</span>
+                              {pendingForThis > 0 && <span className="ml-2 rounded-full bg-warning/20 px-2 py-0.5 text-[10px] text-warning">{pendingForThis} pending payout</span>}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={() => { setEditingPartner(p); setEditRateValue(String(p.commission_rate)); }}>
+                              Edit Rate
+                            </Button>
+                            <Button size="sm" variant={p.is_active ? "outline" : "default"} onClick={() => togglePartnerActive(p)} disabled={partnerSaving === p.id}>
+                              {p.is_active ? "Deactivate" : "Activate"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Partner payout requests */}
+            <div>
+              <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Partner Payout Requests</div>
+              {partnerPayouts.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">No payout requests yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {partnerPayouts.map((pp) => {
+                    const bd = (pp.bank_details ?? {}) as any;
+                    return (
+                      <div key={pp.id} className="rounded-xl border border-border bg-card p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="font-semibold">{pp.profiles?.full_name ?? "—"} · {formatNaira(pp.amount_naira)}</div>
+                            <div className="text-xs text-muted-foreground">Requested {new Date(pp.requested_at).toLocaleString()}</div>
+                            {bd.account_number && (
+                              <div className="mt-1 text-xs text-muted-foreground">{bd.bank_name} · {bd.account_number} · {bd.account_name}</div>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="capitalize">{pp.status}</Badge>
+                        </div>
+                        {pp.status === "pending" && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button size="sm" onClick={() => setPartnerPayoutStatus(pp.id, "approved")} disabled={partnerSaving === pp.id}>Approve</Button>
+                            <Button size="sm" variant="outline" onClick={() => setPartnerPayoutStatus(pp.id, "paid")} disabled={partnerSaving === pp.id}>Mark Paid</Button>
+                            <Button size="sm" variant="destructive" onClick={() => setPartnerPayoutStatus(pp.id, "rejected")} disabled={partnerSaving === pp.id}>Reject</Button>
+                          </div>
+                        )}
+                        {pp.status === "approved" && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button size="sm" onClick={() => setPartnerPayoutStatus(pp.id, "paid")} disabled={partnerSaving === pp.id}>Mark Paid</Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit partner commission rate dialog */}
+      <Dialog open={!!editingPartner} onOpenChange={(o) => !o && setEditingPartner(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Commission Rate</DialogTitle>
+            <DialogDescription>{editingPartner?.profiles?.full_name} · {editingPartner?.promo_code}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-rate">Commission %</Label>
+            <Input id="edit-rate" type="number" min={0} max={100} step={0.5} value={editRateValue} onChange={(e) => setEditRateValue(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPartner(null)}>Cancel</Button>
+            <Button onClick={saveCommissionRate} disabled={!!partnerSaving}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deliverFor} onOpenChange={(o) => !o && setDeliverFor(null)}>
         <DialogContent>

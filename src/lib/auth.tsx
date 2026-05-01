@@ -19,6 +19,7 @@ export interface AuthState {
   session: Session | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isPartner: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPartner, setIsPartner] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
@@ -42,7 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // shortcuts, no client-side allow-lists. Server-side checks must use the
     // same source of truth.
     const roleAdmin = !!rolesRes.data?.some((r) => r.role === "admin");
+    const rolePartner = !!rolesRes.data?.some((r) => r.role === "partner");
     setIsAdmin(roleAdmin);
+    setIsPartner(rolePartner);
   };
 
   const refresh = async () => {
@@ -60,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
         setIsAdmin(false);
+        setIsPartner(false);
       }
     });
 
@@ -82,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setIsAdmin(false);
+    setIsPartner(false);
   };
 
   return (
@@ -93,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         isAdmin,
+        isPartner,
         refresh,
         signOut,
       }}
