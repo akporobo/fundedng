@@ -322,6 +322,73 @@ function AdminConsole() {
   };
   useEffect(() => { loadAffiliate(); }, []);
 
+  const loadPartners = async () => {
+    const [pRes, payRes] = await Promise.all([
+      supabase.from("partner_profiles").select("*").order("created_at", { ascending: false }),
+      supabase.from("partner_payouts").select("*").order("requested_at", { ascending: false }),
+    ]);
+    const partnerRows = (pRes.data ?? []) as any[];
+    const payRows = (payRes.data ?? []) as any[];
+    const userIds = Array.from(new Set([
+      ...partnerRows.map((r) => r.user_id),
+      ...payRows.map((r) => r.partner_id),
+    ]));
+    const profMap = new Map<string, any>();
+    if (userIds.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+      (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
+    }
+    setPartners(partnerRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+    setPartnerPayouts(payRows.map((r) => ({ ...r, profiles: profMap.get(r.partner_id) ?? null })));
+  };
+  useEffect(() => { loadPartners(); }, []);
+
+  const addPartner = async () => {
+    const email = newPartnerEmail.trim();
+    const rate = Number(newPartnerRate);
+    if (!email) return toast.error("Email is required");
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) return toast.error("Commission must be 0-100");
+    setAddingPartner(true);
+    const { error } = await supabase.rpc("assign_partner_role", { _email: email, _commission_rate: rate });
+    setAddingPartner(false);
+    if (error) return toast.error(error.message);
+    toast.success("Partner added");
+    setNewPartnerEmail("");
+    setNewPartnerRate("20");
+    loadPartners();
+  };
+
+  const saveCommissionRate = async () => {
+    if (!editingPartner) return;
+    const rate = Number(editRateValue);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) return toast.error("Commission must be 0-100");
+    setPartnerSaving(editingPartner.id);
+    const { error } = await supabase.from("partner_profiles").update({ commission_rate: rate } as never).eq("id", editingPartner.id);
+    setPartnerSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success("Commission rate updated");
+    setEditingPartner(null);
+    loadPartners();
+  };
+
+  const togglePartnerActive = async (p: any) => {
+    setPartnerSaving(p.id);
+    const { error } = await supabase.from("partner_profiles").update({ is_active: !p.is_active } as never).eq("id", p.id);
+    setPartnerSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(p.is_active ? "Deactivated" : "Activated");
+    loadPartners();
+  };
+
+  const setPartnerPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
+    setPartnerSaving(id);
+    const { error } = await supabase.from("partner_payouts").update({ status } as never).eq("id", id);
+    setPartnerSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Marked ${status}`);
+    loadPartners();
+  };
+
   const setAffPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
     setAffSaving(id);
     const { error } = await supabase.from("affiliate_payouts").update({ status } as never).eq("id", id);
