@@ -30,7 +30,7 @@ export function ReferralCapture() {
           .rpc("track_partner_click", {
             _code: upper,
             _ua: navigator.userAgent,
-            _ref: document.referrer || null,
+            _ref: document.referrer || undefined,
           })
           .then(() => { /* ignore */ });
       }
