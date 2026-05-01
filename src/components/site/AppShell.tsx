@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift } from "lucide-react";
+import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift, Handshake } from "lucide-react";
 import { Brand } from "./Brand";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -21,7 +21,7 @@ const NAV = [
  */
 export function AppSidebar() {
   const { pathname } = useLocation();
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin, isPartner, signOut } = useAuth();
 
   const initials = (profile?.full_name || user?.email || "U")
     .split(" ")
@@ -66,6 +66,19 @@ export function AppSidebar() {
             )}
           >
             <ShieldCheck className="h-4 w-4" /> Admin
+          </Link>
+        )}
+        {isPartner && (
+          <Link
+            to="/partner"
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/partner")
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <Handshake className="h-4 w-4" /> Partner
           </Link>
         )}
       </nav>
