@@ -669,6 +669,138 @@ export type Database = {
           },
         ]
       }
+      partner_clicks: {
+        Row: {
+          created_at: string
+          id: string
+          partner_id: string | null
+          promo_code: string
+          referer: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          partner_id?: string | null
+          promo_code: string
+          referer?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          partner_id?: string | null
+          promo_code?: string
+          referer?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      partner_payouts: {
+        Row: {
+          admin_note: string | null
+          amount_naira: number
+          approved_at: string | null
+          bank_details: Json | null
+          created_at: string
+          id: string
+          partner_id: string
+          processed_at: string | null
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount_naira: number
+          approved_at?: string | null
+          bank_details?: Json | null
+          created_at?: string
+          id?: string
+          partner_id: string
+          processed_at?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount_naira?: number
+          approved_at?: string | null
+          bank_details?: Json | null
+          created_at?: string
+          id?: string
+          partner_id?: string
+          processed_at?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      partner_profiles: {
+        Row: {
+          commission_rate: number
+          created_at: string
+          id: string
+          is_active: boolean
+          promo_code: string
+          total_earned_naira: number
+          total_paid_naira: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          commission_rate?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          promo_code: string
+          total_earned_naira?: number
+          total_paid_naira?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          commission_rate?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          promo_code?: string
+          total_earned_naira?: number
+          total_paid_naira?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      partner_referrals: {
+        Row: {
+          amount_paid_naira: number
+          commission_amount_naira: number
+          created_at: string
+          id: string
+          order_id: string | null
+          partner_id: string
+          referred_user_id: string
+        }
+        Insert: {
+          amount_paid_naira?: number
+          commission_amount_naira?: number
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          partner_id: string
+          referred_user_id: string
+        }
+        Update: {
+          amount_paid_naira?: number
+          commission_amount_naira?: number
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          partner_id?: string
+          referred_user_id?: string
+        }
+        Relationships: []
+      }
       payouts: {
         Row: {
           admin_note: string | null
@@ -732,6 +864,7 @@ export type Database = {
           id: string
           is_affiliate: boolean
           kyc_verified: boolean
+          partner_referred_by: string | null
           phone: string | null
           referral_code: string | null
           referred_by: string | null
@@ -746,6 +879,7 @@ export type Database = {
           id: string
           is_affiliate?: boolean
           kyc_verified?: boolean
+          partner_referred_by?: string | null
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
@@ -760,6 +894,7 @@ export type Database = {
           id?: string
           is_affiliate?: boolean
           kyc_verified?: boolean
+          partner_referred_by?: string | null
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
@@ -1005,10 +1140,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_partner_role: {
+        Args: { _commission_rate?: number; _email: string }
+        Returns: string
+      }
+      attach_partner_referral: { Args: { _code: string }; Returns: boolean }
       attach_referral: { Args: { _code: string }; Returns: boolean }
       auto_pay_approved_affiliate_payouts: { Args: never; Returns: number }
       claim_admin_if_unclaimed: { Args: never; Returns: boolean }
       claim_free_account: { Args: never; Returns: string }
+      gen_partner_promo_code: { Args: { _full_name: string }; Returns: string }
       generate_affiliate_code: { Args: never; Returns: string }
       get_affiliate_claimable_batch: {
         Args: { p_affiliate_id: string }
@@ -1034,12 +1175,17 @@ export type Database = {
       }
       request_affiliate_payout: { Args: { _amount: number }; Returns: string }
       request_funded: { Args: { _account_id: string }; Returns: boolean }
+      request_partner_payout: { Args: { _amount: number }; Returns: string }
       request_phase2: { Args: { _account_id: string }; Returns: boolean }
       send_telegram: { Args: { p_message: string }; Returns: undefined }
+      track_partner_click: {
+        Args: { _code: string; _ref?: string; _ua?: string }
+        Returns: boolean
+      }
     }
     Enums: {
       account_status: "active" | "breached" | "passed" | "funded"
-      app_role: "admin" | "trader"
+      app_role: "admin" | "trader" | "partner"
       certificate_kind: "funded" | "payout"
       order_status:
         | "pending"
@@ -1177,7 +1323,7 @@ export const Constants = {
   public: {
     Enums: {
       account_status: ["active", "breached", "passed", "funded"],
-      app_role: ["admin", "trader"],
+      app_role: ["admin", "trader", "partner"],
       certificate_kind: ["funded", "payout"],
       order_status: [
         "pending",
