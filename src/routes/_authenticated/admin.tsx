@@ -694,6 +694,14 @@ function AdminConsole() {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="partners">
+                Partners
+                {partnerPayouts.filter((p) => p.status === "pending").length > 0 && (
+                  <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
+                    {partnerPayouts.filter((p) => p.status === "pending").length}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
 
