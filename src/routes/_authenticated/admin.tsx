@@ -63,6 +63,15 @@ function AdminConsole() {
   const [affPayouts, setAffPayouts] = useState<any[]>([]);
   const [freeClaims, setFreeClaims] = useState<any[]>([]);
   const [affSaving, setAffSaving] = useState<string | null>(null);
+  // Partner management
+  const [partners, setPartners] = useState<any[]>([]);
+  const [partnerPayouts, setPartnerPayouts] = useState<any[]>([]);
+  const [partnerSaving, setPartnerSaving] = useState<string | null>(null);
+  const [newPartnerEmail, setNewPartnerEmail] = useState("");
+  const [newPartnerRate, setNewPartnerRate] = useState("20");
+  const [addingPartner, setAddingPartner] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<any | null>(null);
+  const [editRateValue, setEditRateValue] = useState("");
   // Free-account claim delivery dialog (separate from order delivery)
   const [deliverClaimFor, setDeliverClaimFor] = useState<any | null>(null);
   const [claimForm, setClaimForm] = useState({ login: "", password: "", investor: "", server: "" });
