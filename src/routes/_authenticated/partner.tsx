@@ -99,12 +99,12 @@ function PartnerPage() {
   const purchases = referrals.length;
 
   const claimFreeAccount = async () => {
-    if (freeAccounts.length > 0) return toast.error("You've already requested your free partnership account.");
+    if (freeAccounts.length > 0) return toast.error("You've already requested your free 1M Elite partnership account.");
     setClaiming(true);
     const { error } = await supabase.rpc("claim_partner_free_account" as any);
     setClaiming(false);
     if (error) return toast.error(error.message);
-    toast.success("Free partnership account requested.");
+    toast.success("Free 1M Elite partnership account requested. Admin will deliver your MT5 credentials.");
     load();
   };
 
@@ -155,12 +155,12 @@ function PartnerPage() {
       <div className="mt-6 rounded-2xl border border-gold/40 bg-gold/5 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="font-display text-base font-bold">🎁 Free Partnership Account</div>
-            <p className="mt-1 text-sm text-muted-foreground">Every partner can request one free partnership trading account once.</p>
+            <div className="font-display text-base font-bold">🎁 Free 1M Elite Partnership Account</div>
+            <p className="mt-1 text-sm text-muted-foreground">Every partner gets one free ₦1,000,000 Elite challenge account. Request below and admin will deliver your MT5 credentials.</p>
           </div>
           {freeAccounts.length === 0 ? (
             <Button onClick={claimFreeAccount} disabled={claiming} className="font-display">
-              <Gift className="mr-1 h-4 w-4" />{claiming ? "Requesting..." : "Request Account"}
+              <Gift className="mr-1 h-4 w-4" />{claiming ? "Requesting..." : "Request 1M Account"}
             </Button>
           ) : (
             <Badge variant="outline" className="capitalize">{freeAccounts[0].status}</Badge>
@@ -169,14 +169,17 @@ function PartnerPage() {
         {freeAccounts.length > 0 && (
           <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
             {freeAccounts[0].status === "fulfilled" && freeAccounts[0].mt5_login ? (
-              <div className="grid gap-1 font-mono text-xs">
-                <div>Login: <span className="font-bold text-foreground">{freeAccounts[0].mt5_login}</span></div>
-                <div>Server: <span className="font-bold text-foreground">{freeAccounts[0].mt5_server}</span></div>
-                <div>Password: <span className="font-bold text-foreground">{freeAccounts[0].mt5_password}</span></div>
-                {freeAccounts[0].investor_password && <div>Investor pw: <span className="font-bold text-foreground">{freeAccounts[0].investor_password}</span></div>}
+              <div>
+                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">₦1,000,000 Elite Challenge</div>
+                <div className="grid gap-1 font-mono text-xs">
+                  <div>Login: <span className="font-bold text-foreground">{freeAccounts[0].mt5_login}</span></div>
+                  <div>Server: <span className="font-bold text-foreground">{freeAccounts[0].mt5_server}</span></div>
+                  <div>Password: <span className="font-bold text-foreground">{freeAccounts[0].mt5_password}</span></div>
+                  {freeAccounts[0].investor_password && <div>Investor pw: <span className="font-bold text-foreground">{freeAccounts[0].investor_password}</span></div>}
+                </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Your request is with admin. MT5 credentials will appear here after delivery.</p>
+              <p className="text-xs text-muted-foreground">Your request for a free 1M Elite account is with admin. MT5 credentials will appear here after delivery.</p>
             )}
           </div>
         )}

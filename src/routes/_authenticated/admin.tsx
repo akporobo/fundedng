@@ -213,7 +213,7 @@ function AdminConsole() {
         ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds)
         : Promise.resolve({ data: [] as any[] }),
       challengeIds.length
-        ? supabase.from("challenges").select("id, name, account_size, profit_target_percent").in("id", challengeIds)
+        ? supabase.from("challenges").select("id, name, account_size, profit_target_percent, max_drawdown_percent, phases").in("id", challengeIds)
         : Promise.resolve({ data: [] as any[] }),
       orderIds.length
         ? supabase.from("orders").select("id, status").in("id", orderIds)
@@ -334,7 +334,7 @@ function AdminConsole() {
     const [pRes, payRes, freeRes] = await Promise.all([
       supabase.from("partner_profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("partner_payouts").select("*").order("requested_at", { ascending: false }),
-      (supabase as any).from("partner_free_accounts").select("*").order("requested_at", { ascending: false }),
+      (supabase as any).from("partner_free_accounts").select("*, challenges(name, account_size, profit_target_percent, max_drawdown_percent, phases)").order("requested_at", { ascending: false }),
     ]);
     const partnerRows = (pRes.data ?? []) as any[];
     const payRows = (payRes.data ?? []) as any[];
@@ -496,16 +496,15 @@ function AdminConsole() {
       return toast.error("Login, password and server are required");
     }
     setDeliveringPartnerFree(true);
-    const { data: challengeData } = await supabase
-      .from("challenges")
-      .select("id")
-      .eq("account_size", deliverPartnerFreeFor.account_size)
-      .eq("name", deliverPartnerFreeFor.challenge_name)
-      .maybeSingle();
-    if (!challengeData) {
+
+    // Use the challenge_id stored on the partner_free_accounts row
+    const challengeId = deliverPartnerFreeFor.challenge_id;
+    if (!challengeId) {
       setDeliveringPartnerFree(false);
-      return toast.error("Could not find matching challenge for this account size/type");
+      return toast.error("No challenge linked to this request. The claim may be from an older version. Ask the partner to re-request.");
     }
+
+    // Mark the partner free account as fulfilled
     const { error } = await (supabase as any)
       .from("partner_free_accounts")
       .update({
@@ -521,21 +520,28 @@ function AdminConsole() {
       setDeliveringPartnerFree(false);
       return toast.error(error.message);
     }
-    const { error: taError } = await supabase
+
+    // Create the trader_accounts row so it appears in the Accounts tab for equity/phase management
+    const { error: taError } = await (supabase as any)
       .from("trader_accounts")
       .insert({
         user_id: deliverPartnerFreeFor.partner_id,
-        challenge_id: challengeData.id,
+        challenge_id: challengeId,
+        order_id: null,
         mt5_login: partnerFreeForm.login.trim(),
         mt5_password: partnerFreeForm.password.trim(),
         investor_password: partnerFreeForm.investor.trim() || null,
         mt5_server: partnerFreeForm.server.trim(),
+        starting_balance: 1000000,
+        current_equity: 1000000,
+        current_phase: 1,
         status: "active",
       });
     setDeliveringPartnerFree(false);
     if (taError) return toast.error(taError.message);
-    toast.success(`Delivered partner account: login ${partnerFreeForm.login}`);
+    toast.success(`Delivered 1M Elite partner account: login ${partnerFreeForm.login}`);
     setDeliverPartnerFreeFor(null);
+    load();
     loadPartners();
   };
 
@@ -1339,7 +1345,7 @@ function AdminConsole() {
 
             {/* Partner free-account requests */}
             <div>
-              <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Partner Free Account Requests</div>
+              <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Partner Free 1M Account Requests</div>
               {partnerFreeAccounts.length === 0 ? (
                 <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">No partner free-account requests yet.</div>
               ) : (
@@ -1348,9 +1354,10 @@ function AdminConsole() {
                     <div key={c.id} className="rounded-xl border border-border bg-card p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <div className="font-semibold">{c.profiles?.full_name ?? "—"} · Free partnership account</div>
+                          <div className="font-semibold">{c.profiles?.full_name ?? "—"}</div>
                           <div className="text-xs text-muted-foreground">
-                            Requested {new Date(c.requested_at).toLocaleString()}
+                            Free ₦1,000,000 Elite Challenge
+                            {" · "}Requested {new Date(c.requested_at).toLocaleString()}
                             {c.mt5_login && <> · Login <span className="font-mono">{c.mt5_login}</span></>}
                           </div>
                         </div>
@@ -1360,6 +1367,12 @@ function AdminConsole() {
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Button size="sm" onClick={() => openDeliverPartnerFree(c)} disabled={partnerSaving === c.id}>Deliver account</Button>
                           <Button size="sm" variant="outline" onClick={async () => { setPartnerSaving(c.id); const { error } = await (supabase as any).from("partner_free_accounts").update({ status: "rejected" }).eq("id", c.id); setPartnerSaving(null); if (error) toast.error(error.message); else { toast.success("Rejected"); loadPartners(); } }} disabled={partnerSaving === c.id}>Reject</Button>
+                        </div>
+                      )}
+                      {c.status === "fulfilled" && c.challenges && (
+                        <div className="mt-3 text-xs text-muted-foreground">
+                          Delivered: <span className="font-mono">{c.mt5_login}</span> on {c.mt5_server}
+                          {" · "}Phase {c.challenges.phases}-step · Target {c.challenges.profit_target_percent}% · Max DD {c.challenges.max_drawdown_percent}%
                         </div>
                       )}
                     </div>
@@ -1511,11 +1524,11 @@ function AdminConsole() {
 
       <Dialog open={!!deliverPartnerFreeFor} onOpenChange={(o) => !o && setDeliverPartnerFreeFor(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Deliver free partner account</DialogTitle>
+            <DialogHeader>
+            <DialogTitle>Deliver free 1M Elite partner account</DialogTitle>
             <DialogDescription>
               {deliverPartnerFreeFor && (
-                <>Partner: <span className="font-medium">{deliverPartnerFreeFor.profiles?.full_name ?? "—"}</span></>
+                <>Partner: <span className="font-medium">{deliverPartnerFreeFor.profiles?.full_name ?? "—"}</span> · Free ₦1,000,000 Elite Challenge</>
               )}
             </DialogDescription>
           </DialogHeader>

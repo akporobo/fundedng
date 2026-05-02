@@ -180,29 +180,49 @@ function DashboardPage() {
     if (pfa && pfa.status === "fulfilled" && pfa.mt5_login) {
       // Check if we already added it
       if (!list.find((acc) => acc.mt5_login === pfa.mt5_login)) {
-        // Get challenge details for the free account
-        const { data: chData } = await supabase
-          .from("challenges")
-          .select("name, profit_target_percent, max_drawdown_percent, phases")
-          .eq("account_size", pfa.account_size)
-          .eq("name", pfa.challenge_name)
+        // Find the corresponding trader_accounts row (created during delivery)
+        const { data: taData } = await supabase
+          .from("trader_accounts")
+          .select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases)")
+          .eq("mt5_login", pfa.mt5_login)
+          .eq("user_id", user.id)
           .maybeSingle();
-        const freeAccount: Account = {
-          id: pfa.id,
-          mt5_login: pfa.mt5_login!,
-          mt5_password: pfa.mt5_password!,
-          mt5_server: pfa.mt5_server!,
-          starting_balance: pfa.account_size,
-          current_equity: pfa.account_size,
-          current_phase: 1,
-          status: "active",
-          challenge_id: "",
-          phase2_requested_at: null,
-          funded_requested_at: null,
-          challenges: chData ?? { name: pfa.challenge_name, profit_target_percent: 10, max_drawdown_percent: 20, phases: 2 },
-        };
-        list.push(freeAccount);
-        setAccounts([...list]);
+
+        if (taData) {
+          // Use the real trader_accounts record
+          if (!list.find((acc) => acc.id === taData.id)) {
+            list.push(taData as Account);
+            setAccounts([...list]);
+          }
+        } else {
+          // Fallback: use challenge_id from partner_free_accounts if available
+          const challengeId = pfa.challenge_id;
+          let chData = null;
+          if (challengeId) {
+            const { data } = await supabase
+              .from("challenges")
+              .select("name, profit_target_percent, max_drawdown_percent, phases")
+              .eq("id", challengeId)
+              .maybeSingle();
+            chData = data;
+          }
+          const freeAccount: Account = {
+            id: pfa.id,
+            mt5_login: pfa.mt5_login!,
+            mt5_password: pfa.mt5_password!,
+            mt5_server: pfa.mt5_server!,
+            starting_balance: 1000000,
+            current_equity: 1000000,
+            current_phase: 1,
+            status: "active",
+            challenge_id: challengeId || "",
+            phase2_requested_at: null,
+            funded_requested_at: null,
+            challenges: chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2 },
+          };
+          list.push(freeAccount);
+          setAccounts([...list]);
+        }
       }
     }
 
