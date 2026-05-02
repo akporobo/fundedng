@@ -433,6 +433,42 @@ export type Database = {
         }
         Relationships: []
       }
+      discount_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_redemptions: number | null
+          percent_off: number
+          redemption_count: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          percent_off?: number
+          redemption_count?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          percent_off?: number
+          redemption_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
@@ -633,7 +669,12 @@ export type Database = {
           amount_paid: number
           challenge_id: string
           created_at: string
+          discount_amount: number
+          discount_code: string | null
+          discount_percent: number
           id: string
+          original_amount: number | null
+          partner_promo_code: string | null
           paystack_reference: string | null
           status: Database["public"]["Enums"]["order_status"]
           updated_at: string
@@ -643,7 +684,12 @@ export type Database = {
           amount_paid: number
           challenge_id: string
           created_at?: string
+          discount_amount?: number
+          discount_code?: string | null
+          discount_percent?: number
           id?: string
+          original_amount?: number | null
+          partner_promo_code?: string | null
           paystack_reference?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           updated_at?: string
@@ -653,7 +699,12 @@ export type Database = {
           amount_paid?: number
           challenge_id?: string
           created_at?: string
+          discount_amount?: number
+          discount_code?: string | null
+          discount_percent?: number
           id?: string
+          original_amount?: number | null
+          partner_promo_code?: string | null
           paystack_reference?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           updated_at?: string
@@ -693,6 +744,57 @@ export type Database = {
           promo_code?: string
           referer?: string | null
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      partner_free_accounts: {
+        Row: {
+          account_size: number
+          admin_note: string | null
+          challenge_name: string
+          created_at: string
+          fulfilled_at: string | null
+          id: string
+          investor_password: string | null
+          mt5_login: string | null
+          mt5_password: string | null
+          mt5_server: string | null
+          partner_id: string
+          requested_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_size?: number
+          admin_note?: string | null
+          challenge_name?: string
+          created_at?: string
+          fulfilled_at?: string | null
+          id?: string
+          investor_password?: string | null
+          mt5_login?: string | null
+          mt5_password?: string | null
+          mt5_server?: string | null
+          partner_id: string
+          requested_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_size?: number
+          admin_note?: string | null
+          challenge_name?: string
+          created_at?: string
+          fulfilled_at?: string | null
+          id?: string
+          investor_password?: string | null
+          mt5_login?: string | null
+          mt5_password?: string | null
+          mt5_server?: string | null
+          partner_id?: string
+          requested_at?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1149,6 +1251,7 @@ export type Database = {
       auto_pay_approved_affiliate_payouts: { Args: never; Returns: number }
       claim_admin_if_unclaimed: { Args: never; Returns: boolean }
       claim_free_account: { Args: never; Returns: string }
+      claim_partner_free_account: { Args: never; Returns: string }
       gen_partner_promo_code: { Args: { _full_name: string }; Returns: string }
       generate_affiliate_code: { Args: never; Returns: string }
       get_affiliate_claimable_batch: {
@@ -1161,6 +1264,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_discount_redemption: {
+        Args: { _code: string }
+        Returns: undefined
       }
       notify_push_event: {
         Args: {
@@ -1181,6 +1288,13 @@ export type Database = {
       track_partner_click: {
         Args: { _code: string; _ref?: string; _ua?: string }
         Returns: boolean
+      }
+      validate_discount_code: {
+        Args: { _code: string }
+        Returns: {
+          code: string
+          percent_off: number
+        }[]
       }
     }
     Enums: {

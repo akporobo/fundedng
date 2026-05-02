@@ -33,6 +33,18 @@ interface Account {
   funded_requested_at: string | null;
   challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
+
+interface PartnerFreeAccount {
+  id: string;
+  status: string;
+  account_size: number;
+  challenge_name: string;
+  mt5_login: string | null;
+  mt5_password: string | null;
+  mt5_server: string | null;
+  requested_at: string;
+  fulfilled_at: string | null;
+}
 interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; trader_account_id?: string; }
 interface Notification { id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; }
 
@@ -92,6 +104,7 @@ const statusVariant: Record<string, string> = {
 function DashboardPage() {
   const { user, profile, signOut, refresh } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [partnerFreeAccount, setPartnerFreeAccount] = useState<PartnerFreeAccount | null>(null);
   const [selected, setSelected] = useState<Account | null>(null);
   const [snapshots, setSnapshots] = useState<{ snapshot_time: string; equity: number }[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -148,17 +161,51 @@ function DashboardPage() {
 
   const load = async () => {
     if (!user) return;
-    const [a, p, n, c] = await Promise.all([
+    const [a, p, n, c, pf] = await Promise.all([
       supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases)").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("certificates").select("*").eq("user_id", user.id).order("issued_at", { ascending: false }),
+      (supabase as any).from("partner_free_accounts").select("*").eq("partner_id", user.id).maybeSingle(),
     ]);
     const list = (a.data as Account[]) ?? [];
     setAccounts(list);
     setPayouts((p.data as Payout[]) ?? []);
     setNotifications((n.data as Notification[]) ?? []);
     setCertificates((c.data as Certificate[]) ?? []);
+
+    // If partner has a fulfilled free account, add it to accounts list
+    const pfa = pf.data as PartnerFreeAccount | null;
+    setPartnerFreeAccount(pfa);
+    if (pfa && pfa.status === "fulfilled" && pfa.mt5_login) {
+      // Check if we already added it
+      if (!list.find((acc) => acc.mt5_login === pfa.mt5_login)) {
+        // Get challenge details for the free account
+        const { data: chData } = await supabase
+          .from("challenges")
+          .select("name, profit_target_percent, max_drawdown_percent, phases")
+          .eq("account_size", pfa.account_size)
+          .eq("name", pfa.challenge_name)
+          .maybeSingle();
+        const freeAccount: Account = {
+          id: pfa.id,
+          mt5_login: pfa.mt5_login!,
+          mt5_password: pfa.mt5_password!,
+          mt5_server: pfa.mt5_server!,
+          starting_balance: pfa.account_size,
+          current_equity: pfa.account_size,
+          current_phase: 1,
+          status: "active",
+          challenge_id: "",
+          phase2_requested_at: null,
+          funded_requested_at: null,
+          challenges: chData ?? { name: pfa.challenge_name, profit_target_percent: 10, max_drawdown_percent: 20, phases: 2 },
+        };
+        list.push(freeAccount);
+        setAccounts([...list]);
+      }
+    }
+
     if (!selected && list.length) setSelected(list[0]);
   };
 

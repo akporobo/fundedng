@@ -103,13 +103,19 @@ export const Route = createFileRoute("/api/verify-payment")({
           // ---- 5. Confirm amount matches challenge price ----
           const { data: challenge, error: chErr } = await supabaseAdmin
             .from("challenges")
-            .select("id, price_naira, is_active")
+              .select("id, price_naira, is_active")
             .eq("id", challengeId)
             .maybeSingle();
           if (chErr || !challenge) {
             return Response.json({ error: "Challenge not found" }, { status: 404 });
           }
-          const expectedKobo = Number(challenge.price_naira) * 100;
+          const metadata = (paystackJson.data?.metadata ?? {}) as Record<string, unknown>;
+          const discountPercent = Math.max(0, Math.min(100, Number(metadata.discount_percent ?? 0) || 0));
+          const discountCode = typeof metadata.discount_code === "string" ? metadata.discount_code : null;
+          const partnerPromoCode = typeof metadata.partner_promo_code === "string" ? metadata.partner_promo_code : null;
+          const originalKobo = Number(challenge.price_naira) * 100;
+          const discountKobo = Math.floor(originalKobo * discountPercent / 100);
+          const expectedKobo = Math.max(0, originalKobo - discountKobo);
           const paidKobo = Number(paystackJson.data?.amount ?? 0);
           if (paidKobo !== expectedKobo) {
             return Response.json(
@@ -126,6 +132,11 @@ export const Route = createFileRoute("/api/verify-payment")({
             .insert({
               user_id: userId,
               challenge_id: challengeId,
+              original_amount: originalKobo,
+              discount_amount: discountKobo,
+              discount_code: discountCode,
+              discount_percent: discountPercent,
+              partner_promo_code: partnerPromoCode,
               amount_paid: paidKobo,
               status: "paid",
               paystack_reference: reference,
@@ -137,6 +148,10 @@ export const Route = createFileRoute("/api/verify-payment")({
               { error: orderErr?.message ?? "Order creation failed" },
               { status: 500 },
             );
+          }
+
+          if (discountCode) {
+            await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
           }
 
           return Response.json({ ok: true, order_id: order.id });

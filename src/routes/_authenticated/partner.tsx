@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
-import { Copy, MousePointerClick, Users, Wallet, Send, Share2, Percent } from "lucide-react";
+import { Copy, Gift, MousePointerClick, Users, Wallet, Send, Share2, Percent } from "lucide-react";
 import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/partner")({
@@ -23,6 +23,7 @@ interface PartnerProfile {
 }
 interface Referral { id: string; referred_user_id: string; commission_amount_naira: number; amount_paid_naira: number; order_id: string | null; created_at: string; }
 interface Payout { id: string; amount_naira: number; status: string; requested_at: string; admin_note: string | null; }
+interface FreeAccount { id: string; status: string; account_size: number; challenge_name: string; mt5_login: string | null; mt5_password: string | null; investor_password: string | null; mt5_server: string | null; requested_at: string; }
 
 function PartnerPage() {
   const { user, profile } = useAuth();
@@ -30,27 +31,31 @@ function PartnerPage() {
   const [pp, setPp] = useState<PartnerProfile | null>(null);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [freeAccounts, setFreeAccounts] = useState<FreeAccount[]>([]);
   const [clicks, setClicks] = useState(0);
   const [signups, setSignups] = useState(0);
   const [pendingReserved, setPendingReserved] = useState(0);
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!user) return;
-    const [profRes, refRes, payRes, clickRes, signupRes] = await Promise.all([
+    const [profRes, refRes, payRes, clickRes, signupRes, freeRes] = await Promise.all([
       supabase.from("partner_profiles").select("promo_code,commission_rate,total_earned_naira,total_paid_naira,is_active").eq("user_id", user.id).maybeSingle(),
       supabase.from("partner_referrals").select("*").eq("partner_id", user.id).order("created_at", { ascending: false }),
       supabase.from("partner_payouts").select("*").eq("partner_id", user.id).order("requested_at", { ascending: false }),
       supabase.from("partner_clicks").select("*", { count: "exact", head: true }).eq("partner_id", user.id),
       supabase.from("profiles").select("*", { count: "exact", head: true }).eq("partner_referred_by", user.id),
+      (supabase as any).from("partner_free_accounts").select("*").eq("partner_id", user.id).order("requested_at", { ascending: false }),
     ]);
     setPp((profRes.data as PartnerProfile | null) ?? null);
     setReferrals((refRes.data as Referral[]) ?? []);
     const list = (payRes.data as Payout[]) ?? [];
     setPayouts(list);
     setPendingReserved(list.filter((x) => ["pending","approved"].includes(x.status)).reduce((s,x)=>s+Number(x.amount_naira),0));
+    setFreeAccounts((freeRes.data as FreeAccount[]) ?? []);
     setClicks(clickRes.count ?? 0);
     setSignups(signupRes.count ?? 0);
     setLoading(false);
@@ -93,6 +98,16 @@ function PartnerPage() {
   const balance = pp ? pp.total_earned_naira - pp.total_paid_naira - pendingReserved : 0;
   const purchases = referrals.length;
 
+  const claimFreeAccount = async () => {
+    if (freeAccounts.length > 0) return toast.error("You've already requested your free partnership account.");
+    setClaiming(true);
+    const { error } = await supabase.rpc("claim_partner_free_account" as any);
+    setClaiming(false);
+    if (error) return toast.error(error.message);
+    toast.success("Free partnership account requested.");
+    load();
+  };
+
   const requestPayout = async () => {
     const amt = Number(amount.replace(/[^0-9]/g, ""));
     if (!amt || amt < 5000) return toast.error("Minimum payout is ₦5,000");
@@ -130,8 +145,40 @@ function PartnerPage() {
         {pp && (
           <p className="mt-3 text-xs text-muted-foreground">
             Promo code: <span className="font-mono font-bold text-foreground">{pp.promo_code}</span>
+            {" · "}Buyer discount: <span className="font-bold text-foreground">15%</span>
             {" · "}Commission rate: <span className="font-bold text-foreground">{pp.commission_rate}%</span>
           </p>
+        )}
+      </div>
+
+      {/* One-time free partnership account */}
+      <div className="mt-6 rounded-2xl border border-gold/40 bg-gold/5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="font-display text-base font-bold">🎁 Free Partnership Account</div>
+            <p className="mt-1 text-sm text-muted-foreground">Every partner can request one free partnership trading account once.</p>
+          </div>
+          {freeAccounts.length === 0 ? (
+            <Button onClick={claimFreeAccount} disabled={claiming} className="font-display">
+              <Gift className="mr-1 h-4 w-4" />{claiming ? "Requesting..." : "Request Account"}
+            </Button>
+          ) : (
+            <Badge variant="outline" className="capitalize">{freeAccounts[0].status}</Badge>
+          )}
+        </div>
+        {freeAccounts.length > 0 && (
+          <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
+            {freeAccounts[0].status === "fulfilled" && freeAccounts[0].mt5_login ? (
+              <div className="grid gap-1 font-mono text-xs">
+                <div>Login: <span className="font-bold text-foreground">{freeAccounts[0].mt5_login}</span></div>
+                <div>Server: <span className="font-bold text-foreground">{freeAccounts[0].mt5_server}</span></div>
+                <div>Password: <span className="font-bold text-foreground">{freeAccounts[0].mt5_password}</span></div>
+                {freeAccounts[0].investor_password && <div>Investor pw: <span className="font-bold text-foreground">{freeAccounts[0].investor_password}</span></div>}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Your request is with admin. MT5 credentials will appear here after delivery.</p>
+            )}
+          </div>
         )}
       </div>
 

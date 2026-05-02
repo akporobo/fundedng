@@ -10,6 +10,7 @@ export interface Profile {
   bank_account_number: string | null;
   bank_name: string | null;
   bank_account_name: string | null;
+  partner_referred_by?: string | null;
 }
 
 export interface AuthState {

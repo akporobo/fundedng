@@ -72,10 +72,18 @@ function AdminConsole() {
   const [addingPartner, setAddingPartner] = useState(false);
   const [editingPartner, setEditingPartner] = useState<any | null>(null);
   const [editRateValue, setEditRateValue] = useState("");
+  const [partnerFreeAccounts, setPartnerFreeAccounts] = useState<any[]>([]);
   // Free-account claim delivery dialog (separate from order delivery)
   const [deliverClaimFor, setDeliverClaimFor] = useState<any | null>(null);
   const [claimForm, setClaimForm] = useState({ login: "", password: "", investor: "", server: "" });
   const [deliveringClaim, setDeliveringClaim] = useState(false);
+  const [deliverPartnerFreeFor, setDeliverPartnerFreeFor] = useState<any | null>(null);
+  const [partnerFreeForm, setPartnerFreeForm] = useState({ login: "", password: "", investor: "", server: "" });
+  const [deliveringPartnerFree, setDeliveringPartnerFree] = useState(false);
+  // Discount management
+  const [discountCodes, setDiscountCodes] = useState<any[]>([]);
+  const [discountForm, setDiscountForm] = useState({ code: "", percent_off: "15", max_redemptions: "", expires_at: "", is_active: true });
+  const [discountSaving, setDiscountSaving] = useState<string | null>(null);
   // Telegram settings
   const [tgBotToken, setTgBotToken] = useState("");
   const [tgChatId, setTgChatId] = useState("");
@@ -323,15 +331,18 @@ function AdminConsole() {
   useEffect(() => { loadAffiliate(); }, []);
 
   const loadPartners = async () => {
-    const [pRes, payRes] = await Promise.all([
+    const [pRes, payRes, freeRes] = await Promise.all([
       supabase.from("partner_profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("partner_payouts").select("*").order("requested_at", { ascending: false }),
+      (supabase as any).from("partner_free_accounts").select("*").order("requested_at", { ascending: false }),
     ]);
     const partnerRows = (pRes.data ?? []) as any[];
     const payRows = (payRes.data ?? []) as any[];
+    const freeRows = (freeRes.data ?? []) as any[];
     const userIds = Array.from(new Set([
       ...partnerRows.map((r) => r.user_id),
       ...payRows.map((r) => r.partner_id),
+      ...freeRows.map((r) => r.partner_id),
     ]));
     const profMap = new Map<string, any>();
     if (userIds.length) {
@@ -340,8 +351,16 @@ function AdminConsole() {
     }
     setPartners(partnerRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
     setPartnerPayouts(payRows.map((r) => ({ ...r, profiles: profMap.get(r.partner_id) ?? null })));
+    setPartnerFreeAccounts(freeRows.map((r) => ({ ...r, profiles: profMap.get(r.partner_id) ?? null })));
   };
   useEffect(() => { loadPartners(); }, []);
+
+  const loadDiscounts = async () => {
+    const { data, error } = await (supabase as any).from("discount_codes").select("*").order("created_at", { ascending: false });
+    if (error) return console.error("[admin] discount_codes load failed:", error);
+    setDiscountCodes((data ?? []) as any[]);
+  };
+  useEffect(() => { loadDiscounts(); }, []);
 
   const addPartner = async () => {
     const email = newPartnerEmail.trim();
@@ -387,6 +406,35 @@ function AdminConsole() {
     if (error) return toast.error(error.message);
     toast.success(`Marked ${status}`);
     loadPartners();
+  };
+
+  const saveDiscountCode = async () => {
+    const code = discountForm.code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const percent = Number(discountForm.percent_off);
+    if (!code) return toast.error("Promo code is required");
+    if (!Number.isFinite(percent) || percent <= 0 || percent > 100) return toast.error("Discount must be 1-100%");
+    setDiscountSaving("new");
+    const { error } = await (supabase as any).from("discount_codes").upsert({
+      code,
+      percent_off: percent,
+      max_redemptions: discountForm.max_redemptions ? Number(discountForm.max_redemptions) : null,
+      expires_at: discountForm.expires_at ? new Date(discountForm.expires_at).toISOString() : null,
+      is_active: discountForm.is_active,
+    }, { onConflict: "code" });
+    setDiscountSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success("Promo discount saved");
+    setDiscountForm({ code: "", percent_off: "15", max_redemptions: "", expires_at: "", is_active: true });
+    loadDiscounts();
+  };
+
+  const toggleDiscountActive = async (d: any) => {
+    setDiscountSaving(d.id);
+    const { error } = await (supabase as any).from("discount_codes").update({ is_active: !d.is_active }).eq("id", d.id);
+    setDiscountSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success(d.is_active ? "Promo deactivated" : "Promo activated");
+    loadDiscounts();
   };
 
   const setAffPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
@@ -435,6 +483,60 @@ function AdminConsole() {
     toast.success(`Delivered free account: login ${claimForm.login}`);
     setDeliverClaimFor(null);
     loadAffiliate();
+  };
+
+  const openDeliverPartnerFree = (claim: any) => {
+    setDeliverPartnerFreeFor(claim);
+    setPartnerFreeForm({ login: "", password: "", investor: "", server: "" });
+  };
+
+  const submitDeliverPartnerFree = async () => {
+    if (!deliverPartnerFreeFor) return;
+    if (!partnerFreeForm.login.trim() || !partnerFreeForm.password.trim() || !partnerFreeForm.server.trim()) {
+      return toast.error("Login, password and server are required");
+    }
+    setDeliveringPartnerFree(true);
+    const { data: challengeData } = await supabase
+      .from("challenges")
+      .select("id")
+      .eq("account_size", deliverPartnerFreeFor.account_size)
+      .eq("name", deliverPartnerFreeFor.challenge_name)
+      .maybeSingle();
+    if (!challengeData) {
+      setDeliveringPartnerFree(false);
+      return toast.error("Could not find matching challenge for this account size/type");
+    }
+    const { error } = await (supabase as any)
+      .from("partner_free_accounts")
+      .update({
+        status: "fulfilled",
+        mt5_login: partnerFreeForm.login.trim(),
+        mt5_password: partnerFreeForm.password.trim(),
+        investor_password: partnerFreeForm.investor.trim() || null,
+        mt5_server: partnerFreeForm.server.trim(),
+        fulfilled_at: new Date().toISOString(),
+      })
+      .eq("id", deliverPartnerFreeFor.id);
+    if (error) {
+      setDeliveringPartnerFree(false);
+      return toast.error(error.message);
+    }
+    const { error: taError } = await supabase
+      .from("trader_accounts")
+      .insert({
+        user_id: deliverPartnerFreeFor.partner_id,
+        challenge_id: challengeData.id,
+        mt5_login: partnerFreeForm.login.trim(),
+        mt5_password: partnerFreeForm.password.trim(),
+        investor_password: partnerFreeForm.investor.trim() || null,
+        mt5_server: partnerFreeForm.server.trim(),
+        status: "active",
+      });
+    setDeliveringPartnerFree(false);
+    if (taError) return toast.error(taError.message);
+    toast.success(`Delivered partner account: login ${partnerFreeForm.login}`);
+    setDeliverPartnerFreeFor(null);
+    loadPartners();
   };
 
   // ---- Telegram settings ----
@@ -678,6 +780,7 @@ function AdminConsole() {
               <TabsTrigger value="payouts">Payouts</TabsTrigger>
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
               <TabsTrigger value="challenges">Challenges</TabsTrigger>
+              <TabsTrigger value="discounts">Discounts</TabsTrigger>
               <TabsTrigger value="tickets">
                 Tickets
                 {tickets.filter((t) => t.status === "open").length > 0 && (
@@ -696,9 +799,9 @@ function AdminConsole() {
               </TabsTrigger>
               <TabsTrigger value="partners">
                 Partners
-                {partnerPayouts.filter((p) => p.status === "pending").length > 0 && (
+                {(partnerPayouts.filter((p) => p.status === "pending").length + partnerFreeAccounts.filter((p) => p.status === "pending").length) > 0 && (
                   <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
-                    {partnerPayouts.filter((p) => p.status === "pending").length}
+                    {partnerPayouts.filter((p) => p.status === "pending").length + partnerFreeAccounts.filter((p) => p.status === "pending").length}
                   </span>
                 )}
               </TabsTrigger>
@@ -989,6 +1092,40 @@ function AdminConsole() {
             </div>
           </TabsContent>
 
+          <TabsContent value="discounts" className="mt-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="font-display text-base font-bold">Create Promo Discount</div>
+              <p className="mt-1 text-xs text-muted-foreground">Create percentage-off promo codes for checkout. Partner links already apply 15% off automatically.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,120px,140px,180px,auto]">
+                <Input placeholder="CODE" value={discountForm.code} onChange={(e) => setDiscountForm({ ...discountForm, code: e.target.value.toUpperCase() })} />
+                <Input type="number" min={1} max={100} step={0.5} placeholder="% off" value={discountForm.percent_off} onChange={(e) => setDiscountForm({ ...discountForm, percent_off: e.target.value })} />
+                <Input type="number" min={1} placeholder="Max uses" value={discountForm.max_redemptions} onChange={(e) => setDiscountForm({ ...discountForm, max_redemptions: e.target.value })} />
+                <Input type="datetime-local" value={discountForm.expires_at} onChange={(e) => setDiscountForm({ ...discountForm, expires_at: e.target.value })} />
+                <Button onClick={saveDiscountCode} disabled={discountSaving === "new"}>{discountSaving === "new" ? "Saving…" : "Save"}</Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {discountCodes.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">No promo codes yet.</div>
+              ) : discountCodes.map((d) => (
+                <div key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+                  <div>
+                    <div className="font-display font-semibold"><span className="font-mono text-primary">{d.code}</span> · {d.percent_off}% off</div>
+                    <div className="text-xs text-muted-foreground">
+                      Used {d.redemption_count ?? 0}{d.max_redemptions ? ` / ${d.max_redemptions}` : ""}
+                      {d.expires_at ? ` · Expires ${new Date(d.expires_at).toLocaleString()}` : " · No expiry"}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="capitalize">{d.is_active ? "active" : "inactive"}</Badge>
+                    <Button size="sm" variant="outline" onClick={() => toggleDiscountActive(d)} disabled={discountSaving === d.id}>{d.is_active ? "Deactivate" : "Activate"}</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
           <TabsContent value="tickets" className="mt-6 space-y-3">
             {tickets.length === 0 ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -1200,6 +1337,37 @@ function AdminConsole() {
               )}
             </div>
 
+            {/* Partner free-account requests */}
+            <div>
+              <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Partner Free Account Requests</div>
+              {partnerFreeAccounts.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">No partner free-account requests yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {partnerFreeAccounts.map((c) => (
+                    <div key={c.id} className="rounded-xl border border-border bg-card p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="font-semibold">{c.profiles?.full_name ?? "—"} · Free partnership account</div>
+                          <div className="text-xs text-muted-foreground">
+                            Requested {new Date(c.requested_at).toLocaleString()}
+                            {c.mt5_login && <> · Login <span className="font-mono">{c.mt5_login}</span></>}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="capitalize">{c.status}</Badge>
+                      </div>
+                      {c.status === "pending" && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button size="sm" onClick={() => openDeliverPartnerFree(c)} disabled={partnerSaving === c.id}>Deliver account</Button>
+                          <Button size="sm" variant="outline" onClick={async () => { setPartnerSaving(c.id); const { error } = await (supabase as any).from("partner_free_accounts").update({ status: "rejected" }).eq("id", c.id); setPartnerSaving(null); if (error) toast.error(error.message); else { toast.success("Rejected"); loadPartners(); } }} disabled={partnerSaving === c.id}>Reject</Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Partner payout requests */}
             <div>
               <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Partner Payout Requests</div>
@@ -1337,6 +1505,41 @@ function AdminConsole() {
             <Button onClick={submitDeliverClaim} disabled={deliveringClaim}>
               {deliveringClaim ? "Delivering…" : "Deliver to affiliate"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deliverPartnerFreeFor} onOpenChange={(o) => !o && setDeliverPartnerFreeFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deliver free partner account</DialogTitle>
+            <DialogDescription>
+              {deliverPartnerFreeFor && (
+                <>Partner: <span className="font-medium">{deliverPartnerFreeFor.profiles?.full_name ?? "—"}</span></>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="partner-free-login">MT5 Login</Label>
+              <Input id="partner-free-login" value={partnerFreeForm.login} onChange={(e) => setPartnerFreeForm({ ...partnerFreeForm, login: e.target.value })} placeholder="e.g. 12345678" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="partner-free-server">Server</Label>
+              <Input id="partner-free-server" value={partnerFreeForm.server} onChange={(e) => setPartnerFreeForm({ ...partnerFreeForm, server: e.target.value })} placeholder="e.g. Exness-MT5Demo" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="partner-free-password">Master password</Label>
+              <Input id="partner-free-password" value={partnerFreeForm.password} onChange={(e) => setPartnerFreeForm({ ...partnerFreeForm, password: e.target.value })} placeholder="Trading password" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="partner-free-investor">Investor password (optional)</Label>
+              <Input id="partner-free-investor" value={partnerFreeForm.investor} onChange={(e) => setPartnerFreeForm({ ...partnerFreeForm, investor: e.target.value })} placeholder="Read-only password" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeliverPartnerFreeFor(null)} disabled={deliveringPartnerFree}>Cancel</Button>
+            <Button onClick={submitDeliverPartnerFree} disabled={deliveringPartnerFree}>{deliveringPartnerFree ? "Delivering…" : "Deliver to partner"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

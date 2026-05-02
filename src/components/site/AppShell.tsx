@@ -30,13 +30,15 @@ export function AppSidebar() {
     .slice(0, 2)
     .toUpperCase();
 
+  const navItems = isPartner ? NAV.filter((n) => n.label !== "Affiliate") : NAV;
+
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-background/60 md:flex md:fixed md:inset-y-0 md:left-0">
       <div className="flex h-16 items-center px-6">
         <Brand />
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {NAV.map((item) => {
+        {navItems.map((item) => {
           const active = item.match(pathname);
           const Icon = item.icon;
           return (
@@ -110,10 +112,14 @@ export function AppSidebar() {
 /** Mobile bottom-nav for authenticated users. */
 export function MobileBottomNav() {
   const { pathname } = useLocation();
+  const { isPartner } = useAuth();
+  const mobileNav = isPartner
+    ? [...NAV.filter((n) => n.label !== "Affiliate"), { to: "/partner", label: "Partner", icon: Handshake, match: (p: string) => p.startsWith("/partner") }]
+    : NAV;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-xl md:hidden">
       <div className="mx-auto flex h-16 max-w-lg items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
-        {NAV.map((item) => {
+        {mobileNav.map((item) => {
           const active = item.match(pathname);
           const Icon = item.icon;
           return (

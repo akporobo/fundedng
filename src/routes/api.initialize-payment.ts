@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
           }
           const user = userData.user;
 
-          const body = (await request.json().catch(() => ({}))) as { challenge_id?: string };
+          const body = (await request.json().catch(() => ({}))) as { challenge_id?: string; discount_code?: string; partner_promo_code?: string };
           const challengeId = body.challenge_id?.trim();
           if (!challengeId) {
             return Response.json({ error: "challenge_id is required" }, { status: 400 });
@@ -64,7 +64,59 @@ export const Route = createFileRoute("/api/initialize-payment")({
             origin = process.env.PUBLIC_SITE_URL?.trim() || origin;
           }
           const reference = `FNG-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-          const amountKobo = Number(challenge.price_naira) * 100;
+          const originalAmountNaira = Number(challenge.price_naira);
+          let discountCode: string | null = null;
+          let partnerPromoCode: string | null = null;
+          let promoPercent = 0;
+          let partnerPercent = 0;
+
+          if (body.discount_code?.trim()) {
+            const code = body.discount_code.trim().toUpperCase();
+            const { data: promoRows } = await supabaseAdmin.rpc("validate_discount_code" as never, { _code: code } as never) as any;
+            const promo = Array.isArray(promoRows) ? promoRows[0] : null;
+            if (promo) {
+              discountCode = promo.code;
+              promoPercent = Number(promo.percent_off) || 0;
+            }
+          }
+
+          if (body.partner_promo_code?.trim()) {
+            const code = body.partner_promo_code.trim().toUpperCase();
+            const { data: partner } = await supabaseAdmin
+              .from("partner_profiles")
+              .select("promo_code")
+              .eq("promo_code", code)
+              .eq("is_active", true)
+              .maybeSingle();
+            if (partner) {
+              partnerPromoCode = code;
+              partnerPercent = 15;
+            }
+          }
+
+          if (!partnerPercent) {
+            const { data: prof } = await supabaseAdmin
+              .from("profiles")
+              .select("partner_referred_by")
+              .eq("id", user.id)
+              .maybeSingle();
+            if (prof?.partner_referred_by) {
+              const { data: partner } = await supabaseAdmin
+                .from("partner_profiles")
+                .select("promo_code")
+                .eq("user_id", prof.partner_referred_by)
+                .eq("is_active", true)
+                .maybeSingle();
+              if (partner) {
+                partnerPromoCode = partner.promo_code;
+                partnerPercent = 15;
+              }
+            }
+          }
+
+          const discountPercent = Math.max(promoPercent, partnerPercent);
+          const discountAmountNaira = Math.floor(originalAmountNaira * discountPercent / 100);
+          const amountKobo = Math.max(0, originalAmountNaira - discountAmountNaira) * 100;
 
           const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
             method: "POST",
@@ -82,6 +134,11 @@ export const Route = createFileRoute("/api/initialize-payment")({
                 challenge_id: challenge.id,
                 challenge_name: challenge.name,
                 user_id: user.id,
+                original_amount: originalAmountNaira * 100,
+                discount_amount: discountAmountNaira * 100,
+                discount_percent: discountPercent,
+                discount_code: discountCode,
+                partner_promo_code: partnerPromoCode,
               },
             }),
           });

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -29,7 +30,7 @@ interface Challenge {
 }
 
 function BuyPage() {
-  const { isAuthenticated, user, session } = useAuth();
+  const { isAuthenticated, user, session, profile } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -39,6 +40,9 @@ function BuyPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [planType, setPlanType] = useState<"standard" | "instant">("standard");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState<{ code: string; percent: number } | null>(null);
+  const [partnerCode, setPartnerCode] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -55,6 +59,15 @@ function BuyPage() {
       });
   }, [search.challenge]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { setPartnerCode(localStorage.getItem("fng-partner-ref")); } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (profile?.partner_referred_by) setPartnerCode("attached");
+  }, [profile?.partner_referred_by]);
+
   const visibleChallenges = challenges.filter((c) =>
     planType === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"
   );
@@ -69,6 +82,25 @@ function BuyPage() {
     setAgreed(false);
     setConfirmOpen(true);
   };
+
+  const validatePromo = async () => {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return setPromoDiscount(null);
+    const { data, error } = await supabase.rpc("validate_discount_code" as any, { _code: code });
+    const row = Array.isArray(data) ? data[0] : null;
+    if (error || !row) {
+      setPromoDiscount(null);
+      toast.error("Promo code is invalid or expired");
+      return;
+    }
+    setPromoDiscount({ code: row.code, percent: Number(row.percent_off) });
+    toast.success(`${row.percent_off}% discount applied`);
+  };
+
+  const partnerDiscountPercent = partnerCode ? 15 : 0;
+  const discountPercent = Math.max(partnerDiscountPercent, promoDiscount?.percent ?? 0);
+  const discountAmount = selected ? Math.floor(Number(selected.price_naira) * discountPercent / 100) : 0;
+  const payable = selected ? Math.max(0, Number(selected.price_naira) - discountAmount) : 0;
 
   const handleBuy = async () => {
     if (!selected) return;
@@ -94,7 +126,7 @@ function BuyPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ challenge_id: selected.id }),
+          body: JSON.stringify({ challenge_id: selected.id, discount_code: promoDiscount?.code, partner_promo_code: partnerCode }),
       });
       const result = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -245,14 +277,31 @@ function BuyPage() {
           <div className="mx-auto mt-10 max-w-md rounded-xl border border-primary/30 bg-card p-7 animate-fade-in">
             <div className="space-y-3">
               <div className="flex justify-between"><span className="text-muted-foreground">Challenge</span><span className="font-medium">{selected.name} — {formatNaira(selected.account_size)}</span></div>
+              {partnerCode && (
+                <div className="flex justify-between border-t border-border pt-3 text-sm">
+                  <span className="text-muted-foreground">Partner link discount</span><span className="font-display text-primary">15% off</span>
+                </div>
+              )}
+              <div className="border-t border-border pt-3">
+                <div className="flex gap-2">
+                  <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="Promo code" className="h-9" />
+                  <Button type="button" size="sm" variant="outline" onClick={validatePromo}>Apply</Button>
+                </div>
+                {promoDiscount && <div className="mt-1 text-xs text-primary">{promoDiscount.code}: {promoDiscount.percent}% off applied</div>}
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between border-t border-border pt-3">
+                  <span className="text-muted-foreground">Discount</span><span className="font-display text-primary">-{formatNaira(discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-border pt-3">
                 <span className="text-muted-foreground">Total</span>
-                <span className="font-display text-xl font-bold text-primary">{formatNaira(selected.price_naira)}</span>
+                <span className="font-display text-xl font-bold text-primary">{formatNaira(payable)}</span>
               </div>
             </div>
             {error && <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>}
             <Button className="font-display mt-5 w-full" size="lg" onClick={openConfirm} disabled={loading}>
-              {loading ? "Processing..." : <>Pay {formatNaira(selected.price_naira)} Now <ArrowRight className="ml-2 h-4 w-4" /></>}
+              {loading ? "Processing..." : <>Pay {formatNaira(payable)} Now <ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
               By continuing you agree to our <Link to="/agreement" className="text-primary hover:underline">trader agreement</Link> and acknowledge the risk disclosure.
@@ -331,7 +380,7 @@ function BuyPage() {
               <div className="flex items-center justify-between border-t border-border pt-4">
                 <span className="text-sm text-muted-foreground">Total due</span>
                 <span className="font-display text-2xl font-bold text-primary">
-                  {formatNaira(selected.price_naira)}
+                  {formatNaira(payable)}
                 </span>
               </div>
 
@@ -342,7 +391,7 @@ function BuyPage() {
                   Cancel
                 </Button>
                 <Button className="font-display" onClick={handleBuy} disabled={loading || !agreed}>
-                  {loading ? "Processing…" : <>Confirm & Pay {formatNaira(selected.price_naira)} <ArrowRight className="ml-2 h-4 w-4" /></>}
+                  {loading ? "Processing…" : <>Confirm & Pay {formatNaira(payable)} <ArrowRight className="ml-2 h-4 w-4" /></>}
                 </Button>
               </DialogFooter>
             </>
