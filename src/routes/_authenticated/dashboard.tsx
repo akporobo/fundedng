@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock, Trash2 } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
@@ -32,6 +32,7 @@ interface Account {
   challenge_id: string;
   phase2_requested_at: string | null;
   funded_requested_at: string | null;
+  deleted_at?: string | null;
   challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
 
@@ -338,6 +339,16 @@ function DashboardPage() {
     load();
   };
 
+  const deleteBreachedAccount = async (account: Account) => {
+    if (account.status !== "breached") return;
+    if (!confirm("Permanently delete this breached account? This action cannot be undone.")) return;
+    const { error } = await supabase.from("trader_accounts").delete().eq("id", account.id);
+    if (error) return toast.error(error.message);
+    toast.success("Account deleted");
+    if (selected?.id === account.id) setSelected(null);
+    load();
+  };
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
@@ -435,8 +446,8 @@ function DashboardPage() {
                 <div className="flex flex-wrap gap-2">
                   {accounts.map((a) => (
                     <button key={a.id} onClick={() => setSelected(a)}
-                      className={`font-display rounded-md border px-3 py-1.5 text-xs ${selected?.id === a.id ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"}`}>
-                      {a.mt5_login} · {a.challenges?.name}
+                      className={`font-display rounded-md border px-3 py-1.5 text-xs ${selected?.id === a.id ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"} ${a.deleted_at ? "opacity-60" : ""}`}>
+                      {a.mt5_login} · {a.challenges?.name}{a.deleted_at ? " (deleted)" : ""}
                     </button>
                   ))}
                 </div>
@@ -450,6 +461,14 @@ function DashboardPage() {
                       <AlertDescription>
                         <span className="font-display font-semibold">Account Breached</span>
                         <p className="mt-1 text-sm">{selected.breach_reason}</p>
+                        {selected.deleted_at && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">This account has been removed from the admin panel.</span>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => deleteBreachedAccount(selected)}>
+                              <Trash2 className="mr-1 h-3 w-3" />Delete permanently
+                            </Button>
+                          </div>
+                        )}
                       </AlertDescription>
                     </Alert>
                   )}
@@ -668,7 +687,7 @@ function DashboardPage() {
 
             <TabsContent value="accounts" className="mt-6 space-y-3">
               {accounts.map((a) => (
-                <div key={a.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-5">
+                <div key={a.id} className={`flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-5 ${a.deleted_at ? "opacity-70" : ""}`}>
                   <div className="flex-1 min-w-[160px]">
                     <div className="font-display text-primary">{a.mt5_login}</div>
                     <div className="text-xs text-muted-foreground">{a.challenges?.name}</div>
@@ -676,6 +695,11 @@ function DashboardPage() {
                   <div className="text-sm">{formatNaira(a.starting_balance)}</div>
                   <div className="font-display text-sm text-gold">Phase {a.current_phase}/{a.challenges?.phases ?? 2}</div>
                   <Badge className={`${statusVariant[a.status]} font-display`}>{a.status.toUpperCase()}</Badge>
+                  {a.deleted_at && (
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => deleteBreachedAccount(a)}>
+                      <Trash2 className="mr-1 h-3 w-3" />Delete
+                    </Button>
+                  )}
                 </div>
               ))}
             </TabsContent>

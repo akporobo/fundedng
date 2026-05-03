@@ -98,7 +98,9 @@ function BuyPage() {
   };
 
   const partnerDiscountPercent = partnerCode ? 15 : 0;
-  const discountPercent = Math.max(partnerDiscountPercent, promoDiscount?.percent ?? 0);
+  const promoDiscountPercent = promoDiscount?.percent ?? 0;
+  const challengeDiscountPercent = selected?.discount_percent ?? 0;
+  const discountPercent = Math.max(partnerDiscountPercent, promoDiscountPercent, challengeDiscountPercent);
   const discountAmount = selected ? Math.floor(Number(selected.price_naira) * discountPercent / 100) : 0;
   const payable = selected ? Math.max(0, Number(selected.price_naira) - discountAmount) : 0;
 
@@ -261,7 +263,16 @@ function BuyPage() {
                     <div key={f} className="flex items-center gap-2"><Diamond className="h-3 w-3 text-primary"/> {f}</div>
                   ))}
                 </div>
-                <div className="mt-5 text-2xl font-bold">{formatNaira(c.price_naira)}</div>
+                <div className="mt-5 text-2xl font-bold">
+                  {c.discount_percent ? (
+                    <>
+                      <span className="line-through opacity-60 mr-2">{formatNaira(c.price_naira)}</span>
+                      {formatNaira(Math.round(c.price_naira * (1 - (c.discount_percent ?? 0) / 100)))}
+                    </>
+                  ) : (
+                    formatNaira(c.price_naira)
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground">one-time fee</div>
               </button>
             );
@@ -280,6 +291,11 @@ function BuyPage() {
               {partnerCode && (
                 <div className="flex justify-between border-t border-border pt-3 text-sm">
                   <span className="text-muted-foreground">Partner link discount</span><span className="font-display text-primary">15% off</span>
+                </div>
+              )}
+              {challengeDiscountPercent > 0 && (
+                <div className="flex justify-between border-t border-border pt-3 text-sm">
+                  <span className="text-muted-foreground">Challenge discount</span><span className="font-display text-primary">{challengeDiscountPercent}% off</span>
                 </div>
               )}
               <div className="border-t border-border pt-3">

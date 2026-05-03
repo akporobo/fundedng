@@ -14,7 +14,7 @@ import tradingChartHeroDark from "@/assets/trading-chart-hero-dark.jpg";
 export const Route = createFileRoute("/")({ component: Index });
 
 interface Challenge {
-  id: string; name: string; account_size: number; price_naira: number;
+  id: string; name: string; account_size: number; price_naira: number; discount_percent?: number | null;
   profit_target_percent: number; max_drawdown_percent: number; phases: number;
   challenge_type?: "standard" | "instant" | null;
   max_daily_drawdown_percent?: number | null;
@@ -166,7 +166,11 @@ function Index() {
                 </div>
                 <Link to="/buy" search={{ challenge: c.id }} className="mt-6 block">
                   <Button className="w-full font-display" variant={i===1 ? "default" : "outline"}>
-                    Start for {formatNaira(c.price_naira)}
+                    {c.discount_percent ? (
+                      <>Start for <span className="line-through opacity-60 mr-1">{formatNaira(c.price_naira)}</span>{formatNaira(Math.round(c.price_naira * (1 - (c.discount_percent ?? 0) / 100)))}</>
+                    ) : (
+                      <>Start for {formatNaira(c.price_naira)}</>
+                    )}
                   </Button>
                 </Link>
               </div>
@@ -234,7 +238,15 @@ function Index() {
                 </div>
                 <div className="mt-6 flex items-baseline justify-between">
                   <span className="text-xs text-muted-foreground">one-time fee</span>
-                  <span className="font-display text-2xl font-bold">{formatNaira(c.price_naira)}</span>
+                  {c.discount_percent ? (
+                    <span className="font-display text-2xl font-bold">
+                      <span className="line-through opacity-60 mr-2">{formatNaira(c.price_naira)}</span>
+                      {formatNaira(Math.round(c.price_naira * (1 - (c.discount_percent ?? 0) / 100)))}
+                      <span className="ml-2 rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-600">{c.discount_percent}% OFF</span>
+                    </span>
+                  ) : (
+                    <span className="font-display text-2xl font-bold">{formatNaira(c.price_naira)}</span>
+                  )}
                 </div>
                 <Link to="/buy" search={{ challenge: c.id }} className="mt-5 block">
                   <Button className="w-full font-display">

@@ -116,6 +116,7 @@ function AdminConsole() {
     challenge_type: "standard",
     max_daily_drawdown_percent: 10,
     max_trading_days: 45,
+    discount_percent: 0,
   };
   const [challengeForm, setChallengeForm] = useState<any>(blankChallenge);
   const [savingChallenge, setSavingChallenge] = useState(false);
@@ -161,6 +162,7 @@ function AdminConsole() {
         challengeForm.challenge_type === "instant"
           ? Number(challengeForm.max_trading_days) || null
           : null,
+      discount_percent: Number(challengeForm.discount_percent) || 0,
     };
     let error;
     if (editingChallenge?.id) {
@@ -186,7 +188,7 @@ function AdminConsole() {
     const [pr, ord, accRaw, poRaw, req] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("orders").select("amount_paid,status,challenge_id"),
-      supabase.from("trader_accounts").select("*").order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").order("created_at", { ascending: false }),
       supabase.from("account_requests").select("*").in("status", ["pending", "failed"]).order("created_at", { ascending: false }),
     ]);
@@ -1666,6 +1668,10 @@ function AdminConsole() {
                 <Input id="ch-fee" type="number" min={0} value={challengeForm.price_naira} onChange={(e) => setChallengeForm({ ...challengeForm, price_naira: e.target.value })} />
               </div>
               <div className="grid gap-1.5">
+                <Label htmlFor="ch-discount">Discount % (0–100)</Label>
+                <Input id="ch-discount" type="number" min={0} max={100} step="0.01" value={challengeForm.discount_percent ?? 0} onChange={(e) => setChallengeForm({ ...challengeForm, discount_percent: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
                 <Label htmlFor="ch-target">Profit Target %</Label>
                 <Input id="ch-target" type="number" min={0} step="0.01" value={challengeForm.profit_target_percent} onChange={(e) => setChallengeForm({ ...challengeForm, profit_target_percent: e.target.value })} />
               </div>
@@ -1696,7 +1702,16 @@ function AdminConsole() {
             </div>
             {Number(challengeForm.price_naira) > 0 && Number(challengeForm.account_size) > 0 && (
               <div className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
-                Preview: <span className="font-display text-primary">{formatNaira(challengeForm.account_size)}</span> account for <span className="font-display text-primary">{formatNaira(challengeForm.price_naira)}</span>
+                Preview: <span className="font-display text-primary">{formatNaira(challengeForm.account_size)}</span> account for{" "}
+                {Number(challengeForm.discount_percent) > 0 ? (
+                  <>
+                    <span className="line-through text-muted-foreground/60">{formatNaira(challengeForm.price_naira)}</span>{" "}
+                    <span className="font-display text-primary">{formatNaira(Math.round(Number(challengeForm.price_naira) * (1 - Number(challengeForm.discount_percent) / 100)))}</span>
+                    <span className="ml-1 rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-600">{Number(challengeForm.discount_percent)}% OFF</span>
+                  </>
+                ) : (
+                  <span className="font-display text-primary">{formatNaira(challengeForm.price_naira)}</span>
+                )}
               </div>
             )}
           </div>

@@ -364,37 +364,40 @@ export type Database = {
           phases: number
           price_naira: number
           profit_target_percent: number
-        }
-        Insert: {
-          account_size: number
-          challenge_type?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          max_daily_drawdown_percent?: number | null
-          max_drawdown_percent?: number
-          max_trading_days?: number | null
-          min_trading_days?: number
-          name: string
-          phases?: number
-          price_naira: number
-          profit_target_percent?: number
-        }
-        Update: {
-          account_size?: number
-          challenge_type?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          max_daily_drawdown_percent?: number | null
-          max_drawdown_percent?: number
-          max_trading_days?: number | null
-          min_trading_days?: number
-          name?: string
-          phases?: number
-          price_naira?: number
-          profit_target_percent?: number
-        }
+           discount_percent: number | null
+         }
+         Insert: {
+           account_size: number
+           challenge_type?: string
+           created_at?: string
+           discount_percent?: number | null
+           id?: string
+           is_active?: boolean
+           max_daily_drawdown_percent?: number | null
+           max_drawdown_percent?: number
+           max_trading_days?: number | null
+           min_trading_days?: number
+           name: string
+           phases?: number
+           price_naira: number
+           profit_target_percent?: number
+         }
+         Update: {
+           account_size?: number
+           challenge_type?: string
+           created_at?: string
+           discount_percent?: number | null
+           id?: string
+           is_active?: boolean
+           max_daily_drawdown_percent?: number | null
+           max_drawdown_percent?: number
+           max_trading_days?: number | null
+           min_trading_days?: number
+           name?: string
+           phases?: number
+           price_naira?: number
+           profit_target_percent?: number
+         }
         Relationships: []
       }
       community_groups: {
@@ -1104,6 +1107,7 @@ export type Database = {
           created_at: string
           current_equity: number | null
           current_phase: number
+          deleted_at: string | null
           funded_at: string | null
           funded_requested_at: string | null
           id: string
@@ -1129,6 +1133,7 @@ export type Database = {
           created_at?: string
           current_equity?: number | null
           current_phase?: number
+          deleted_at?: string | null
           funded_at?: string | null
           funded_requested_at?: string | null
           id?: string
@@ -1154,6 +1159,7 @@ export type Database = {
           created_at?: string
           current_equity?: number | null
           current_phase?: number
+          deleted_at?: string | null
           funded_at?: string | null
           funded_requested_at?: string | null
           id?: string
