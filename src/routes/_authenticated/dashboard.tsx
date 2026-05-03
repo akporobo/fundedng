@@ -28,6 +28,7 @@ interface Account {
   id: string; mt5_login: string; mt5_password: string; mt5_server: string;
   starting_balance: number; current_equity: number | null; current_phase: number;
   status: "active" | "breached" | "passed" | "funded";
+  breach_reason?: string;
   challenge_id: string;
   phase2_requested_at: string | null;
   funded_requested_at: string | null;
@@ -443,6 +444,16 @@ function DashboardPage() {
 
               {selected && (
                 <>
+                  {selected.status === "breached" && selected.breach_reason && (
+                    <Alert variant="destructive">
+                      <ShieldAlert className="h-4 w-4" />
+                      <AlertDescription>
+                        <span className="font-display font-semibold">Account Breached</span>
+                        <p className="mt-1 text-sm">{selected.breach_reason}</p>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                     {[
                       { label: "Account Size", value: formatNaira(start) },

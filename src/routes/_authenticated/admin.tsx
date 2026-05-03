@@ -95,6 +95,10 @@ function AdminConsole() {
   // KYC verification modal
   const [kycTarget, setKycTarget] = useState<any | null>(null);
   const [kycVerifying, setKycVerifying] = useState(false);
+  // Breach reason dialog
+  const [breachTarget, setBreachTarget] = useState<any | null>(null);
+  const [breachReason, setBreachReason] = useState("");
+  const [breaching, setBreaching] = useState(false);
 
   // ---- Challenges management ----
   const [challengeList, setChallengeList] = useState<any[]>([]);
@@ -769,6 +773,27 @@ function AdminConsole() {
     }
   };
 
+  const openBreachDialog = (account: any) => {
+    setBreachTarget(account);
+    setBreachReason("");
+  };
+
+  const submitBreach = async () => {
+    if (!breachTarget) return;
+    if (!breachReason.trim()) return toast.error("Breach reason is required");
+    setBreaching(true);
+    const { error } = await supabase.from("trader_accounts").update({
+      status: "breached",
+      breach_reason: breachReason.trim(),
+    } as never).eq("id", breachTarget.id);
+    setBreaching(false);
+    if (error) return toast.error(error.message);
+    toast.success("Account breached");
+    setBreachTarget(null);
+    setBreachReason("");
+    load();
+  };
+
   return (
     <>
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
@@ -947,7 +972,7 @@ function AdminConsole() {
                         );
                       })()
                     )}
-                    <Button size="sm" variant="outline" onClick={() => updateAccount(a.id, { status: "breached", breach_reason: "Manual" })}>Breach</Button>
+                    <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-background p-3">
@@ -1679,6 +1704,37 @@ function AdminConsole() {
             <Button variant="outline" onClick={() => setChallengeEditOpen(false)} disabled={savingChallenge}>Cancel</Button>
             <Button onClick={saveChallenge} disabled={savingChallenge}>
               {savingChallenge ? "Saving…" : editingChallenge?.id ? "Save changes" : "Add challenge"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!breachTarget} onOpenChange={(o) => !breaching && o && setBreachTarget(null)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Breach Account</DialogTitle>
+            <DialogDescription>
+              Breaching account for {breachTarget?.profiles?.full_name ?? "trader"} ({breachTarget?.mt5_login}). This will notify the trader.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="breach-reason">Reason for breach</Label>
+              <Textarea
+                id="breach-reason"
+                placeholder="Enter the reason for breaching this account..."
+                value={breachReason}
+                onChange={(e) => setBreachReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setBreachTarget(null); setBreachReason(""); }} disabled={breaching}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={submitBreach} disabled={breaching || !breachReason.trim()}>
+              {breaching ? "Breaching…" : "Breach Account"}
             </Button>
           </DialogFooter>
         </DialogContent>
