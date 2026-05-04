@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { sendWelcomeEmail } from "@/lib/email.server";
+import { sendWelcomeEmailFn } from "@/server/email.functions";
 
 export const Route = createFileRoute("/auth/register")({ component: RegisterPage });
 
@@ -40,7 +40,7 @@ function RegisterPage() {
     try { localStorage.setItem("fng-new-user", "1"); } catch { /* ignore */ }
     // Send welcome email (fire-and-forget)
     const firstName = form.full_name.split(" ")[0] || form.full_name;
-    sendWelcomeEmail(form.email, firstName);
+    sendWelcomeEmailFn({ data: { email: form.email, firstName } });
     navigate({ to: "/dashboard" });
   };
 
