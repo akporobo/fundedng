@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendPushToUser } from "@/lib/push.server";
+import { sendAccountDeliveredEmail } from "@/lib/email.server";
 
 /**
  * Manual account delivery. Admin posts MT5 credentials they created by hand
@@ -142,18 +143,25 @@ export const Route = createFileRoute("/api/deliver-account")({
             payload: { order_id: order.id, login: mt5_login },
           });
 
-          await supabaseAdmin.from("notifications").insert({
-            user_id: order.user_id,
-            title: "🎉 Your MT5 Account is Ready",
-            message: `${ch.name} active. Login: ${mt5_login} · Server: ${mt5_server}. Open the dashboard to view your password.`,
-            type: "welcome",
-          });
+           await supabaseAdmin.from("notifications").insert({
+             user_id: order.user_id,
+             title: "🎉 Your MT5 Account is Ready",
+             message: `${ch.name} active. Login: ${mt5_login} · Server: ${mt5_server}. Open the dashboard to view your password.`,
+             type: "welcome",
+           });
 
-          await sendPushToUser(order.user_id, {
-            title: "🎉 Your MT5 Account is Ready",
-            body: `${ch.name} active. Tap to view your login.`,
-            url: "/dashboard",
-          });
+           await sendPushToUser(order.user_id, {
+             title: "🎉 Your MT5 Account is Ready",
+             body: `${ch.name} active. Tap to view your login.`,
+             url: "/dashboard",
+           });
+
+           // Send account delivered email (fire-and-forget)
+           const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
+           sendAccountDeliveredEmail(
+             order.user_id, firstName, mt5_login, mt5_password, mt5_server,
+             investor_password || "", ch.name, ch.profit_target, ch.max_daily_dd, ch.max_total_dd
+           );
 
           return Response.json({ ok: true, login: mt5_login, server: mt5_server });
         } catch (e) {

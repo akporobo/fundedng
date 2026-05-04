@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendPurchaseConfirmedEmail } from "@/lib/email.server";
 
 /**
  * Server-side Paystack verification.
@@ -150,11 +151,21 @@ export const Route = createFileRoute("/api/verify-payment")({
             );
           }
 
-          if (discountCode) {
-            await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
-          }
+           if (discountCode) {
+             await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
+           }
 
-          return Response.json({ ok: true, order_id: order.id });
+           // Send purchase confirmed email (fire-and-forget)
+           const { data: profile } = await supabaseAdmin
+             .from("profiles")
+             .select("full_name")
+             .eq("id", userId)
+             .maybeSingle();
+           const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
+           const amountNaira = paidKobo / 100;
+           sendPurchaseConfirmedEmail(form.email, firstName, ch.name, ch.account_size, amountNaira, reference);
+
+           return Response.json({ ok: true, order_id: order.id });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Verification failed";
           console.error("[verify-payment] unexpected", msg);

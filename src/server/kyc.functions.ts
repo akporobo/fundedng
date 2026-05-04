@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendKycApprovedEmail } from "@/lib/email.server";
 
 const VerifyInput = z.object({
   userId: z.string().uuid(),
@@ -72,15 +73,20 @@ export const verifyKycServer = createServerFn({ method: "POST" })
         .eq("id", data.userId);
       if (updErr) return { ok: false, error: updErr.message };
 
-      // 5. Notify the trader
-      await supabaseAdmin.from("notifications").insert({
-        user_id: data.userId,
-        title: "KYC verified",
-        message: "Your bank account has been verified. You can now request payouts.",
-        type: "success",
-      });
+       // 5. Notify the trader
+       await supabaseAdmin.from("notifications").insert({
+         user_id: data.userId,
+         title: "KYC verified",
+         message: "Your bank account has been verified. You can now request payouts.",
+         type: "success",
+       });
 
-      return { ok: true as const };
+       // Send KYC approved email (fire-and-forget)
+       const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", data.userId).maybeSingle();
+       const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
+       sendKycApprovedEmail(data.userId, firstName);
+
+       return { ok: true as const };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Verification failed";
       console.error("[verifyKycServer] unexpected", msg);
@@ -225,15 +231,19 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
         .eq("id", userId);
       if (updErr) return { ok: false as const, error: updErr.message };
 
-      await supabaseAdmin.from("notifications").insert({
-        user_id: userId,
-        title: "✅ KYC Verified",
-        message:
-          "Your bank account was verified instantly via Paystack. You can now request payouts.",
-        type: "success",
-      });
+       await supabaseAdmin.from("notifications").insert({
+         user_id: userId,
+         title: "✅ KYC Verified",
+         message:
+           "Your bank account was verified instantly via Paystack. You can now request payouts.",
+         type: "success",
+       });
 
-      return { ok: true as const, accountName: resolvedName };
+       // Send KYC approved email (fire-and-forget)
+       const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
+       sendKycApprovedEmail(userId, firstName);
+
+       return { ok: true as const, accountName: resolvedName };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Verification failed";
       console.error("[verifyKycPaystack] unexpected", msg);

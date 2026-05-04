@@ -253,31 +253,27 @@ function DashboardPage() {
     if (!selected) return;
     if (!profile?.bank_account_number) return toast.error("Add your bank account in the KYC card first.");
     if (!profile?.kyc_verified) return toast.error("Bank account pending admin verification.");
-    if (!["passed", "funded"].includes(selected.status)) return toast.error("Account must be passed or funded.");
+    if (selected.status !== "funded") return toast.error("Account must be funded.");
     const equity = Number(selected.current_equity ?? selected.starting_balance);
     const profit = equity - selected.starting_balance;
-    const minPayout = selected.starting_balance * 0.1;
-    const maxPayout = selected.starting_balance * 0.5;
-    const traderShare = Math.floor(profit * 0.8);
-    if (profit <= 0) return toast.error("No profit available to withdraw.");
+    const minProfit = selected.starting_balance * 0.1; // 10% min profit to request
+    const maxProfit = selected.starting_balance * 0.5; // 50% max profit for subsequent
+    if (profit < minProfit) return toast.error(`You need at least ${formatNaira(minProfit)} in profit to request a payout.`);
 
-    // First payout for this account is capped at 10% of the 50% max
-    // (i.e., 5% of starting balance) — paid 80/20 like all subsequent payouts.
+    // First payout: capped at 10% of account size. Subsequent: 50%.
+    // Trader receives 80% of the profit portion requested.
     const hasPriorPayout = payouts.some(
       (p) =>
         ["approved", "paid"].includes(p.status) &&
         (p as Payout & { trader_account_id?: string }).trader_account_id === selected.id,
     );
-    const cap = hasPriorPayout
-      ? Math.floor(maxPayout) // standard 50% cap
-      : Math.floor(maxPayout * 0.1); // first payout: 10% of the 50% max
+    const profitCap = hasPriorPayout ? maxProfit : minProfit; // first: 10%, subsequent: 50%
+    const requestedProfit = Math.min(profit, profitCap);
+    const amount = Math.floor(requestedProfit * 0.8); // trader gets 80% of profit
 
-    if (traderShare < minPayout)
-      return toast.error(`Minimum payout is ${formatNaira(minPayout)} (10% of account size).`);
-    const amount = Math.min(traderShare, cap);
     if (!hasPriorPayout) {
       toast.message(
-        `First payout is capped at ${formatNaira(cap)} (10% of your 50% profit cap). Subsequent payouts use the full 50% cap.`,
+        `First payout capped at ${formatNaira(minProfit)} profit (you receive 80% = ${formatNaira(amount)}). Subsequent payouts use 50% cap.`,
       );
     }
     setSubmitting(true);
@@ -285,7 +281,7 @@ function DashboardPage() {
       user_id: user!.id,
       trader_account_id: selected.id,
       amount_naira: amount,
-      profit_percent: Number(((profit / selected.starting_balance) * 100).toFixed(4)),
+      profit_percent: Number(((requestedProfit / selected.starting_balance) * 100).toFixed(4)),
       payment_method: "bank_transfer",
       wallet_address: null,
       bank_details: {
@@ -295,9 +291,13 @@ function DashboardPage() {
       },
     } as never);
     setSubmitting(false);
-    if (error) return toast.error(error.message);
-    toast.success(`Payout of ${formatNaira(amount)} requested!`);
-    load();
+     if (error) return toast.error(error.message);
+     toast.success(`Payout of ${formatNaira(amount)} requested!`);
+      // Send payout requested email (fire-and-forget)
+      const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
+      const requestDate = new Date().toISOString().split("T")[0];
+      sendPayoutRequestedEmail(user!.id, firstName, amount, "bank_transfer", requestDate);
+     load();
   };
 
   const equity = Number(selected?.current_equity ?? selected?.starting_balance ?? 0);
@@ -478,7 +478,7 @@ function DashboardPage() {
                       { label: "Account Size", value: formatNaira(start) },
                       { label: "Equity", value: formatNaira(equity), color: "text-primary" },
                       { label: "P/L", value: formatNaira(equity - start), color: equity-start >= 0 ? "text-primary" : "text-destructive" },
-                      { label: "Phase", value: `${selected.current_phase}/${selected.challenges?.phases ?? 2}`, color: "text-gold" },
+                       { label: "Phase", value: selected.status === "funded" ? "FUNDED" : `${selected.current_phase}/${selected.challenges?.phases ?? 2}`, color: "text-gold" },
                       { label: "Status", value: <Badge className={`${statusVariant[selected.status]} font-display`}>{selected.status.toUpperCase()}</Badge> },
                     ].map((m, i) => (
                       <div key={i} className="rounded-xl border border-border bg-card p-5">
@@ -489,18 +489,18 @@ function DashboardPage() {
                   </div>
 
                   <div className="rounded-xl border border-border bg-card p-6">
-                    <h3 className="font-display flex items-center gap-2 text-base font-semibold"><TrendingUp className="h-4 w-4 text-primary"/>Phase {selected.current_phase} Progress</h3>
-                    <div className="mt-5 space-y-5">
-                      <div>
-                        <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Profit Target</span><span className="font-display text-primary">{formatPercent(Math.max(0, profitPct))} / {target}%</span></div>
-                        <Progress value={Math.min(100, Math.max(0, (profitPct / target) * 100))} />
-                      </div>
-                      <div>
-                        <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Drawdown</span><span className={`font-display ${ddPct/maxDD>0.75?"text-destructive":ddPct/maxDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(ddPct)} / {maxDD}%</span></div>
-                        <Progress value={Math.min(100, (ddPct/maxDD)*100)} />
-                      </div>
-                    </div>
-                    {selected.current_phase < 2 && selected.status === "active" && (
+                     <h3 className="font-display flex items-center gap-2 text-base font-semibold"><TrendingUp className="h-4 w-4 text-primary"/>{selected.status === "funded" ? "Funded Progress" : `Phase ${selected.current_phase} Progress`}</h3>
+                     <div className="mt-5 space-y-5">
+                       <div>
+                         <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Profit Target</span><span className="font-display text-primary">{formatPercent(Math.max(0, profitPct))} / {target}%</span></div>
+                         <Progress value={Math.min(100, Math.max(0, (profitPct / target) * 100))} />
+                       </div>
+                       <div>
+                         <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Drawdown</span><span className={`font-display ${ddPct/maxDD>0.75?"text-destructive":ddPct/maxDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(ddPct)} / {maxDD}%</span></div>
+                         <Progress value={Math.min(100, (ddPct/maxDD)*100)} />
+                       </div>
+                     </div>
+                     {selected.status !== "funded" && selected.current_phase < 2 && selected.status === "active" && (
                       <div className="mt-5 rounded-md border border-primary/30 bg-primary/5 p-4">
                         {phase2Requested ? (
                           <div className="flex items-center gap-2 text-sm">
@@ -522,7 +522,7 @@ function DashboardPage() {
                         )}
                       </div>
                     )}
-                    {selected.current_phase >= 2 && selected.status === "active" && (
+                     {selected.status !== "funded" && selected.current_phase >= 2 && selected.status === "active" && (
                       <div className="mt-5 rounded-md border border-gold/30 bg-gold/5 p-4">
                         {fundedRequested ? (
                           <div className="flex items-center gap-2 text-sm">
@@ -620,15 +620,16 @@ function DashboardPage() {
                         </Select>
                       </div>
                     </div>
-                    <p className="mt-3 text-[11px] text-muted-foreground">
-                      We'll fetch the registered account name from your bank and approve KYC instantly if it matches your profile name (<span className="font-display text-foreground">{profile?.full_name || "—"}</span>).
-                    </p>
-                    <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10}>
+                 <p className="mt-3 text-[11px] text-muted-foreground">
+                   KYC is only available after you become a funded trader. {selected?.status !== "funded" && <span className="font-display text-warning">Complete your challenge to unlock this feature.</span>}
+                   {selected?.status === "funded" && <>We'll fetch the registered account name from your bank and approve KYC instantly if it matches your profile name (<span className="font-display text-foreground">{profile?.full_name || "—"}</span>).</>}
+                 </p>
+                     <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10 || selected?.status !== "funded"}>
                       <Landmark className="mr-1 h-4 w-4"/>{verifyingKyc ? "Verifying…" : profile?.kyc_verified ? "Re-verify bank" : "Verify bank account"}
                     </Button>
                   </div>
 
-                  {(selected.status === "passed" || selected.status === "funded") && (
+                   {selected.status === "funded" && (
                     <>
                       {(() => {
                         // Account-scoped: only count payouts for THIS funded account.
@@ -647,12 +648,12 @@ function DashboardPage() {
                             {next && <PayoutCountdown nextPayoutDate={next} />}
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days · min 10% / max 50% of account size.
-                              </p>
-                              <p className="mt-1 text-[11px] text-muted-foreground">
-                                <span className="font-display text-foreground">First payout:</span> capped at 10% of your 50% profit cap. Subsequent payouts use the full 50% cap. All payouts use the standard 80/20 split.
-                              </p>
+                               <p className="mt-1 text-sm text-muted-foreground">
+                                 80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days · min 10% / max 50% of account size.
+                               </p>
+                               <p className="mt-1 text-[11px] text-muted-foreground">
+                                 <span className="font-display text-foreground">First payout:</span> capped at 10% of account size (you receive 80% of profit). Subsequent payouts use the full 50% cap.
+                               </p>
                               {!profile?.kyc_verified && (
                                 <Alert variant="destructive" className="mt-3">
                                   <AlertDescription>Your bank account is awaiting admin verification before payouts are released.</AlertDescription>
@@ -693,7 +694,7 @@ function DashboardPage() {
                     <div className="text-xs text-muted-foreground">{a.challenges?.name}</div>
                   </div>
                   <div className="text-sm">{formatNaira(a.starting_balance)}</div>
-                  <div className="font-display text-sm text-gold">Phase {a.current_phase}/{a.challenges?.phases ?? 2}</div>
+                  <div className="font-display text-sm text-gold">{a.status === "funded" ? "FUNDED" : `Phase ${a.current_phase}/${a.challenges?.phases ?? 2}`}</div>
                   <Badge className={`${statusVariant[a.status]} font-display`}>{a.status.toUpperCase()}</Badge>
                   {a.deleted_at && (
                     <Button size="sm" variant="outline" className="text-xs" onClick={() => deleteBreachedAccount(a)}>

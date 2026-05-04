@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { botProvision } from "@/lib/bot.server";
 import { sendPushToUser, sendPushToAdmins } from "@/lib/push.server";
+import { sendAccountDeliveredEmail } from "@/lib/email.server";
 
 /**
  * Auto-provision an MT5 demo account by calling the externally-hosted
@@ -143,12 +144,25 @@ export const Route = createFileRoute("/api/provision-account")({
             type: "welcome",
           });
 
-          await sendPushToUser(order.user_id, {
-            title: "🎉 Your MT5 Account is Ready",
-            body: `${ch.name} is active. Tap to view your login.`,
-            url: "/dashboard",
-          });
-          await sendPushToAdmins({
+           await sendPushToUser(order.user_id, {
+             title: "🎉 Your MT5 Account is Ready",
+             body: `${ch.name} is active. Tap to view your login.`,
+             url: "/dashboard",
+           });
+
+           // Send account delivered email (fire-and-forget)
+           const { data: prof } = await supabaseAdmin
+             .from("profiles")
+             .select("full_name")
+             .eq("id", order.user_id)
+             .maybeSingle();
+           const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
+           sendAccountDeliveredEmail(
+             order.user_id, firstName, provisioned.login, provisioned.password,
+             provisioned.server, null, ch.name, ch.profit_target, ch.max_daily_dd, ch.max_total_dd
+           );
+
+           await sendPushToAdmins({
             title: "New challenge purchase",
             body: `${ch.name} delivered for order ${order.id.slice(0, 8)}…`,
             url: "/admin",

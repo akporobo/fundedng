@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { sendWelcomeEmail } from "@/lib/email.server";
 
 export const Route = createFileRoute("/auth/register")({ component: RegisterPage });
 
@@ -37,6 +38,9 @@ function RegisterPage() {
     // Mark this session as "freshly registered" so the dashboard can prompt
     // them to install the app to their device. One-shot — cleared after use.
     try { localStorage.setItem("fng-new-user", "1"); } catch { /* ignore */ }
+    // Send welcome email (fire-and-forget)
+    const firstName = form.full_name.split(" ")[0] || form.full_name;
+    sendWelcomeEmail(form.email, firstName);
     navigate({ to: "/dashboard" });
   };
 

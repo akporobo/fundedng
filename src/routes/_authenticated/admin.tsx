@@ -14,6 +14,7 @@ import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
+import { sendPhase1PassedEmail, sendFundedEmail, sendPayoutApprovedEmail, sendPayoutRejectedEmail, sendAccountBreachedEmail } from "@/lib/email.server";
 import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
@@ -653,12 +654,22 @@ function AdminConsole() {
     }
   };
 
-  const updatePayout = async (id: string, status: "approved" | "paid" | "rejected") => {
-    const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(`Payout ${status}`);
-    load();
-  };
+   const updatePayout = async (id: string, status: "approved" | "paid" | "rejected") => {
+     const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
+     if (error) return toast.error(error.message);
+     // Send payout approved/rejected email (fire-and-forget)
+     const { data: payout } = await supabase.from("payouts").select("user_id, amount_naira, payment_method, profiles(full_name)").eq("id", id).maybeSingle();
+     if (payout) {
+       const firstName = (payout.profiles as any)?.full_name?.split(" ")[0] || (payout.profiles as any)?.full_name || "Trader";
+       if (status === "approved") {
+         sendPayoutApprovedEmail(payout.user_id, firstName, payout.amount_naira, payout.payment_method);
+       } else if (status === "rejected") {
+         sendPayoutRejectedEmail(payout.user_id, firstName, "Payout was rejected by admin");
+       }
+     }
+     toast.success(`Payout ${status}`);
+     load();
+   };
 
   const updateAccount = async (id: string, patch: Record<string, any>) => {
     const { error } = await supabase.from("trader_accounts").update(patch as never).eq("id", id);
@@ -678,23 +689,27 @@ function AdminConsole() {
       phase2_requested_at: null,
       status: "active",
     } as never).eq("id", a.id);
-    if (error) return toast.error(error.message);
-    // Reset snapshot baseline so charts restart from the new equity.
-    await supabase.from("account_snapshots").insert({
-      trader_account_id: a.id,
-      equity: a.starting_balance,
-      balance: a.starting_balance,
-      profit: 0,
-      drawdown_percent: 0,
-    } as never);
-    await supabase.from("notifications").insert({
-      user_id: a.user_id,
-      title: "🎯 Phase 1 Passed",
-      message: "Congratulations — you're now in Phase 2. Your equity has been reset to the starting balance.",
-      type: "success",
-    } as never);
-    toast.success("Phase 2 approved");
-    load();
+     if (error) return toast.error(error.message);
+     // Reset snapshot baseline so charts restart from the new equity.
+     await supabase.from("account_snapshots").insert({
+       trader_account_id: a.id,
+       equity: a.starting_balance,
+       balance: a.starting_balance,
+       profit: 0,
+       drawdown_percent: 0,
+     } as never);
+     await supabase.from("notifications").insert({
+       user_id: a.user_id,
+       title: "🎯 Phase 1 Passed",
+       message: "Congratulations — you're now in Phase 2. Your equity has been reset to the starting balance.",
+       type: "success",
+     } as never);
+      // Send phase 1 passed email (fire-and-forget)
+      const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", a.user_id).maybeSingle();
+      const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
+      sendPhase1PassedEmail(a.user_id, firstName, a.starting_balance, a.challenges?.profit_target || 0, a.challenges?.max_daily_dd || 0, a.challenges?.max_total_dd || 0);
+     toast.success("Phase 2 approved");
+     load();
   };
 
   const approveFunded = async (a: any) => {
@@ -707,23 +722,27 @@ function AdminConsole() {
       funded_at: new Date().toISOString(),
       funded_requested_at: null,
     } as never).eq("id", a.id);
-    if (error) return toast.error(error.message);
-    // Reset snapshot baseline so the funded account chart restarts from starting balance.
-    await supabase.from("account_snapshots").insert({
-      trader_account_id: a.id,
-      equity: a.starting_balance,
-      balance: a.starting_balance,
-      profit: 0,
-      drawdown_percent: 0,
-    } as never);
-    await supabase.from("notifications").insert({
-      user_id: a.user_id,
-      title: "🏆 You're Funded!",
-      message: "Congratulations — your account is now funded. Equity has been reset to the starting balance. Start trading and request payouts.",
-      type: "success",
-    } as never);
-    toast.success("Account funded");
-    load();
+     if (error) return toast.error(error.message);
+     // Reset snapshot baseline so the funded account chart restarts from starting balance.
+     await supabase.from("account_snapshots").insert({
+       trader_account_id: a.id,
+       equity: a.starting_balance,
+       balance: a.starting_balance,
+       profit: 0,
+       drawdown_percent: 0,
+     } as never);
+     await supabase.from("notifications").insert({
+       user_id: a.user_id,
+       title: "🏆 You're Funded!",
+       message: "Congratulations — your account is now funded. Equity has been reset to the starting balance. Start trading and request payouts.",
+       type: "success",
+     } as never);
+     // Send funded email (fire-and-forget)
+     const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", a.user_id).maybeSingle();
+     const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
+     sendFundedEmail(a.user_id, firstName, a.starting_balance);
+     toast.success("Account funded");
+     load();
   };
 
   const submitEquity = async (account: any) => {
@@ -780,21 +799,25 @@ function AdminConsole() {
     setBreachReason("");
   };
 
-  const submitBreach = async () => {
-    if (!breachTarget) return;
-    if (!breachReason.trim()) return toast.error("Breach reason is required");
-    setBreaching(true);
-    const { error } = await supabase.from("trader_accounts").update({
-      status: "breached",
-      breach_reason: breachReason.trim(),
-    } as never).eq("id", breachTarget.id);
-    setBreaching(false);
-    if (error) return toast.error(error.message);
-    toast.success("Account breached");
-    setBreachTarget(null);
-    setBreachReason("");
-    load();
-  };
+   const submitBreach = async () => {
+     if (!breachTarget) return;
+     if (!breachReason.trim()) return toast.error("Breach reason is required");
+     setBreaching(true);
+     const { error } = await supabase.from("trader_accounts").update({
+       status: "breached",
+       breach_reason: breachReason.trim(),
+     } as never).eq("id", breachTarget.id);
+     setBreaching(false);
+     if (error) return toast.error(error.message);
+     // Send account breached email (fire-and-forget)
+     const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", breachTarget.user_id).maybeSingle();
+     const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
+     sendAccountBreachedEmail(breachTarget.user_id, firstName, breachReason.trim(), new Date().toISOString().split("T")[0]);
+     toast.success("Account breached");
+     setBreachTarget(null);
+     setBreachReason("");
+     load();
+   };
 
   return (
     <>
