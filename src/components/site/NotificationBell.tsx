@@ -47,7 +47,14 @@ export function NotificationBell() {
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id)
         .eq("is_read", false);
-      if (!cancelled) setUnread(count ?? 0);
+      const c = count ?? 0;
+      if (!cancelled) {
+        setUnread(c);
+        try {
+          if (c > 0 && "setAppBadge" in navigator) await navigator.setAppBadge(c);
+          else if ("clearAppBadge" in navigator) await navigator.clearAppBadge();
+        } catch { /* noop */ }
+      }
     };
     loadCount();
     const channel = supabase
@@ -101,6 +108,7 @@ export function NotificationBell() {
       .eq("is_read", false);
     setUnread(0);
     setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    try { if ("clearAppBadge" in navigator) await navigator.clearAppBadge(); } catch { /* noop */ }
   };
 
   const handleOpen = async () => {

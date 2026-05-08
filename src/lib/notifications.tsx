@@ -42,6 +42,32 @@ function showNativePush(title: string, body: string, tag?: string) {
   }
 }
 
+async function setBadge(count: number) {
+  try {
+    if ("setAppBadge" in navigator) {
+      await navigator.setAppBadge(count);
+    }
+  } catch { /* badge API unsupported */ }
+}
+
+async function clearBadge() {
+  try {
+    if ("clearAppBadge" in navigator) {
+      await navigator.clearAppBadge();
+    }
+  } catch { /* badge API unsupported */ }
+}
+
+async function syncBadge(userId: string) {
+  const { count } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+  if (count && count > 0) await setBadge(count);
+  else await clearBadge();
+}
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
@@ -60,6 +86,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Sync badge count with the OS app icon when the page becomes visible
+  // (user switches back to the app after receiving notifications).
+  useEffect(() => {
+    if (!user) return;
+    const onShow = () => syncBadge(user.id);
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, [user?.id]);
+
   // Auto-request permission once after sign-in.
   useEffect(() => {
     if (!isAuthenticated || !isBrowser()) return;
@@ -71,6 +106,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       return () => window.clearTimeout(t);
     }
   }, [isAuthenticated]);
+
+  // Sync badge on mount.
+  useEffect(() => {
+    if (!user) return;
+    syncBadge(user.id);
+  }, [user?.id]);
 
   // Subscribe to system notifications for this user.
   useEffect(() => {
@@ -86,6 +127,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             n.type === "error" ? toast.error : n.type === "success" ? toast.success : toast;
           fn(n.title, { description: n.message });
           showNativePush(n.title, n.message, `notif:${n.id}`);
+          syncBadge(user.id);
         },
       )
       .subscribe();
