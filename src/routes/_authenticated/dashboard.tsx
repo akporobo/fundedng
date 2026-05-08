@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -108,7 +108,7 @@ function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [partnerFreeAccount, setPartnerFreeAccount] = useState<PartnerFreeAccount | null>(null);
   const [selected, setSelected] = useState<Account | null>(null);
-  const [snapshots, setSnapshots] = useState<{ snapshot_time: string; equity: number }[]>([]);
+  const [snapshots, setSnapshots] = useState<{ snapshot_time: string; equity: number; balance: number }[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -237,16 +237,16 @@ function DashboardPage() {
     if (selected) {
       const { data } = await supabase
         .from("account_snapshots")
-        .select("snapshot_time, equity")
+        .select("snapshot_time, equity, balance")
         .eq("trader_account_id", selected.id)
         .order("snapshot_time");
-      setSnapshots((data as { snapshot_time: string; equity: number }[]) ?? []);
+      setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []);
     }
     toast.success("Dashboard updated");
   };
   useEffect(() => {
     if (!selected) return;
-    supabase.from("account_snapshots").select("snapshot_time, equity").eq("trader_account_id", selected.id).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number }[]) ?? []));
+    supabase.from("account_snapshots").select("snapshot_time, equity, balance").eq("trader_account_id", selected.id).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
   }, [selected]);
 
   const requestPayout = async () => {
@@ -308,6 +308,15 @@ function DashboardPage() {
   const target = selected?.challenges?.profit_target_percent ?? 10;
   const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
   const unread = notifications.filter((n) => !n.is_read).length;
+
+  const maxEquity = snapshots.length > 0
+    ? Math.max(equity, ...snapshots.map((s) => Number(s.equity)))
+    : equity;
+  const drawdownLimit = maxEquity * (1 - maxDD / 100);
+  const profitTarget = selected?.status === "funded"
+    ? start * (1 + 0.5)
+    : start * (1 + target / 100);
+  const currentBalance = equity;
 
   const canRequestPhase2 =
     !!selected &&
@@ -553,9 +562,22 @@ function DashboardPage() {
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={snapshots}>
                             <XAxis dataKey="snapshot_time" hide />
-                            <YAxis tick={{ fontSize: 11, fill: "currentColor" }} stroke="currentColor" className="text-muted-foreground" domain={["auto","auto"]} />
-                            <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }} formatter={(v) => formatNaira(Number(v))} />
+                            <YAxis
+                              tick={{ fontSize: 11, fill: "currentColor" }}
+                              stroke="currentColor"
+                              className="text-muted-foreground"
+                              domain={["auto", "auto"]}
+                              tickFormatter={(v) => formatNaira(v)}
+                            />
+                            <Tooltip
+                              contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }}
+                              formatter={(v: number, name: string) => [formatNaira(v), name === "equity" ? "Equity" : name === "balance" ? "Balance" : name]}
+                            />
                             <Line type="monotone" dataKey="equity" stroke="var(--primary)" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="balance" stroke="var(--warning)" strokeWidth={1.5} dot={false} strokeDasharray="5 5" />
+                            <ReferenceLine y={drawdownLimit} stroke="hsl(0, 84%, 60%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Drawdown Limit: ${formatNaira(drawdownLimit)}`, position: "insideTopLeft", fill: "hsl(0, 84%, 60%)", fontSize: 10 }} />
+                            <ReferenceLine y={profitTarget} stroke="hsl(142, 76%, 36%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Target: ${formatNaira(profitTarget)}`, position: "insideTopRight", fill: "hsl(142, 76%, 36%)", fontSize: 10 }} />
+                            <ReferenceLine y={currentBalance} stroke="hsl(45, 93%, 47%)" strokeWidth={1} strokeDasharray="4 4" label={{ value: `Balance: ${formatNaira(currentBalance)}`, position: "insideBottomRight", fill: "hsl(45, 93%, 47%)", fontSize: 10 }} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
