@@ -20,6 +20,7 @@ import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
+import { sendPayoutRequestedEmailFn } from "@/server/email.functions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
@@ -296,7 +297,7 @@ function DashboardPage() {
       // Send payout requested email (fire-and-forget)
       const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
       const requestDate = new Date().toISOString().split("T")[0];
-      sendPayoutRequestedEmail(user!.id, firstName, amount, "bank_transfer", requestDate);
+      sendPayoutRequestedEmailFn({ data: { email: user!.email!, firstName, amount, paymentMethod: "bank_transfer", requestDate } });
      load();
   };
 

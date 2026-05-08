@@ -10,6 +10,7 @@ import {
   sendPayoutRejectedEmail,
   sendAccountBreachedEmail,
   sendKycApprovedEmail,
+  sendPayoutRequestedEmail,
 } from "@/lib/email.server";
 
 // ---- Welcome Email ----
@@ -148,5 +149,21 @@ export const sendKycApprovedEmailFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => KycApprovedInput.parse(input))
   .handler(async ({ data }) => {
     sendKycApprovedEmail(data.email, data.firstName);
+    return { ok: true as const };
+  });
+
+// ---- Payout Requested Email ----
+const PayoutRequestedInput = z.object({
+  email: z.string().email(),
+  firstName: z.string().min(1),
+  amount: z.number().positive(),
+  paymentMethod: z.string().min(1),
+  requestDate: z.string().min(1),
+});
+
+export const sendPayoutRequestedEmailFn = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => PayoutRequestedInput.parse(input))
+  .handler(async ({ data }) => {
+    sendPayoutRequestedEmail(data.email, data.firstName, data.amount, data.paymentMethod, data.requestDate);
     return { ok: true as const };
   });
