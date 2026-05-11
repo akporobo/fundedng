@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
 
           if (body.discount_code?.trim()) {
             const code = body.discount_code.trim().toUpperCase();
-            const { data: promoRows } = await supabaseAdmin.rpc("validate_discount_code" as never, { _code: code } as never) as any;
+            const { data: promoRows } = await supabaseAdmin.rpc("validate_discount_code" as never, { _code: code, _challenge_id: challengeId } as never) as any;
             const promo = Array.isArray(promoRows) ? promoRows[0] : null;
             if (promo) {
               discountCode = promo.code;

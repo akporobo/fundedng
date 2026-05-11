@@ -86,7 +86,8 @@ function BuyPage() {
   const validatePromo = async () => {
     const code = promoCode.trim().toUpperCase();
     if (!code) return setPromoDiscount(null);
-    const { data, error } = await supabase.rpc("validate_discount_code" as any, { _code: code });
+    if (!selected) return toast.error("Select a challenge first");
+    const { data, error } = await supabase.rpc("validate_discount_code" as any, { _code: code, _challenge_id: selected.id });
     const row = Array.isArray(data) ? data[0] : null;
     if (error || !row) {
       setPromoDiscount(null);

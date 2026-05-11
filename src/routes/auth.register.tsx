@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { sendWelcomeEmailFn } from "@/server/email.functions";
+import { subscribeToPush } from "@/lib/push";
 
 export const Route = createFileRoute("/auth/register")({ component: RegisterPage });
 
@@ -25,7 +26,7 @@ function RegisterPage() {
     e.preventDefault();
     if (form.password.length < 8) return setError("Password must be at least 8 characters");
     setLoading(true); setError("");
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -41,6 +42,10 @@ function RegisterPage() {
     // Send welcome email (fire-and-forget)
     const firstName = form.full_name.split(" ")[0] || form.full_name;
     sendWelcomeEmailFn({ data: { email: form.email, firstName } });
+    // Auto-subscribe to push notifications (fire-and-forget)
+    if (signUpData?.user?.id) {
+      subscribeToPush(signUpData.user.id, supabase);
+    }
     navigate({ to: "/dashboard" });
   };
 
