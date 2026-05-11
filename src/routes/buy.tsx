@@ -133,11 +133,32 @@ function BuyPage() {
       const result = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         authorization_url?: string;
+        free?: boolean;
+        order_id?: string;
         error?: string;
       };
-      if (!res.ok || !result.ok || !result.authorization_url) {
+      if (!res.ok || !result.ok) {
         setLoading(false);
         setError(result.error ?? "Could not start payment");
+        return;
+      }
+      // 100 % discount → free order, no Paystack redirect
+      if (result.free && result.order_id) {
+        setLoading(false);
+        setConfirmOpen(false);
+        toast.success("Challenge acquired! Your account is being prepared.");
+        fetch("/api/notify-new-purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: result.order_id }),
+          keepalive: true,
+        }).catch(() => {});
+        navigate({ to: "/dashboard" });
+        return;
+      }
+      if (!result.authorization_url) {
+        setLoading(false);
+        setError("Could not start payment");
         return;
       }
       toast.message("Redirecting to Paystack…");

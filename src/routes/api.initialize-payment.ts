@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendPurchaseConfirmedEmail } from "@/lib/email.server";
 
 /**
  * Server-side Paystack initialization for the redirect/standard checkout flow.
@@ -35,17 +36,11 @@ export const Route = createFileRoute("/api/initialize-payment")({
 
           const { data: challenge, error: chErr } = await supabaseAdmin
             .from("challenges")
-            .select("id, name, price_naira, is_active")
+            .select("id, name, price_naira, is_active, account_size")
             .eq("id", challengeId)
             .maybeSingle();
           if (chErr || !challenge || !challenge.is_active) {
             return Response.json({ error: "Challenge not available" }, { status: 404 });
-          }
-
-          const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-          if (!paystackSecret) {
-            console.error("[initialize-payment] PAYSTACK_SECRET_KEY missing");
-            return Response.json({ error: "Payment is not configured" }, { status: 500 });
           }
 
           // Prefer an explicit public site URL (set PUBLIC_SITE_URL secret to
@@ -117,6 +112,60 @@ export const Route = createFileRoute("/api/initialize-payment")({
           const discountPercent = Math.max(promoPercent, partnerPercent);
           const discountAmountNaira = Math.floor(originalAmountNaira * discountPercent / 100);
           const amountKobo = Math.max(0, originalAmountNaira - discountAmountNaira) * 100;
+
+          // 100 % discount → free order: skip Paystack entirely
+          if (amountKobo <= 0) {
+            const { data: order, error: orderErr } = await supabaseAdmin
+              .from("orders")
+              .insert({
+                user_id: user.id,
+                challenge_id: challengeId,
+                original_amount: originalAmountNaira * 100,
+                discount_amount: discountAmountNaira * 100,
+                discount_code: discountCode,
+                discount_percent: discountPercent,
+                partner_promo_code: partnerPromoCode,
+                amount_paid: 0,
+                status: "paid",
+                paystack_reference: reference,
+              })
+              .select("id")
+              .single();
+            if (orderErr || !order) {
+              return Response.json(
+                { error: orderErr?.message ?? "Order creation failed" },
+                { status: 500 },
+              );
+            }
+
+            if (discountCode) {
+              await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
+            }
+
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("full_name")
+              .eq("id", user.id)
+              .maybeSingle();
+            const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
+
+            sendPurchaseConfirmedEmail(
+              user.email,
+              firstName,
+              challenge.name,
+              Number(challenge.account_size ?? 0),
+              0,
+              reference,
+            );
+
+            return Response.json({ ok: true, free: true, order_id: order.id, reference });
+          }
+
+          const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+          if (!paystackSecret) {
+            console.error("[initialize-payment] PAYSTACK_SECRET_KEY missing");
+            return Response.json({ error: "Payment is not configured" }, { status: 500 });
+          }
 
           const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
             method: "POST",
