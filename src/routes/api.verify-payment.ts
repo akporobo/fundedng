@@ -104,7 +104,7 @@ export const Route = createFileRoute("/api/verify-payment")({
           // ---- 5. Confirm amount matches challenge price ----
           const { data: challenge, error: chErr } = await supabaseAdmin
             .from("challenges")
-              .select("id, price_naira, is_active")
+              .select("id, name, price_naira, is_active, account_size")
             .eq("id", challengeId)
             .maybeSingle();
           if (chErr || !challenge) {
@@ -163,7 +163,7 @@ export const Route = createFileRoute("/api/verify-payment")({
              .maybeSingle();
            const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
            const amountNaira = paidKobo / 100;
-           sendPurchaseConfirmedEmail(form.email, firstName, ch.name, ch.account_size, amountNaira, reference);
+            sendPurchaseConfirmedEmail(userData.user.email, firstName, challenge.name, Number(challenge.account_size ?? 0), amountNaira, reference);
 
            return Response.json({ ok: true, order_id: order.id });
         } catch (e) {

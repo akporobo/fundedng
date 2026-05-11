@@ -156,7 +156,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
               Number(challenge.account_size ?? 0),
               0,
               reference,
-            );
+            ).catch((err: unknown) => console.error("[free-order] email failed", err));
 
             return Response.json({ ok: true, free: true, order_id: order.id, reference });
           }
