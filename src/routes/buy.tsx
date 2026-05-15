@@ -17,7 +17,12 @@ import { NotificationBell } from "@/components/site/NotificationBell";
 import { AppSidebar, MobileBottomNav } from "@/components/site/AppShell";
 
 export const Route = createFileRoute("/buy")({
-  validateSearch: z.object({ challenge: z.string().optional() }),
+  validateSearch: z.object({
+    challenge: z.string().optional(),
+    currency: z.enum(["NGN", "USD"]).optional(),
+    type: z.enum(["2step", "instant"]).optional(),
+    size: z.string().optional(),
+  }),
   component: BuyPage,
 });
 
@@ -55,6 +60,8 @@ function BuyPage() {
       .then(({ data }) => {
         const list = (data as Challenge[]) ?? [];
         setChallenges(list);
+
+        // Priority 1: direct challenge id param
         if (search.challenge) {
           const found = list.find((c) => c.id === search.challenge);
           if (found) {
@@ -62,10 +69,36 @@ function BuyPage() {
             setSelectedSize(Number(found.account_size));
             setChallengeType(found.challenge_type === "instant" ? "instant" : "2-step");
             setPlanType(found.challenge_type === "instant" ? "instant" : "standard");
+            return;
           }
         }
+
+        // Priority 2: currency / type / size params from homepage configurator
+        const hasParams = search.currency || search.type || search.size;
+        if (hasParams) {
+          if (search.currency === "USD" || search.currency === "NGN") setCurrency(search.currency);
+          if (search.type === "instant") { setChallengeType("instant"); setPlanType("instant"); }
+          else if (search.type === "2step") { setChallengeType("2-step"); setPlanType("standard"); }
+          if (search.size) {
+            const size = Number(search.size);
+            setSelectedSize(size);
+            if (search.currency !== "USD") {
+              const match = list.find((c) => Number(c.account_size) === size && (search.type === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"));
+              if (match) setSelected(match);
+            }
+          }
+          return;
+        }
+
+        // Priority 3: default pre-selection (NGN / 2-step / first or 400k)
+        const std = list.filter((c) => c.challenge_type !== "instant");
+        if (std.length > 0) {
+          const target = std.find((c) => Number(c.account_size) === 400000) || std[0];
+          setSelectedSize(Number(target.account_size));
+          setSelected(target);
+        }
       });
-  }, [search.challenge]);
+  }, [search.challenge, search.currency, search.type, search.size]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -79,12 +112,22 @@ function BuyPage() {
   const effectivePlanType: "standard" | "instant" =
     challengeType === "2-step" ? "standard" : "instant";
 
-  useEffect(() => {
+  const handleCurrencyChange = (c: "NGN" | "USD") => {
+    setCurrency(c);
     setSelectedSize(null);
     setSelected(null);
     setPromoDiscount(null);
     setError("");
-  }, [currency, challengeType]);
+  };
+
+  const handleChallengeTypeChange = (t: "instant" | "1-step" | "2-step") => {
+    setChallengeType(t);
+    setPlanType(t === "2-step" ? "standard" : "instant");
+    setSelectedSize(null);
+    setSelected(null);
+    setPromoDiscount(null);
+    setError("");
+  };
 
   const usdSizeOptions: Record<string, number[]> = {
     instant: [5000, 10000, 25000, 50000],
@@ -304,14 +347,14 @@ function BuyPage() {
                   <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
                     <button
                       type="button"
-                      onClick={() => { setCurrency("NGN"); }}
+                      onClick={() => handleCurrencyChange("NGN")}
                       className={`font-display rounded-full px-6 py-2 text-xs tracking-wider transition-all ${currency === "NGN" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       NGN
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setCurrency("USD"); }}
+                      onClick={() => handleCurrencyChange("USD")}
                       className={`font-display rounded-full px-6 py-2 text-xs tracking-wider transition-all ${currency === "USD" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       USD
@@ -327,7 +370,7 @@ function BuyPage() {
                       <button
                         key={t}
                         type="button"
-                        onClick={() => { setChallengeType(t); }}
+                        onClick={() => handleChallengeTypeChange(t)}
                         className={`font-display rounded-full px-5 py-2 text-xs tracking-wider transition-all ${challengeType === t ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
                       >
                         {t === "instant" ? "INSTANT" : t === "1-step" ? "1-STEP" : "2-STEP"}

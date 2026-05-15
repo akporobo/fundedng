@@ -6,8 +6,8 @@ import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
-import { formatNaira } from "@/lib/utils";
-import { Check, Zap, ShieldCheck, Trophy, ArrowRight, Clock } from "lucide-react";
+import { formatNaira, formatUSD, formatCompactSize } from "@/lib/utils";
+import { Zap, ShieldCheck, Trophy, ArrowRight, Clock } from "lucide-react";
 import tradingChartHero from "@/assets/trading-chart-hero.jpg";
 import tradingChartHeroDark from "@/assets/trading-chart-hero-dark.jpg";
 
@@ -102,6 +102,22 @@ function Index() {
         </div>
       </section>
 
+      {/* Challenge Configurator */}
+      <section className="border-b border-border bg-surface">
+        <div className="mx-auto max-w-5xl px-4 py-20 md:px-6">
+          <div className="text-center">
+            <Badge variant="outline" className="font-display border-primary/40 text-primary">FIND YOUR MATCH</Badge>
+            <h2 className="font-display mt-4 text-4xl font-bold">Find Your Perfect Challenge</h2>
+            <p className="mt-2 text-muted-foreground">Select your preferences and get started in minutes</p>
+          </div>
+
+          <HomepageConfigurator
+            standardChallenges={standardChallenges}
+            instantChallenges={instantChallenges}
+          />
+        </div>
+      </section>
+
       {/* Rules */}
       <section className="border-b border-border bg-surface">
         <div className="mx-auto max-w-5xl px-4 py-20 text-center md:px-6">
@@ -130,138 +146,6 @@ function Index() {
               </Button>
             </Link>
           </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section className="border-b border-border">
-        <div className="mx-auto max-w-6xl px-4 py-20 md:px-6">
-          <div className="text-center">
-            <Badge variant="outline" className="font-display border-primary/40 text-primary">PRICING</Badge>
-            <h2 className="font-display mt-4 text-4xl font-bold">2-Step Challenge</h2>
-            <p className="mt-2 text-muted-foreground">Pass 2 phases. Get funded. Start small or go big.</p>
-          </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {(standardChallenges.length ? standardChallenges : [
-              { id:"1", name:"Starter", account_size:200000, price_naira:7500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
-              { id:"2", name:"Growth", account_size:500000, price_naira:17500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
-              { id:"3", name:"Pro", account_size:1000000, price_naira:32000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
-              { id:"4", name:"Elite", account_size:2000000, price_naira:60000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
-            ]).map((c, i) => (
-              <div key={c.id} className={`relative rounded-xl border bg-card p-8 ${i===1 ? "border-primary glow-primary" : "border-border"}`}>
-                {i===1 && (
-                  <div className="font-display absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-bold tracking-wider text-primary-foreground">
-                    POPULAR
-                  </div>
-                )}
-                <div className="font-display text-xs tracking-[0.2em] text-muted-foreground">{c.name.toUpperCase()}</div>
-                <div className="font-display mt-2 text-4xl font-bold text-primary">{formatNaira(c.account_size)}</div>
-                <div className="text-sm text-muted-foreground">account size</div>
-                <div className="mt-6 space-y-2 border-t border-border pt-6">
-                  {[`${c.profit_target_percent}% profit target per phase`,`${c.max_drawdown_percent}% max drawdown`,`${c.phases} phases to funded`,"Payouts within 24 hrs of approval","80% profit split"].map(f => (
-                    <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Check className="h-4 w-4 text-primary" /> {f}
-                    </div>
-                  ))}
-                </div>
-                <Link to="/buy" search={{ challenge: c.id }} className="mt-6 block">
-                  <Button className="w-full font-display" variant={i===1 ? "default" : "outline"}>
-                    {c.discount_percent ? (
-                      <>Start for <span className="line-through opacity-60 mr-1">{formatNaira(c.price_naira)}</span>{formatNaira(Math.round(c.price_naira * (1 - (c.discount_percent ?? 0) / 100)))}</>
-                    ) : (
-                      <>Start for {formatNaira(c.price_naira)}</>
-                    )}
-                  </Button>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Instant Funding — Premium 1-Step */}
-      <section className="relative overflow-hidden border-b border-border bg-surface">
-        <div className="absolute inset-0 gradient-radial-primary opacity-20" />
-        <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6">
-          <div className="text-center">
-            <Badge className="font-display bg-warning/20 text-warning border border-warning/40">⚡ PREMIUM · 1-STEP</Badge>
-            <h2 className="font-display mt-4 text-4xl font-bold">
-              Instant <span className="text-primary text-glow">Funding</span>
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-              Skip Phase 2 entirely. Hit one profit target and you're funded. Built
-              for serious traders ready to scale fast — no second evaluation, no waiting.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-4">
-            {[
-              { label: "Profit Target", value: "10%" },
-              { label: "Scalping Rules", value: "No Scalping" },
-              { label: "Max Daily DD", value: "5%" },
-              { label: "Max Total DD", value: "15%" },
-              { label: "Trading Window", value: "5–45 days" },
-            ].map((r) => (
-              <div key={r.label} className="rounded-xl border border-primary/30 bg-card p-5 text-center">
-                <div className="font-display text-2xl font-bold text-primary">{r.value}</div>
-                <div className="mt-1 text-xs uppercase tracking-wider text-muted-foreground">{r.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {(instantChallenges.length ? instantChallenges : [
-              { id:"i1", name:"Instant 1.5M", account_size:1500000, price_naira:120000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
-              { id:"i2", name:"Instant 2M", account_size:2000000, price_naira:155000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
-              { id:"i3", name:"Instant 3M", account_size:3000000, price_naira:225000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
-            ]).map((c) => (
-              <div key={c.id} className="relative rounded-xl border border-primary/40 bg-card p-8 glow-primary">
-                <div className="font-display absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-warning px-3 py-1 text-[10px] font-bold tracking-wider text-warning-foreground">
-                  1-STEP
-                </div>
-                <div className="font-display text-xs tracking-[0.2em] text-muted-foreground">{c.name.toUpperCase()}</div>
-                <div className="font-display mt-2 text-4xl font-bold text-primary">{formatNaira(c.account_size)}</div>
-                <div className="text-sm text-muted-foreground">funded account</div>
-                <div className="mt-6 space-y-2 border-t border-border pt-6">
-                  {[
-                    `${c.profit_target_percent}% profit target (1 step)`,
-                    `${c.max_daily_drawdown_percent ?? 10}% max daily drawdown`,
-                    `${c.max_drawdown_percent}% max total drawdown`,
-                    `${c.max_trading_days ?? 45}-day max trading window`,
-                    "Min 5 trading days",
-                    "80% profit split · 24h payouts",
-                  ].map(f => (
-                    <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Check className="h-4 w-4 text-primary" /> {f}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">one-time fee</span>
-                  {c.discount_percent ? (
-                    <span className="font-display text-2xl font-bold">
-                      <span className="line-through opacity-60 mr-2">{formatNaira(c.price_naira)}</span>
-                      {formatNaira(Math.round(c.price_naira * (1 - (c.discount_percent ?? 0) / 100)))}
-                      <span className="ml-2 rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-600">{c.discount_percent}% OFF</span>
-                    </span>
-                  ) : (
-                    <span className="font-display text-2xl font-bold">{formatNaira(c.price_naira)}</span>
-                  )}
-                </div>
-                <Link to="/buy" search={{ challenge: c.id }} className="mt-5 block">
-                  <Button className="w-full font-display">
-                    Get Instant Funded <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            ))}
-          </div>
-
-          <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-muted-foreground">
-            Instant Funding is for proven traders. The 1-step path is faster but
-            stricter — daily drawdown is enforced and the evaluation must complete
-            within {instantChallenges[0]?.max_trading_days ?? 45} trading days.
-          </p>
         </div>
       </section>
 
@@ -296,6 +180,139 @@ function Index() {
       </footer>
 
       <PWAInstallButton />
+    </div>
+  );
+}
+
+const fallbackStandard: Challenge[] = [
+  { id:"1", name:"Starter", account_size:200000, price_naira:7500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+  { id:"2", name:"Growth", account_size:500000, price_naira:17500, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+  { id:"3", name:"Pro", account_size:1000000, price_naira:32000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+  { id:"4", name:"Elite", account_size:2000000, price_naira:60000, profit_target_percent:10, max_drawdown_percent:20, phases:2 },
+];
+
+const fallbackInstant: Challenge[] = [
+  { id:"i1", name:"Instant 1.5M", account_size:1500000, price_naira:120000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
+  { id:"i2", name:"Instant 2M", account_size:2000000, price_naira:155000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
+  { id:"i3", name:"Instant 3M", account_size:3000000, price_naira:225000, profit_target_percent:15, max_drawdown_percent:20, phases:1, max_daily_drawdown_percent:10, max_trading_days:45 },
+];
+
+const usdSizes: Record<string, number[]> = {
+  "2-step": [5000, 10000, 25000, 50000, 100000],
+  instant: [5000, 10000, 25000, 50000],
+};
+
+const usdPrices: Record<number, number> = {
+  5000: 19, 10000: 45, 25000: 99, 50000: 199, 100000: 349,
+};
+
+function HomepageConfigurator({ standardChallenges, instantChallenges }: { standardChallenges: Challenge[]; instantChallenges: Challenge[] }) {
+  const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
+  const [challengeType, setChallengeType] = useState<"2-step" | "instant">("2-step");
+  const [selectedSize, setSelectedSize] = useState<number>(0);
+
+  const stdList = standardChallenges.length > 0 ? standardChallenges : fallbackStandard;
+  const instList = instantChallenges.length > 0 ? instantChallenges : fallbackInstant;
+
+  const sizes = currency === "NGN"
+    ? (challengeType === "2-step" ? stdList : instList).map(c => Number(c.account_size))
+    : usdSizes[challengeType];
+
+  useEffect(() => {
+    if (sizes.length === 0) return;
+    const def = currency === "NGN" ? (sizes.includes(400000) ? 400000 : sizes[0]) : 10000;
+    if (selectedSize === 0 || !sizes.includes(selectedSize)) {
+      setSelectedSize(def);
+    }
+  }, [currency, challengeType, sizes.length]);
+
+  const selectedChallenge = currency === "NGN"
+    ? (challengeType === "2-step" ? stdList : instList).find(c => Number(c.account_size) === selectedSize)
+    : null;
+
+  const fee = currency === "NGN"
+    ? (selectedChallenge?.price_naira ?? 0)
+    : (selectedSize ? usdPrices[selectedSize] ?? 0 : 0);
+
+  const searchParams = {
+    currency,
+    type: challengeType === "2-step" ? "2step" : "instant",
+    size: String(selectedSize),
+  };
+
+  return (
+    <div className="mt-10 space-y-8">
+      {/* Currency */}
+      <div>
+        <label className="font-display mb-3 block text-xs tracking-widest text-muted-foreground">CURRENCY</label>
+        <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
+          {(["NGN", "USD"] as const).map((c) => (
+            <button key={c} type="button" onClick={() => setCurrency(c)}
+              className={`font-display rounded-full px-6 py-2 text-xs tracking-wider transition-all ${currency === c ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Challenge Type */}
+      <div>
+        <label className="font-display mb-3 block text-xs tracking-widest text-muted-foreground">CHALLENGE TYPE</label>
+        <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
+          {([["2-step", "2-STEP"], ["instant", "INSTANT"]] as const).map(([val, label]) => (
+            <button key={val} type="button" onClick={() => setChallengeType(val)}
+              className={`font-display rounded-full px-5 py-2 text-xs tracking-wider transition-all ${challengeType === val ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Account Size */}
+      <div>
+        <label className="font-display mb-3 block text-xs tracking-widest text-muted-foreground">ACCOUNT SIZE</label>
+        <div className="flex flex-wrap gap-2">
+          {sizes.map((s) => (
+            <button key={s} type="button" onClick={() => setSelectedSize(s)}
+              className={`font-display rounded-full border px-5 py-2 text-xs tracking-wider transition-all ${selectedSize === s ? "border-primary bg-primary text-primary-foreground shadow" : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
+            >
+              {formatCompactSize(s, currency)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary Card */}
+      <div className="mx-auto max-w-md">
+        <div className="rounded-xl border border-border bg-card p-6">
+          <div className="font-display mb-5 text-lg font-bold text-center">Challenge Summary</div>
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Account Size</span>
+              <span className="font-display font-semibold">{currency === "NGN" ? formatNaira(selectedSize) : formatUSD(selectedSize)}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Challenge Fee</span>
+              <span className="font-display font-semibold text-primary">{currency === "NGN" ? formatNaira(fee) : formatUSD(fee)}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Profit Split</span>
+              <span className="font-display font-semibold">80%</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Payouts</span>
+              <span className="font-display font-semibold">Weekly</span>
+            </div>
+          </div>
+          <Link to="/buy" search={searchParams} className="mt-5 block">
+            <Button className="w-full font-display" size="lg">
+              Start This Challenge <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
