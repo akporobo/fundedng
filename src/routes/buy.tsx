@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { formatNaira } from "@/lib/utils";
-import { Check, Diamond, ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers } from "lucide-react";
+import { formatNaira, formatUSD, formatCompactSize } from "@/lib/utils";
+import { ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Brand } from "@/components/site/Brand";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
@@ -43,6 +43,12 @@ function BuyPage() {
   const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState<{ code: string; percent: number } | null>(null);
   const [partnerCode, setPartnerCode] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
+  const [challengeType, setChallengeType] = useState<"instant" | "1-step" | "2-step">("2-step");
+  const [selectedSize, setSelectedSize] = useState<number | null>(null);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -53,6 +59,8 @@ function BuyPage() {
           const found = list.find((c) => c.id === search.challenge);
           if (found) {
             setSelected(found);
+            setSelectedSize(Number(found.account_size));
+            setChallengeType(found.challenge_type === "instant" ? "instant" : "2-step");
             setPlanType(found.challenge_type === "instant" ? "instant" : "standard");
           }
         }
@@ -68,9 +76,84 @@ function BuyPage() {
     if (profile?.partner_referred_by) setPartnerCode("attached");
   }, [profile?.partner_referred_by]);
 
+  const effectivePlanType: "standard" | "instant" =
+    challengeType === "2-step" ? "standard" : "instant";
+
+  useEffect(() => {
+    setSelectedSize(null);
+    setSelected(null);
+    setPromoDiscount(null);
+    setError("");
+  }, [currency, challengeType]);
+
+  const usdSizeOptions: Record<string, number[]> = {
+    instant: [5000, 10000, 25000, 50000],
+    "1-step": [5000, 10000, 25000, 50000],
+    "2-step": [5000, 10000, 25000, 50000, 100000],
+  };
+
+  const usdPrices: Record<number, number> = {
+    5000: 19, 10000: 45, 25000: 99, 50000: 199, 100000: 349,
+  };
+
+  const usdRules = {
+    profitTargetPhase1: 8,
+    profitTargetPhase2: 5,
+    maxDailyDrawdown: 5,
+    maxTotalDrawdown: 10,
+    minTradingDays: 3,
+    profitSplit: 80,
+    payouts: "Weekly",
+  };
+
   const visibleChallenges = challenges.filter((c) =>
-    planType === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"
+    effectivePlanType === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"
   );
+
+  const selectedUsdPrice = selectedSize ? usdPrices[selectedSize] ?? 0 : 0;
+
+  const handleSizeSelect = (size: number) => {
+    setSelectedSize(size);
+    if (currency === "NGN") {
+      const match = visibleChallenges.find((c) => Number(c.account_size) === size);
+      if (match) setSelected(match);
+      setError("");
+    }
+  };
+
+  const handleGetFunded = () => {
+    if (!selectedSize) return;
+    if (!isAuthenticated) {
+      navigate({ to: "/auth/register" });
+      return;
+    }
+    if (currency === "NGN") {
+      setError("");
+      setAgreed(false);
+      setConfirmOpen(true);
+    } else {
+      setWaitlistOpen(true);
+    }
+  };
+
+  const handleWaitlistSubmit = async () => {
+    if (!waitlistEmail || !selectedSize) return;
+    setWaitlistSubmitting(true);
+    try {
+      const { error } = await supabase.from("usd_waitlist").insert({
+        email: waitlistEmail,
+        account_size: selectedSize,
+      });
+      if (error) throw error;
+      toast.success("You're on the waitlist! We'll notify you when USD accounts are ready.");
+      setWaitlistOpen(false);
+      setWaitlistEmail("");
+    } catch {
+      toast.error("Could not join waitlist. Please try again.");
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  };
 
   const openConfirm = () => {
     if (!selected) return setError("Select a challenge first");
@@ -204,153 +287,312 @@ function BuyPage() {
         </header>
 
         <main className={isAuthenticated ? "pb-24 md:pb-0" : ""}>
-          <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
-        <div className="text-center">
-          <Badge variant="outline" className="font-display border-primary/40 text-primary">SELECT YOUR CHALLENGE</Badge>
-          <h1 className="font-display mt-4 text-4xl font-bold">Get Funded Today</h1>
-          <p className="mt-2 text-muted-foreground">Choose your account size. Pass 2 phases. Withdraw your profits.</p>
-        </div>
+          <div className="mx-auto max-w-6xl px-4 py-10 md:px-6">
+            <div className="text-center">
+              <Badge variant="outline" className="font-display border-primary/40 text-primary">SELECT YOUR CHALLENGE</Badge>
+              <h1 className="font-display mt-4 text-4xl font-bold">Get Funded Today</h1>
+              <p className="mt-2 text-muted-foreground">Choose your challenge parameters and get funded to trade.</p>
+            </div>
 
-        {/* Plan-type toggle (Standard vs Instant) */}
-        <div className="mt-8 flex justify-center">
-          <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
-            <button
-              type="button"
-              onClick={() => { setPlanType("standard"); setSelected(null); }}
-              className={`font-display rounded-full px-5 py-2 text-xs tracking-wider transition-all ${planType === "standard" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              2-STEP CHALLENGE
-            </button>
-            <button
-              type="button"
-              onClick={() => { setPlanType("instant"); setSelected(null); }}
-              className={`font-display relative rounded-full px-5 py-2 text-xs tracking-wider transition-all ${planType === "instant" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              INSTANT FUNDING
-              <span className="ml-2 rounded-full bg-warning/20 px-2 py-0.5 text-[9px] font-bold text-warning">1-STEP</span>
-            </button>
-          </div>
-        </div>
+            <div className="mt-10 flex flex-col gap-8 lg:flex-row">
+              {/* ========== LEFT: Configurator Pills ========== */}
+              <div className="flex-1 space-y-8">
 
-        {planType === "instant" && (
-          <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-primary/30 bg-primary/5 p-4 text-center text-sm text-muted-foreground">
-            <span className="font-display block text-primary">⚡ Premium 1-Step Evaluation</span>
-            Skip Phase 2 entirely. Hit 15% profit in 5–45 trading days, respect 10% daily / 20% total drawdown, and you're funded.
-          </div>
-        )}
-
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {visibleChallenges.map((c, i) => {
-            const active = selected?.id === c.id;
-            const isInstant = c.challenge_type === "instant";
-            return (
-              <button key={c.id} onClick={() => setSelected(c)}
-                className={`relative rounded-xl border bg-card p-7 text-left transition-all ${
-                  active ? "border-primary glow-primary -translate-y-1" : "border-border hover:border-primary/40"
-                }`}>
-                {isInstant ? (
-                  <div className="font-display absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-warning px-3 py-1 text-[10px] font-bold tracking-wider text-warning-foreground">
-                    1-STEP
+                {/* --- Currency Toggle --- */}
+                <div>
+                  <label className="font-display mb-3 block text-xs tracking-widest text-muted-foreground">CURRENCY</label>
+                  <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
+                    <button
+                      type="button"
+                      onClick={() => { setCurrency("NGN"); }}
+                      className={`font-display rounded-full px-6 py-2 text-xs tracking-wider transition-all ${currency === "NGN" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      NGN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCurrency("USD"); }}
+                      className={`font-display rounded-full px-6 py-2 text-xs tracking-wider transition-all ${currency === "USD" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      USD
+                    </button>
                   </div>
-                ) : i===1 && (
-                  <div className="font-display absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-bold tracking-wider text-primary-foreground">
-                    POPULAR
-                  </div>
-                )}
-                {active && (
-                  <div className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-primary">
-                    <Check className="h-4 w-4 text-primary-foreground" />
-                  </div>
-                )}
-                <div className="font-display text-xs tracking-[0.2em] text-muted-foreground">{c.name.toUpperCase()}</div>
-                <div className="font-display mt-2 text-3xl font-bold text-primary">{formatNaira(c.account_size)}</div>
-                <div className="text-xs text-muted-foreground">account size</div>
-                <div className="mt-5 space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
-                  {(isInstant
-                    ? [
-                        `${c.profit_target_percent}% profit target`,
-                        `${c.max_daily_drawdown_percent ?? 10}% max daily drawdown`,
-                        `${c.max_drawdown_percent}% max total drawdown`,
-                        `${c.max_trading_days ?? 45} day max window`,
-                        "1-step to funded",
-                        "80% profit split",
-                      ]
-                    : [
-                        `${c.profit_target_percent}% profit target`,
-                        `${c.max_drawdown_percent}% max drawdown`,
-                        `${c.phases} phases to funded`,
-                        "80% profit split",
-                        "Payouts in 24hrs",
-                      ]).map(f=>(
-                    <div key={f} className="flex items-center gap-2"><Diamond className="h-3 w-3 text-primary"/> {f}</div>
-                  ))}
                 </div>
-                <div className="mt-5 text-2xl font-bold">
-                  {c.discount_percent ? (
-                    <>
-                      <span className="line-through opacity-60 mr-2">{formatNaira(c.price_naira)}</span>
-                      {formatNaira(Math.round(c.price_naira * (1 - (c.discount_percent ?? 0) / 100)))}
-                    </>
+
+                {/* --- Challenge Type --- */}
+                <div>
+                  <label className="font-display mb-3 block text-xs tracking-widest text-muted-foreground">CHALLENGE TYPE</label>
+                  <div className="inline-flex items-center rounded-full border border-border bg-card p-1">
+                    {(["instant", "1-step", "2-step"] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => { setChallengeType(t); }}
+                        className={`font-display rounded-full px-5 py-2 text-xs tracking-wider transition-all ${challengeType === t ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {t === "instant" ? "INSTANT" : t === "1-step" ? "1-STEP" : "2-STEP"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* --- Account Size --- */}
+                <div>
+                  <label className="font-display mb-3 block text-xs tracking-widest text-muted-foreground">ACCOUNT SIZE</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(currency === "NGN" ? visibleChallenges : []).map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleSizeSelect(Number(c.account_size))}
+                        className={`font-display rounded-full border px-5 py-2 text-xs tracking-wider transition-all ${selectedSize === Number(c.account_size) ? "border-primary bg-primary text-primary-foreground shadow" : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
+                      >
+                        {formatCompactSize(Number(c.account_size), "NGN")}
+                      </button>
+                    ))}
+                    {currency === "USD" && (usdSizeOptions[challengeType] ?? []).map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => handleSizeSelect(size)}
+                        className={`font-display rounded-full border px-5 py-2 text-xs tracking-wider transition-all ${selectedSize === size ? "border-primary bg-primary text-primary-foreground shadow" : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
+                      >
+                        {formatCompactSize(size, "USD")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* --- NGN Promo & Pricing (inline) --- */}
+                {currency === "NGN" && selected && (
+                  <div className="rounded-xl border border-primary/30 bg-card p-6 animate-fade-in">
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Challenge</span>
+                        <span className="font-medium">{selected.name} — {formatNaira(selected.account_size)}</span>
+                      </div>
+                      {partnerCode && (
+                        <div className="flex justify-between border-t border-border pt-3 text-sm">
+                          <span className="text-muted-foreground">Partner link discount</span>
+                          <span className="font-display text-primary">15% off</span>
+                        </div>
+                      )}
+                      {challengeDiscountPercent > 0 && (
+                        <div className="flex justify-between border-t border-border pt-3 text-sm">
+                          <span className="text-muted-foreground">Challenge discount</span>
+                          <span className="font-display text-primary">{challengeDiscountPercent}% off</span>
+                        </div>
+                      )}
+                      <div className="border-t border-border pt-3">
+                        <div className="flex gap-2">
+                          <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="Promo code" className="h-9" />
+                          <Button type="button" size="sm" variant="outline" onClick={validatePromo}>Apply</Button>
+                        </div>
+                        {promoDiscount && <div className="mt-1 text-xs text-primary">{promoDiscount.code}: {promoDiscount.percent}% off applied</div>}
+                      </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between border-t border-border pt-3">
+                          <span className="text-muted-foreground">Discount</span>
+                          <span className="font-display text-primary">-{formatNaira(discountAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-border pt-3">
+                        <span className="text-muted-foreground">Total</span>
+                        <span className="font-display text-xl font-bold text-primary">{formatNaira(payable)}</span>
+                      </div>
+                    </div>
+                    {error && <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>}
+                    <Button className="font-display mt-5 w-full" size="lg" onClick={handleGetFunded} disabled={loading}>
+                      {loading ? "Processing..." : <>Pay {formatNaira(payable)} Now <ArrowRight className="ml-2 h-4 w-4" /></>}
+                    </Button>
+                    <p className="mt-3 text-center text-xs text-muted-foreground">
+                      By continuing you agree to our <Link to="/agreement" className="text-primary hover:underline">trader agreement</Link> and acknowledge the risk disclosure.
+                    </p>
+                  </div>
+                )}
+
+                {currency === "NGN" && !selected && visibleChallenges.length === 0 && (
+                  <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                    No {effectivePlanType === "instant" ? "Instant" : "Standard"} challenges available right now.
+                  </div>
+                )}
+              </div>
+
+              {/* ========== RIGHT: Account Summary Card ========== */}
+              <div className="w-full lg:w-80 xl:w-96">
+                <div className="sticky top-24 rounded-xl border border-border bg-card p-6">
+                  <div className="font-display mb-4 text-lg font-bold">Account Summary</div>
+
+                  {!selectedSize ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
+                      <Layers className="mb-2 h-8 w-8 opacity-40" />
+                      <span>Select your options above to see the summary</span>
+                    </div>
                   ) : (
-                    formatNaira(c.price_naira)
+                    <div className="space-y-3 text-sm">
+                      {/* Account Size */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Account Size</span>
+                        <span className="font-display font-semibold">
+                          {currency === "NGN" ? formatNaira(selectedSize) : formatUSD(selectedSize)}
+                        </span>
+                      </div>
+
+                      {/* Challenge Fee */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Challenge Fee</span>
+                        <span className="font-display font-semibold text-primary">
+                          {currency === "NGN"
+                            ? (selected ? formatNaira(payable) : formatNaira(0))
+                            : formatUSD(selectedUsdPrice)}
+                        </span>
+                      </div>
+
+                      {/* Profit Targets */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Profit Target Phase 1</span>
+                        <span className="font-display font-semibold">
+                          {currency === "NGN"
+                            ? `${selected?.profit_target_percent ?? 0}%`
+                            : `${usdRules.profitTargetPhase1}%`}
+                        </span>
+                      </div>
+
+                      {challengeType === "2-step" && (
+                        <div className="flex items-center justify-between border-b border-border pb-2">
+                          <span className="text-muted-foreground">Profit Target Phase 2</span>
+                          <span className="font-display font-semibold">
+                            {currency === "NGN"
+                              ? `${selected?.profit_target_percent ?? 0}%`
+                              : `${usdRules.profitTargetPhase2}%`}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Max Daily Drawdown */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Max Daily Drawdown</span>
+                        <span className="font-display font-semibold">
+                          {currency === "NGN"
+                            ? `${selected?.max_daily_drawdown_percent ?? 5}%`
+                            : `${usdRules.maxDailyDrawdown}%`}
+                        </span>
+                      </div>
+
+                      {/* Max Total Drawdown */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Max Total Drawdown</span>
+                        <span className="font-display font-semibold">
+                          {currency === "NGN"
+                            ? `${selected?.max_drawdown_percent ?? 0}%`
+                            : `${usdRules.maxTotalDrawdown}%`}
+                        </span>
+                      </div>
+
+                      {/* Min Trading Days */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Min Trading Days</span>
+                        <span className="font-display font-semibold">
+                          {currency === "NGN"
+                            ? `${selected?.max_trading_days ?? 1}`
+                            : `${usdRules.minTradingDays}`}
+                        </span>
+                      </div>
+
+                      {/* Profit Split */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Profit Split</span>
+                        <span className="font-display font-semibold">
+                          {currency === "NGN" ? "80%" : `${usdRules.profitSplit}%`}
+                        </span>
+                      </div>
+
+                      {/* Payouts */}
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <span className="text-muted-foreground">Payouts</span>
+                        <span className="font-display font-semibold">
+                          {currency === "NGN" ? "Within 24 hrs" : usdRules.payouts}
+                        </span>
+                      </div>
+
+                      {/* Get Funded Button */}
+                      <Button
+                        className="font-display mt-4 w-full"
+                        size="lg"
+                        onClick={handleGetFunded}
+                        disabled={!selectedSize || loading}
+                      >
+                        {currency === "NGN" ? "Get Funded" : "Get Funded"}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+
+                      <p className="text-center text-xs text-muted-foreground">
+                        {currency === "NGN"
+                          ? "You will be redirected to Paystack to complete payment."
+                          : "USD accounts are coming soon. Join the waitlist."}
+                      </p>
+                    </div>
                   )}
                 </div>
-                <div className="text-xs text-muted-foreground">one-time fee</div>
-              </button>
-            );
-          })}
-          {visibleChallenges.length === 0 && (
-            <div className="md:col-span-3 rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-              No {planType === "instant" ? "Instant Funding" : "Standard"} challenges available right now.
-            </div>
-          )}
-        </div>
-
-        {selected && (
-          <div className="mx-auto mt-10 max-w-md rounded-xl border border-primary/30 bg-card p-7 animate-fade-in">
-            <div className="space-y-3">
-              <div className="flex justify-between"><span className="text-muted-foreground">Challenge</span><span className="font-medium">{selected.name} — {formatNaira(selected.account_size)}</span></div>
-              {partnerCode && (
-                <div className="flex justify-between border-t border-border pt-3 text-sm">
-                  <span className="text-muted-foreground">Partner link discount</span><span className="font-display text-primary">15% off</span>
-                </div>
-              )}
-              {challengeDiscountPercent > 0 && (
-                <div className="flex justify-between border-t border-border pt-3 text-sm">
-                  <span className="text-muted-foreground">Challenge discount</span><span className="font-display text-primary">{challengeDiscountPercent}% off</span>
-                </div>
-              )}
-              <div className="border-t border-border pt-3">
-                <div className="flex gap-2">
-                  <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="Promo code" className="h-9" />
-                  <Button type="button" size="sm" variant="outline" onClick={validatePromo}>Apply</Button>
-                </div>
-                {promoDiscount && <div className="mt-1 text-xs text-primary">{promoDiscount.code}: {promoDiscount.percent}% off applied</div>}
-              </div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between border-t border-border pt-3">
-                  <span className="text-muted-foreground">Discount</span><span className="font-display text-primary">-{formatNaira(discountAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-border pt-3">
-                <span className="text-muted-foreground">Total</span>
-                <span className="font-display text-xl font-bold text-primary">{formatNaira(payable)}</span>
               </div>
             </div>
-            {error && <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>}
-            <Button className="font-display mt-5 w-full" size="lg" onClick={openConfirm} disabled={loading}>
-              {loading ? "Processing..." : <>Pay {formatNaira(payable)} Now <ArrowRight className="ml-2 h-4 w-4" /></>}
-            </Button>
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              By continuing you agree to our <Link to="/agreement" className="text-primary hover:underline">trader agreement</Link> and acknowledge the risk disclosure.
-            </p>
-          </div>
-        )}
           </div>
         </main>
       </div>
 
       {isAuthenticated && <MobileBottomNav />}
+
+      {/* USD Waitlist Dialog */}
+      <Dialog open={waitlistOpen} onOpenChange={(o) => !waitlistSubmitting && setWaitlistOpen(o)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl">USD Accounts Coming Soon</DialogTitle>
+            <DialogDescription>
+              <span className="mt-2 block text-sm text-muted-foreground">
+                USD-denominated challenges are not yet available. Join the waitlist and we'll notify you when they launch.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSize && (
+            <div className="rounded-lg border border-border bg-background/50 p-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Account Size</span>
+                <span className="font-display font-semibold">{formatUSD(selectedSize)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-muted-foreground">Challenge Fee</span>
+                <span className="font-display font-semibold text-primary">{formatUSD(selectedUsdPrice)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground">Email Address</label>
+            <Input
+              type="email"
+              value={waitlistEmail}
+              onChange={(e) => setWaitlistEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="h-10"
+            />
+            <Button
+              className="font-display w-full"
+              size="lg"
+              onClick={handleWaitlistSubmit}
+              disabled={waitlistSubmitting || !waitlistEmail}
+            >
+              {waitlistSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</> : "Join Waitlist"}
+            </Button>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => { setWaitlistOpen(false); setWaitlistEmail(""); }} disabled={waitlistSubmitting}>
+              Not now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={(o) => !loading && setConfirmOpen(o)}>
         <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-lg">

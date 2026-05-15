@@ -1,14 +1,15 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-const transport = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM = process.env.EMAIL_FROM || 'FundedNG <support@fundedng.fun>';
+
+async function send(to: string, subject: string, html: string) {
+  try {
+    await resend.emails.send({ from: FROM, to, subject, html });
+  } catch (e) {
+    console.error('[email] failed:', e);
+  }
+}
 
 function wrapEmailContent(innerBody: string): string {
   return `<!DOCTYPE html>
@@ -71,12 +72,7 @@ export function sendWelcomeEmail(email: string, firstName: string) {
     <p>No dollar stress. No complicated rules. Just 3 fair rules and you're good to go.</p>
     <a href="https://fundedng.fun/buy" class="cta-button">GET STARTED →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Welcome email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendPurchaseConfirmedEmail(email: string, firstName: string, challengeName: string, accountSize: number, amountPaid: number, orderId: string) {
@@ -96,12 +92,7 @@ export function sendPurchaseConfirmedEmail(email: string, firstName: string, cha
     <p>Once you receive your login details, log in to MT5 and start trading toward your profit target.</p>
     <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Purchase confirmed email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendAccountDeliveredEmail(email: string, firstName: string, mt5Login: string, mt5Password: string, mt5Server: string, investorPassword: string, challengeName: string, profitTarget: number, maxDailyDD: number, maxTotalDD: number) {
@@ -129,12 +120,7 @@ export function sendAccountDeliveredEmail(email: string, firstName: string, mt5L
     <a href="https://fundedng.fun/rules" class="cta-button">HOW TO LOGIN →</a>
     <p>Good luck trader! We're rooting for you. 💪</p>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Account delivered email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendPhase1PassedEmail(email: string, firstName: string, accountSize: number, profitTarget: number, maxDailyDD: number, maxTotalDD: number) {
@@ -154,12 +140,7 @@ export function sendPhase1PassedEmail(email: string, firstName: string, accountS
     <p>Stay focused. Stay consistent. You've got this. 💪</p>
     <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Phase 1 passed email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendFundedEmail(email: string, firstName: string, accountSize: number) {
@@ -185,12 +166,7 @@ export function sendFundedEmail(email: string, firstName: string, accountSize: n
     <p>Trade well and get paid. You've earned it. 🏆</p>
     <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Funded email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendPayoutRequestedEmail(email: string, firstName: string, amount: number, paymentMethod: string, requestDate: string) {
@@ -209,12 +185,7 @@ export function sendPayoutRequestedEmail(email: string, firstName: string, amoun
     <p>If you have any questions contact us at <a href="mailto:support@fundedng.fun" style="color: #16A34A;">support@fundedng.fun</a></p>
     <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Payout requested email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendPayoutApprovedEmail(email: string, firstName: string, amount: number, paymentMethod: string) {
@@ -232,12 +203,7 @@ export function sendPayoutApprovedEmail(email: string, firstName: string, amount
     <p>Ready to keep trading? Your account balance has been reset and you can continue toward your next payout.</p>
     <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Payout approved email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendPayoutRejectedEmail(email: string, firstName: string, reason: string) {
@@ -259,12 +225,7 @@ export function sendPayoutRejectedEmail(email: string, firstName: string, reason
     <p>If you believe this is an error or need clarification, please contact us at <a href="mailto:support@fundedng.fun" style="color: #16A34A;">support@fundedng.fun</a> and we will resolve it promptly.</p>
     <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Payout rejected email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendAccountBreachedEmail(email: string, firstName: string, breachReason: string, breachDate: string) {
@@ -281,12 +242,7 @@ export function sendAccountBreachedEmail(email: string, firstName: string, breac
     <p>Ready to try again? Use code RETRY20 for 20% off your next challenge.</p>
     <a href="https://fundedng.fun/buy" class="cta-button">START FRESH →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('Account breached email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
 
 export function sendKycApprovedEmail(email: string, firstName: string) {
@@ -303,10 +259,5 @@ export function sendKycApprovedEmail(email: string, firstName: string) {
     <p>To request your first payout simply log in to your dashboard and go to the Payouts tab.</p>
     <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
   `;
-  transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: email,
-    subject,
-    html: wrapEmailContent(innerBody),
-  }).catch(err => console.error('KYC approved email failed:', err));
+  send(email, subject, wrapEmailContent(innerBody));
 }
