@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendPushToAdmins } from "@/lib/push.server";
+import { sendEventEmail } from "@/lib/email.server";
 
 /**
  * Called by the buy flow after a successful Paystack payment.
@@ -45,6 +46,9 @@ export const Route = createFileRoute("/api/notify-new-purchase")({
             body: `${traderName} bought ${chName} — deliver manually in /admin`,
             url: "/admin",
           });
+
+          // Send purchase confirmed email (fire-and-forget)
+          sendEventEmail({ type: "purchase_confirmed", orderId: order.id });
 
           return Response.json({ ok: true });
         } catch (e) {

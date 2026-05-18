@@ -14,7 +14,7 @@ import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
-import { notifyEmail } from "@/lib/notify-email";
+import { updatePayoutServer, approvePhase2Server, approveFundedServer, markBreachedServer } from "@/server/admin.functions";
 import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
@@ -656,14 +656,9 @@ function AdminConsole() {
   };
 
    const updatePayout = async (id: string, status: "approved" | "paid" | "rejected") => {
-     const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
-     if (error) return toast.error(error.message);
-      // Send payout approved/rejected email (fire-and-forget)
-      if (status === "approved") {
-        notifyEmail({ type: "payout_approved", payoutId: id });
-      } else if (status === "rejected") {
-        notifyEmail({ type: "payout_rejected", payoutId: id, reason: "Payout was rejected by admin" });
-      }
+     if (!session?.access_token) return toast.error("Please sign in again");
+     const res = await updatePayoutServer({ data: { accessToken: session.access_token, payoutId: id, status } });
+     if (!res.ok) return toast.error(res.error ?? "Update failed");
      toast.success(`Payout ${status}`);
      load();
    };
@@ -677,65 +672,23 @@ function AdminConsole() {
 
   // Phase 1 → Phase 2: reset equity to starting balance and bump phase.
   const approvePhase2 = async (a: any) => {
+    if (!session?.access_token) return toast.error("Please sign in again");
     if (a.current_phase >= 2) return toast.error("Already in Phase 2 or beyond");
     if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
-    const { error } = await supabase.from("trader_accounts").update({
-      current_phase: 2,
-      current_equity: a.starting_balance,
-      phase1_passed_at: new Date().toISOString(),
-      phase2_requested_at: null,
-      status: "active",
-    } as never).eq("id", a.id);
-     if (error) return toast.error(error.message);
-     // Reset snapshot baseline so charts restart from the new equity.
-     await supabase.from("account_snapshots").insert({
-       trader_account_id: a.id,
-       equity: a.starting_balance,
-       balance: a.starting_balance,
-       profit: 0,
-       drawdown_percent: 0,
-     } as never);
-     await supabase.from("notifications").insert({
-       user_id: a.user_id,
-       title: "🎯 Phase 1 Passed",
-       message: "Congratulations — you're now in Phase 2. Your equity has been reset to the starting balance.",
-       type: "success",
-     } as never);
-      // Send phase 1 passed email (fire-and-forget)
-      notifyEmail({ type: "phase1_passed", accountId: a.id });
-     toast.success("Phase 2 approved");
-     load();
+    const res = await approvePhase2Server({ data: { accessToken: session.access_token, accountId: a.id } });
+    if (!res.ok) return toast.error(res.error ?? "Approval failed");
+    toast.success("Phase 2 approved");
+    load();
   };
 
   const approveFunded = async (a: any) => {
+    if (!session?.access_token) return toast.error("Please sign in again");
     if (a.status === "funded") return toast.error("Already funded");
     if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
-    const { error } = await supabase.from("trader_accounts").update({
-      status: "funded",
-      current_equity: a.starting_balance,
-      phase2_passed_at: new Date().toISOString(),
-      funded_at: new Date().toISOString(),
-      funded_requested_at: null,
-    } as never).eq("id", a.id);
-     if (error) return toast.error(error.message);
-     // Reset snapshot baseline so the funded account chart restarts from starting balance.
-     await supabase.from("account_snapshots").insert({
-       trader_account_id: a.id,
-       equity: a.starting_balance,
-       balance: a.starting_balance,
-       profit: 0,
-       drawdown_percent: 0,
-     } as never);
-     await supabase.from("notifications").insert({
-       user_id: a.user_id,
-       title: "🏆 You're Funded!",
-       message: "Congratulations — your account is now funded. Equity has been reset to the starting balance. Start trading and request payouts.",
-       type: "success",
-     } as never);
-      // Send funded email (fire-and-forget)
-      notifyEmail({ type: "funded", accountId: a.id });
-     toast.success("Account funded");
-     load();
+    const res = await approveFundedServer({ data: { accessToken: session.access_token, accountId: a.id } });
+    if (!res.ok) return toast.error(res.error ?? "Approval failed");
+    toast.success("Account funded");
+    load();
   };
 
   const submitEquity = async (account: any) => {
@@ -795,15 +748,11 @@ function AdminConsole() {
    const submitBreach = async () => {
      if (!breachTarget) return;
      if (!breachReason.trim()) return toast.error("Breach reason is required");
+     if (!session?.access_token) return toast.error("Please sign in again");
      setBreaching(true);
-     const { error } = await supabase.from("trader_accounts").update({
-       status: "breached",
-       breach_reason: breachReason.trim(),
-     } as never).eq("id", breachTarget.id);
+     const res = await markBreachedServer({ data: { accessToken: session.access_token, accountId: breachTarget.id, reason: breachReason.trim() } });
      setBreaching(false);
-     if (error) return toast.error(error.message);
-      // Send account breached email (fire-and-forget)
-      notifyEmail({ type: "breached", accountId: breachTarget.id, reason: breachReason.trim() });
+     if (!res.ok) return toast.error(res.error ?? "Breach failed");
      toast.success("Account breached");
      setBreachTarget(null);
      setBreachReason("");

@@ -20,6 +20,7 @@ import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
+import { requestPayoutServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -136,6 +137,19 @@ function DashboardPage() {
       .catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // Fire the welcome email once per new signup, the first time the user lands
+  // on the dashboard after registering (covers email-confirm flows where the
+  // signup screen has no session yet).
+  useEffect(() => {
+    if (!user) return;
+    try {
+      if (localStorage.getItem("fng-new-user") === "1") {
+        notifyEmail({ type: "welcome", userId: user.id });
+        localStorage.removeItem("fng-new-user");
+      }
+    } catch { /* ignore */ }
+  }, [user]);
 
   const verifyBankWithPaystack = async () => {
     const acct = bankAccountNumber.replace(/\s+/g, "");
@@ -278,24 +292,26 @@ function DashboardPage() {
       );
     }
     setSubmitting(true);
-    const { data: payoutInsert, error } = await supabase.from("payouts").insert({
-      user_id: user!.id,
-      trader_account_id: selected.id,
-      amount_naira: amount,
-      profit_percent: Number(((requestedProfit / selected.starting_balance) * 100).toFixed(4)),
-      payment_method: "bank_transfer",
-      wallet_address: null,
-      bank_details: {
-        account_number: profile.bank_account_number,
-        bank_name: profile.bank_name,
-        account_name: profile.bank_account_name,
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session?.access_token) {
+      setSubmitting(false);
+      return toast.error("Please sign in again");
+    }
+    const res = await requestPayoutServer({ data: {
+      accessToken: sess.session.access_token,
+      userId: user!.id,
+      traderAccountId: selected.id,
+      amountNaira: amount,
+      profitPercent: Number(((requestedProfit / selected.starting_balance) * 100).toFixed(4)),
+      bankDetails: {
+        account_number: profile.bank_account_number!,
+        bank_name: profile.bank_name!,
+        account_name: profile.bank_account_name!,
       },
-    } as never).select("id").single();
+    }});
     setSubmitting(false);
-     if (error) return toast.error(error.message);
+     if (!res.ok) return toast.error(res.error ?? "Request failed");
      toast.success(`Payout of ${formatNaira(amount)} requested!`);
-      // Send payout requested email (fire-and-forget)
-      notifyEmail({ type: "payout_requested", payoutId: payoutInsert.id });
      load();
   };
 
