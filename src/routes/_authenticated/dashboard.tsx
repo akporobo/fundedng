@@ -20,7 +20,7 @@ import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
-import { sendPayoutRequestedEmailFn } from "@/server/email.functions";
+import { notifyEmail } from "@/lib/notify-email";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
@@ -278,7 +278,7 @@ function DashboardPage() {
       );
     }
     setSubmitting(true);
-    const { error } = await supabase.from("payouts").insert({
+    const { data: payoutInsert, error } = await supabase.from("payouts").insert({
       user_id: user!.id,
       trader_account_id: selected.id,
       amount_naira: amount,
@@ -290,14 +290,12 @@ function DashboardPage() {
         bank_name: profile.bank_name,
         account_name: profile.bank_account_name,
       },
-    } as never);
+    } as never).select("id").single();
     setSubmitting(false);
      if (error) return toast.error(error.message);
      toast.success(`Payout of ${formatNaira(amount)} requested!`);
       // Send payout requested email (fire-and-forget)
-      const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
-      const requestDate = new Date().toISOString().split("T")[0];
-      sendPayoutRequestedEmailFn({ data: { email: user!.email!, firstName, amount, paymentMethod: "bank_transfer", requestDate } });
+      notifyEmail({ type: "payout_requested", payoutId: payoutInsert.id });
      load();
   };
 

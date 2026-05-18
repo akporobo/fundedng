@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { sendPurchaseConfirmedEmail } from "@/lib/email.server";
+import { sendEventEmail } from "@/lib/email.server";
 
 /**
  * Server-side Paystack verification.
@@ -156,14 +156,7 @@ export const Route = createFileRoute("/api/verify-payment")({
            }
 
            // Send purchase confirmed email (fire-and-forget)
-           const { data: profile } = await supabaseAdmin
-             .from("profiles")
-             .select("full_name")
-             .eq("id", userId)
-             .maybeSingle();
-           const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
-           const amountNaira = paidKobo / 100;
-            sendPurchaseConfirmedEmail(userData.user.email, firstName, challenge.name, Number(challenge.account_size ?? 0), amountNaira, reference);
+           sendEventEmail({ type: "purchase_confirmed", orderId: order.id });
 
            return Response.json({ ok: true, order_id: order.id });
         } catch (e) {

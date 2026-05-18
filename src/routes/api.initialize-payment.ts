@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { sendPurchaseConfirmedEmail } from "@/lib/email.server";
+import { sendEventEmail } from "@/lib/email.server";
 
 /**
  * Server-side Paystack initialization for the redirect/standard checkout flow.
@@ -142,21 +142,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
               await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
             }
 
-            const { data: profile } = await supabaseAdmin
-              .from("profiles")
-              .select("full_name")
-              .eq("id", user.id)
-              .maybeSingle();
-            const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
-
-            sendPurchaseConfirmedEmail(
-              user.email,
-              firstName,
-              challenge.name,
-              Number(challenge.account_size ?? 0),
-              0,
-              reference,
-            ).catch((err: unknown) => console.error("[free-order] email failed", err));
+            sendEventEmail({ type: "purchase_confirmed", orderId: order.id });
 
             return Response.json({ ok: true, free: true, order_id: order.id, reference });
           }

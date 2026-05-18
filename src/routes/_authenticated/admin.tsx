@@ -14,7 +14,7 @@ import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
-import { sendPhase1PassedEmailFn, sendFundedEmailFn, sendPayoutApprovedEmailFn, sendPayoutRejectedEmailFn, sendAccountBreachedEmailFn } from "@/server/email.functions";
+import { notifyEmail } from "@/lib/notify-email";
 import { RefreshButton } from "@/components/ui/refresh-button";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
@@ -659,14 +659,10 @@ function AdminConsole() {
      const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
      if (error) return toast.error(error.message);
       // Send payout approved/rejected email (fire-and-forget)
-      const { data: payout } = await supabase.from("payouts").select("user_id, amount_naira, payment_method, profiles(full_name)").eq("id", id).maybeSingle();
-      if (payout) {
-        const firstName = (payout.profiles as any)?.full_name?.split(" ")[0] || (payout.profiles as any)?.full_name || "Trader";
-        if (status === "approved") {
-          sendPayoutApprovedEmailFn({ data: { email: payout.user_id, firstName, amount: payout.amount_naira, paymentMethod: payout.payment_method } });
-        } else if (status === "rejected") {
-          sendPayoutRejectedEmailFn({ data: { email: payout.user_id, firstName, reason: "Payout was rejected by admin" } });
-        }
+      if (status === "approved") {
+        notifyEmail({ type: "payout_approved", payoutId: id });
+      } else if (status === "rejected") {
+        notifyEmail({ type: "payout_rejected", payoutId: id, reason: "Payout was rejected by admin" });
       }
      toast.success(`Payout ${status}`);
      load();
@@ -706,9 +702,7 @@ function AdminConsole() {
        type: "success",
      } as never);
       // Send phase 1 passed email (fire-and-forget)
-      const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", a.user_id).maybeSingle();
-      const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
-      sendPhase1PassedEmailFn({ data: { email: a.user_id, firstName, accountSize: a.starting_balance, profitTarget: a.challenges?.profit_target || 0, maxDailyDD: a.challenges?.max_daily_dd || 0, maxTotalDD: a.challenges?.max_total_dd || 0 } });
+      notifyEmail({ type: "phase1_passed", accountId: a.id });
      toast.success("Phase 2 approved");
      load();
   };
@@ -739,9 +733,7 @@ function AdminConsole() {
        type: "success",
      } as never);
       // Send funded email (fire-and-forget)
-      const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", a.user_id).maybeSingle();
-      const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
-      sendFundedEmailFn({ data: { email: a.user_id, firstName, accountSize: a.starting_balance } });
+      notifyEmail({ type: "funded", accountId: a.id });
      toast.success("Account funded");
      load();
   };
@@ -811,9 +803,7 @@ function AdminConsole() {
      setBreaching(false);
      if (error) return toast.error(error.message);
       // Send account breached email (fire-and-forget)
-      const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", breachTarget.user_id).maybeSingle();
-      const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
-      sendAccountBreachedEmailFn({ data: { email: breachTarget.user_id, firstName, breachReason: breachReason.trim(), breachDate: new Date().toISOString().split("T")[0] } });
+      notifyEmail({ type: "breached", accountId: breachTarget.id, reason: breachReason.trim() });
      toast.success("Account breached");
      setBreachTarget(null);
      setBreachReason("");

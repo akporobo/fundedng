@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendPushToUser } from "@/lib/push.server";
-import { sendAccountDeliveredEmail } from "@/lib/email.server";
+import { sendEventEmail } from "@/lib/email.server";
 
 /**
  * Manual account delivery. Admin posts MT5 credentials they created by hand
@@ -157,11 +157,7 @@ export const Route = createFileRoute("/api/deliver-account")({
            });
 
            // Send account delivered email (fire-and-forget)
-           const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
-           sendAccountDeliveredEmail(
-             order.user_id, firstName, mt5_login, mt5_password, mt5_server,
-             investor_password || "", ch.name, ch.profit_target, ch.max_daily_dd, ch.max_total_dd
-           );
+           sendEventEmail({ type: "mt5_delivered", orderId: order.id, mt5Login: mt5_login, mt5Password: mt5_password, mt5Server: mt5_server });
 
           return Response.json({ ok: true, login: mt5_login, server: mt5_server });
         } catch (e) {

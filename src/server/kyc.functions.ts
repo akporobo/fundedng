@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { sendKycApprovedEmailFn } from "@/server/email.functions";
+import { sendEventEmail } from "@/lib/email.server";
 
 const VerifyInput = z.object({
   userId: z.string().uuid(),
@@ -82,9 +82,7 @@ export const verifyKycServer = createServerFn({ method: "POST" })
        });
 
        // Send KYC approved email (fire-and-forget)
-       const { data: prof } = await supabaseAdmin.from("profiles").select("full_name").eq("id", data.userId).maybeSingle();
-       const firstName = prof?.full_name?.split(" ")[0] || prof?.full_name || "Trader";
-       sendKycApprovedEmailFn({ data: { email: data.userId, firstName } });
+       sendEventEmail({ type: "kyc_approved", userId: data.userId });
 
        return { ok: true as const };
     } catch (e) {
@@ -240,8 +238,7 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
        });
 
        // Send KYC approved email (fire-and-forget)
-       const firstName = profile?.full_name?.split(" ")[0] || profile?.full_name || "Trader";
-       sendKycApprovedEmailFn({ data: { email: userId, firstName } });
+       sendEventEmail({ type: "kyc_approved", userId });
 
        return { ok: true as const, accountName: resolvedName };
     } catch (e) {

@@ -1,263 +1,495 @@
-import { Resend } from 'resend';
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM || 'FundedNG <support@fundedng.fun>';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL;
+const FROM = "FundedNG <noreply@fundedng.fun>";
+const SITE = "https://fundedng.fun";
 
-async function send(to: string, subject: string, html: string) {
+function fmtNaira(n: number | null | undefined) {
+  if (n == null) return "₦—";
+  return "₦" + new Intl.NumberFormat("en-NG").format(Math.round(Number(n)));
+}
+
+function firstName(name?: string | null) {
+  if (!name) return "Trader";
+  return name.trim().split(/\s+/)[0];
+}
+
+async function resendSend(payload: {
+  to: string | string[];
+  subject: string;
+  html: string;
+  reply_to?: string;
+}) {
+  if (!RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY missing — skipping send");
+    return { ok: false, error: "RESEND_API_KEY missing" };
+  }
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: FROM,
+        to: Array.isArray(payload.to) ? payload.to : [payload.to],
+        subject: payload.subject,
+        html: payload.html,
+        reply_to: payload.reply_to ?? "support@fundedng.fun",
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as any;
+    if (!res.ok) {
+      console.error("[email] resend error", res.status, data);
+      return { ok: false, error: data?.message ?? `HTTP ${res.status}` };
+    }
+    return { ok: true, id: data?.id };
   } catch (e) {
-    console.error('[email] failed:', e);
+    console.error("[email] send threw", e);
+    return { ok: false, error: e instanceof Error ? e.message : "send failed" };
   }
 }
 
-function wrapEmailContent(innerBody: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FundedNG</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background-color: #0f0f0f; font-family: Arial, sans-serif; }
-    .email-container { max-width: 600px; margin: 0 auto; background-color: #111827; border-radius: 12px; overflow: hidden; }
-    .header { background-color: #111827; padding: 32px; text-align: center; }
-    .logo { width: 180px; height: auto; }
-    .divider { border-top: 3px solid #16A34A; }
-    .body-content { padding: 32px; color: #ffffff; font-family: Arial, sans-serif; }
-    .body-content p { line-height: 1.6; margin-bottom: 16px; }
-    .body-content ul, .body-content ol { margin-left: 20px; margin-bottom: 16px; color: #ffffff; }
-    .body-content li { margin-bottom: 8px; }
-    .secondary-text { color: #9CA3AF; }
-    .info-box { background-color: #1F2937; border-radius: 8px; padding: 20px; border-left: 4px solid #16A34A; margin: 16px 0; }
-    .info-box h3 { margin-bottom: 12px; color: #ffffff; }
-    .info-box p { margin-bottom: 8px; }
-    .cta-button { display: inline-block; background-color: #16A34A; color: #000000; font-weight: bold; border-radius: 8px; padding: 14px 32px; text-decoration: none; margin: 16px 0; }
-    .tagline { color: #16A34A; font-style: italic; text-align: center; padding: 20px 32px; font-family: Arial, sans-serif; }
-    .footer { background-color: #0a0a0a; padding: 24px; text-align: center; color: #6B7280; font-size: 12px; font-family: Arial, sans-serif; }
-    h1, h2, h3, h4 { color: #ffffff; font-family: Arial, sans-serif; margin-bottom: 16px; }
-  </style>
-</head>
-<body>
-  <div class="email-container">
-    <div class="header">
-      <img src="https://fundedng.fun/logo.png" alt="FundedNG Logo" class="logo">
-    </div>
-    <div class="divider"></div>
-    <div class="body-content">
-      ${innerBody}
-    </div>
-    <div class="tagline">If You Sabi Trade, We Sabi Pay. 🇳🇬</div>
-    <div class="footer">
-      FundedNG · Nigeria's Prop Trading Firm · fundedng.fun · support@fundedng.fun
-    </div>
-  </div>
-</body>
-</html>`;
+function shell(opts: { title: string; preview?: string; body: string }) {
+  const preview = opts.preview ?? "";
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(
+    opts.title,
+  )}</title></head>
+<body style="margin:0;padding:0;background:#f4f6f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1d18;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeHtml(preview)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f5;padding:24px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <tr><td style="background:#0f1d18;padding:22px 28px;">
+        <div style="font-family:'Montserrat',-apple-system,sans-serif;font-weight:800;font-size:22px;color:#ffffff;letter-spacing:-0.5px;">
+          Funded<span style="color:#1ec97e;">NG</span> <span style="font-size:14px;font-weight:600;color:#9ca3af;">🇳🇬</span>
+        </div>
+      </td></tr>
+      <tr><td style="padding:28px;">${opts.body}</td></tr>
+      <tr><td style="background:#0f1d18;padding:18px 28px;text-align:center;color:#9ca3af;font-size:12px;">
+        <div style="color:#1ec97e;font-weight:700;font-size:13px;margin-bottom:6px;">If You Sabi Trade, We Sabi Pay. 🇳🇬</div>
+        <div>— The FundedNG Team · <a href="${SITE}" style="color:#9ca3af;text-decoration:underline;">fundedng.fun</a></div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
 }
 
-export function sendWelcomeEmail(email: string, firstName: string) {
-  const subject = 'Welcome to FundedNG 🇳🇬 — Trade Big. Get Paid.';
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>Welcome to FundedNG — The Best Prop Firm for 9ja Traders wey sabi trade.</p>
-    <p>Your account has been created successfully. You're now part of a growing community of Nigerian traders getting funded and getting paid.</p>
-    <p>Here's what you can do next:</p>
-    <ul>
-      <li>Browse our challenge accounts starting from ₦7,500</li>
-      <li>Pick a challenge that fits your trading style</li>
-      <li>Pass the evaluation and get funded</li>
-    </ul>
-    <p>No dollar stress. No complicated rules. Just 3 fair rules and you're good to go.</p>
-    <a href="https://fundedng.fun/buy" class="cta-button">GET STARTED →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-export function sendPurchaseConfirmedEmail(email: string, firstName: string, challengeName: string, accountSize: number, amountPaid: number, orderId: string) {
-  const subject = 'Challenge Purchase Confirmed ✅ — FundedNG';
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>Your challenge purchase has been confirmed! 🎉</p>
-    <div class="info-box">
-      <h3>ORDER DETAILS</h3>
-      <p>Challenge: ${challengeName}</p>
-      <p>Account Size: ₦${accountSize.toLocaleString()}</p>
-      <p>Amount Paid: ₦${amountPaid.toLocaleString()}</p>
-      <p>Order ID: ${orderId}</p>
-    </div>
-    <p>What happens next?</p>
-    <p>Your MT5 account credentials will be delivered to this email within 5mins. Keep an eye on your inbox.</p>
-    <p>Once you receive your login details, log in to MT5 and start trading toward your profit target.</p>
-    <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+function btn(href: string, label: string) {
+  return `<div style="margin:24px 0;"><a href="${href}" style="display:inline-block;background:#0a8f5a;color:#fff !important;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700;font-family:'Montserrat',sans-serif;font-size:14px;letter-spacing:0.5px;">${escapeHtml(label)}</a></div>`;
 }
 
-export function sendAccountDeliveredEmail(email: string, firstName: string, mt5Login: string, mt5Password: string, mt5Server: string, investorPassword: string, challengeName: string, profitTarget: number, maxDailyDD: number, maxTotalDD: number) {
-  const subject = 'Your MT5 Account is Ready 🎉 — Login Details Inside';
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>Your FundedNG trading account is ready! Here are your login details:</p>
-    <div class="info-box">
-      <h3>MT5 LOGIN DETAILS</h3>
-      <p>Login: ${mt5Login}</p>
-      <p>Password: ${mt5Password}</p>
-      <p>Server: ${mt5Server}</p>
-      <p>Investor Password: ${investorPassword}</p>
-      <p>Challenge: ${challengeName}</p>
-    </div>
-    <p>⚠️ PLEASE CHANGE YOUR PASSWORD IMMEDIATELY. WE WILL NOT BE RESPONSIBLE FOR ANY UNAUTHORISED TRADES ON YOUR ACCOUNT.</p>
-    <p>YOUR CHALLENGE RULES</p>
-    <ul>
-      <li>Profit Target: ${profitTarget}%</li>
-      <li>Max Daily Drawdown: ${maxDailyDD}%</li>
-      <li>Max Total Drawdown: ${maxTotalDD}%</li>
-      <li>Min Trade Duration: 3 minutes (no scalping)</li>
-      <li>No holding trades over weekends</li>
-    </ul>
-    <a href="https://fundedng.fun/rules" class="cta-button">HOW TO LOGIN →</a>
-    <p>Good luck trader! We're rooting for you. 💪</p>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+function divider() {
+  return `<div style="border-top:1px dashed #d1d5db;margin:18px 0;"></div>`;
 }
 
-export function sendPhase1PassedEmail(email: string, firstName: string, accountSize: number, profitTarget: number, maxDailyDD: number, maxTotalDD: number) {
+function detailRow(label: string, value: string) {
+  return `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;"><span style="color:#6b7280;">${escapeHtml(label)}</span><span style="color:#0f1d18;font-weight:600;text-align:right;">${escapeHtml(value)}</span></div>`;
+}
+
+function h1(text: string) {
+  return `<h1 style="font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:#0f1d18;margin:0 0 14px;">${escapeHtml(text)}</h1>`;
+}
+
+function p(text: string) {
+  return `<p style="font-size:14px;line-height:1.6;color:#374151;margin:0 0 14px;">${text}</p>`;
+}
+
+async function getUserEmail(userId: string): Promise<{ email: string | null; name: string | null }> {
+  const [{ data: u }, { data: p }] = await Promise.all([
+    supabaseAdmin.auth.admin.getUserById(userId),
+    supabaseAdmin.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+  ]);
+  return { email: u?.user?.email ?? null, name: (p as any)?.full_name ?? null };
+}
+
+async function sendAdminCopy(subject: string, html: string) {
+  if (!ADMIN_EMAIL) return;
+  await resendSend({ to: ADMIN_EMAIL, subject: `[Admin] ${subject}`, html });
+}
+
+export type EmailEvent =
+  | { type: "welcome"; userId: string }
+  | { type: "purchase_confirmed"; orderId: string }
+  | { type: "mt5_delivered"; orderId: string; mt5Login: string; mt5Password: string; mt5Server: string }
+  | { type: "phase1_passed"; accountId: string }
+  | { type: "funded"; accountId: string }
+  | { type: "payout_requested"; payoutId: string }
+  | { type: "payout_approved"; payoutId: string }
+  | { type: "payout_rejected"; payoutId: string; reason?: string }
+  | { type: "breached"; accountId: string; reason: string }
+  | { type: "kyc_approved"; userId: string };
+
+export async function sendEventEmail(ev: EmailEvent): Promise<{ ok: boolean; error?: string }> {
+  try {
+    switch (ev.type) {
+      case "welcome":
+        return await welcome(ev.userId);
+      case "purchase_confirmed":
+        return await purchaseConfirmed(ev.orderId);
+      case "mt5_delivered":
+        return await mt5Delivered(ev.orderId, ev.mt5Login, ev.mt5Password, ev.mt5Server);
+      case "phase1_passed":
+        return await phase1Passed(ev.accountId);
+      case "funded":
+        return await funded(ev.accountId);
+      case "payout_requested":
+        return await payoutRequested(ev.payoutId);
+      case "payout_approved":
+        return await payoutApproved(ev.payoutId);
+      case "payout_rejected":
+        return await payoutRejected(ev.payoutId, ev.reason ?? "Not specified.");
+      case "breached":
+        return await breached(ev.accountId, ev.reason);
+      case "kyc_approved":
+        return await kycApproved(ev.userId);
+    }
+  } catch (e) {
+    console.error("[email] event failed", ev.type, e);
+    return { ok: false, error: e instanceof Error ? e.message : "fail" };
+  }
+}
+
+async function welcome(userId: string) {
+  const { email, name } = await getUserEmail(userId);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
+  const subject = "Welcome to FundedNG 🇳🇬 — Trade Big. Get Paid.";
+  const html = shell({
+    title: subject,
+    preview: "The best prop firm for 9ja traders.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`Welcome to <b>FundedNG</b> — The Best Prop Firm for 9ja Traders wey sabi trade.`) +
+      p(`Your account has been created successfully. You're now part of a growing community of Nigerian traders getting funded and getting paid.`) +
+      p(`<b>Here's what you can do next:</b><br>• Browse our challenge accounts starting from <b>₦7,500</b><br>• Pick a challenge that fits your trading style<br>• Pass the evaluation and get funded`) +
+      p(`No dollar stress. No complicated rules. Just 3 fair rules and you're good to go.`) +
+      btn(`${SITE}/buy`, "GET STARTED →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`New signup: ${name ?? email}`, shell({
+    title: "New signup",
+    body: h1("New signup") + detailRow("Name", name ?? "—") + detailRow("Email", email) + detailRow("User ID", userId),
+  }));
+  return r;
+}
+
+async function purchaseConfirmed(orderId: string) {
+  const { data: order } = await supabaseAdmin.from("orders").select("*").eq("id", orderId).maybeSingle();
+  if (!order) return { ok: false, error: "order not found" };
+  const { data: ch } = await supabaseAdmin.from("challenges").select("name, account_size, price_naira").eq("id", (order as any).challenge_id).maybeSingle();
+  const { email, name } = await getUserEmail((order as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
+  const subject = "Challenge Purchase Confirmed ✅ — FundedNG";
+  const details =
+    `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">ORDER DETAILS</div>` +
+    detailRow("Challenge", (ch as any)?.name ?? "—") +
+    detailRow("Account Size", fmtNaira((ch as any)?.account_size)) +
+    detailRow("Amount Paid", fmtNaira((order as any).amount_naira ?? (ch as any)?.price_naira)) +
+    detailRow("Order ID", String((order as any).id).slice(0, 8).toUpperCase()) +
+    `</div>`;
+  const html = shell({
+    title: subject,
+    preview: "Your MT5 login details are on the way.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`Your challenge purchase has been confirmed! 🎉`) +
+      details +
+      p(`<b>What happens next?</b><br>Your MT5 account credentials will be delivered to this email within 5 mins. Keep an eye on your inbox.`) +
+      p(`Once you receive your login details, log in to MT5 and start trading toward your profit target.`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`New purchase: ${(ch as any)?.name ?? "Challenge"} · ${name ?? email}`, shell({
+    title: "New purchase",
+    body: h1("💰 New challenge purchase") + p(`Deliver MT5 credentials manually in /admin.`) + details + detailRow("Trader", name ?? "—") + detailRow("Email", email),
+  }));
+  return r;
+}
+
+async function mt5Delivered(orderId: string, login: string, password: string, server: string) {
+  const { data: order } = await supabaseAdmin.from("orders").select("user_id, challenge_id").eq("id", orderId).maybeSingle();
+  if (!order) return { ok: false, error: "order not found" };
+  const { data: ch } = await supabaseAdmin.from("challenges").select("name, profit_target_percent, max_drawdown_percent").eq("id", (order as any).challenge_id).maybeSingle();
+  const { email, name } = await getUserEmail((order as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
+  const subject = "Your MT5 Account is Ready 🎉 — Login Details Inside";
+  const creds =
+    `<div style="background:#0f1d18;border-radius:10px;padding:16px 18px;margin:18px 0;color:#fff;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#1ec97e;letter-spacing:1px;margin-bottom:10px;">MT5 LOGIN DETAILS</div>` +
+    `<div style="font-size:14px;margin:6px 0;"><span style="color:#9ca3af;">Login:</span> <span style="font-family:monospace;font-weight:700;">${escapeHtml(login)}</span></div>` +
+    `<div style="font-size:14px;margin:6px 0;"><span style="color:#9ca3af;">Password:</span> <span style="font-family:monospace;font-weight:700;">${escapeHtml(password)}</span></div>` +
+    `<div style="font-size:14px;margin:6px 0;"><span style="color:#9ca3af;">Server:</span> <span style="font-family:monospace;font-weight:700;">${escapeHtml(server)}</span></div>` +
+    `</div>`;
+  const rules =
+    `<div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 14px;margin:14px 0;font-size:13px;color:#7c2d12;">` +
+    `⚠️ <b>PLEASE CHANGE YOUR PASSWORD IMMEDIATELY.</b> We will not be responsible for any unauthorised trades on your account.</div>` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">YOUR CHALLENGE RULES</div>` +
+    `<ul style="margin:0 0 14px 18px;padding:0;font-size:14px;color:#374151;line-height:1.7;">` +
+    `<li>Profit Target: <b>${(ch as any)?.profit_target_percent ?? "—"}%</b></li>` +
+    `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b></li>` +
+    `<li>Min Trade Duration: <b>3 minutes</b> (no scalping)</li>` +
+    `<li>No holding trades over weekends</li>` +
+    `</ul>`;
+  const html = shell({
+    title: subject,
+    preview: "Your trading account is ready.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`Your FundedNG trading account is ready! Here are your login details:`) +
+      creds +
+      rules +
+      btn(`${SITE}/rules`, "HOW TO LOGIN →") +
+      p(`Good luck trader! We're rooting for you. 💪`),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Delivered MT5: ${login} → ${name ?? email}`, shell({
+    title: "MT5 delivered",
+    body: h1("MT5 account delivered") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Login", login) + detailRow("Server", server),
+  }));
+  return r;
+}
+
+async function phase1Passed(accountId: string) {
+  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance, challenge_id").eq("id", accountId).maybeSingle();
+  if (!acc) return { ok: false, error: "account not found" };
+  const { data: ch } = await supabaseAdmin.from("challenges").select("profit_target_percent, max_drawdown_percent").eq("id", (acc as any).challenge_id).maybeSingle();
+  const { email, name } = await getUserEmail((acc as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
   const subject = "🏆 Phase 1 Passed — You're Halfway There!";
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>CONGRATULATIONS! 🎉</p>
-    <p>You have successfully passed Phase 1 of your FundedNG challenge. Your trading has been verified and Phase 2 is now active on your dashboard.</p>
-    <div class="info-box">
-      <h3>PHASE 2 DETAILS</h3>
-      <p>Account Size: ₦${accountSize.toLocaleString()}</p>
-      <p>Profit Target: ${profitTarget}%</p>
-      <p>Max Daily Drawdown: ${maxDailyDD}%</p>
-      <p>Max Total Drawdown: ${maxTotalDD}%</p>
-    </div>
-    <p>Keep the same discipline that got you here. Phase 2 is your final step before becoming a fully funded FundedNG trader.</p>
-    <p>Stay focused. Stay consistent. You've got this. 💪</p>
-    <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+  const details =
+    `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">PHASE 2 DETAILS</div>` +
+    detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
+    detailRow("Profit Target", `${(ch as any)?.profit_target_percent ?? "—"}%`) +
+    detailRow("Max Total Drawdown", `${(ch as any)?.max_drawdown_percent ?? "—"}%`) +
+    `</div>`;
+  const html = shell({
+    title: subject,
+    preview: "Phase 2 is now active on your dashboard.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`<b>CONGRATULATIONS! 🎉</b>`) +
+      p(`You have successfully passed Phase 1 of your FundedNG challenge. Your trading has been verified and Phase 2 is now active on your dashboard.`) +
+      details +
+      p(`Keep the same discipline that got you here. Phase 2 is your final step before becoming a fully funded FundedNG trader.`) +
+      p(`Stay focused. Stay consistent. You've got this. 💪`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Phase 1 passed: ${name ?? email}`, shell({
+    title: "Phase 1 passed",
+    body: h1("Phase 1 passed") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Account size", fmtNaira((acc as any).starting_balance)),
+  }));
+  return r;
 }
 
-export function sendFundedEmail(email: string, firstName: string, accountSize: number) {
+async function funded(accountId: string) {
+  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance").eq("id", accountId).maybeSingle();
+  if (!acc) return { ok: false, error: "account not found" };
+  const { email, name } = await getUserEmail((acc as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
   const subject = "🎉 You're a Funded Trader! Welcome to the FundedNG Family";
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>YOU DID IT! 🎊🇳🇬</p>
-    <p>You have successfully passed all evaluation phases and are now a fully funded FundedNG trader. Your funded account is now active.</p>
-    <div class="info-box">
-      <h3>FUNDED ACCOUNT DETAILS</h3>
-      <p>Account Size: ₦${accountSize.toLocaleString()}</p>
-      <p>Profit Split: 80% in your favour</p>
-      <p>First Payout: Available after 10% KYC withdrawal</p>
-      <p>Payout Schedule: Every 7 days</p>
-    </div>
-    <p>HOW TO REQUEST A PAYOUT</p>
-    <ol>
-      <li>Log in to your dashboard</li>
-      <li>Go to the Payouts tab</li>
-      <li>Enter your bank details and amount</li>
-      <li>We process within 24hrs</li>
-    </ol>
-    <p>Trade well and get paid. You've earned it. 🏆</p>
-    <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+  const details =
+    `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">FUNDED ACCOUNT DETAILS</div>` +
+    detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
+    detailRow("Profit Split", "80% in your favour") +
+    detailRow("First Payout", "After 10% KYC withdrawal") +
+    detailRow("Payout Schedule", "Every 7 days") +
+    `</div>`;
+  const how =
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">HOW TO REQUEST A PAYOUT</div>` +
+    `<ol style="margin:0 0 14px 20px;padding:0;font-size:14px;color:#374151;line-height:1.7;">` +
+    `<li>Log in to your dashboard</li><li>Go to the Payouts tab</li><li>Enter your bank details and amount</li><li>We process within 24hrs</li></ol>`;
+  const html = shell({
+    title: subject,
+    preview: "Your funded account is now active.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`<b>YOU DID IT! 🎊🇳🇬</b>`) +
+      p(`You have successfully passed all evaluation phases and are now a fully funded FundedNG trader. Your funded account is now active.`) +
+      details +
+      how +
+      p(`Trade well and get paid. You've earned it. 🏆`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Funded: ${name ?? email}`, shell({
+    title: "Funded",
+    body: h1("Trader funded") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Account size", fmtNaira((acc as any).starting_balance)),
+  }));
+  return r;
 }
 
-export function sendPayoutRequestedEmail(email: string, firstName: string, amount: number, paymentMethod: string, requestDate: string) {
+async function payoutRequested(payoutId: string) {
+  const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
+  if (!po) return { ok: false, error: "payout not found" };
+  const { email, name } = await getUserEmail((po as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
+  const bank = (po as any).bank_details ?? {};
+  const method = `${bank.bank_name ?? "Bank"} · ${bank.account_number ?? ""}`;
   const subject = "Payout Request Received 💸 — FundedNG";
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>We have received your payout request. Here are the details:</p>
-    <div class="info-box">
-      <h3>PAYOUT DETAILS</h3>
-      <p>Amount Requested: ₦${amount.toLocaleString()}</p>
-      <p>Payment Method: ${paymentMethod}</p>
-      <p>Request Date: ${requestDate}</p>
-      <p>Processing Time: 24hrs</p>
-    </div>
-    <p>Our team will review and process your payout within 24hrs. You will receive a confirmation email once payment has been sent.</p>
-    <p>If you have any questions contact us at <a href="mailto:support@fundedng.fun" style="color: #16A34A;">support@fundedng.fun</a></p>
-    <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+  const details =
+    `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">PAYOUT DETAILS</div>` +
+    detailRow("Amount Requested", fmtNaira((po as any).amount_naira)) +
+    detailRow("Payment Method", method) +
+    detailRow("Request Date", new Date((po as any).created_at).toLocaleDateString("en-NG")) +
+    detailRow("Processing Time", "24hrs") +
+    `</div>`;
+  const html = shell({
+    title: subject,
+    preview: "We have received your payout request.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`We have received your payout request. Here are the details:`) +
+      details +
+      p(`Our team will review and process your payout within 24hrs. You will receive a confirmation email once payment has been sent.`) +
+      p(`If you have any questions contact us at <a href="mailto:support@fundedng.fun" style="color:#0a8f5a;">support@fundedng.fun</a>`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Payout request: ${fmtNaira((po as any).amount_naira)} · ${name ?? email}`, shell({
+    title: "Payout request",
+    body: h1("💸 New payout request") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + details,
+  }));
+  return r;
 }
 
-export function sendPayoutApprovedEmail(email: string, firstName: string, amount: number, paymentMethod: string) {
+async function payoutApproved(payoutId: string) {
+  const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
+  if (!po) return { ok: false, error: "payout not found" };
+  const { email, name } = await getUserEmail((po as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
+  const bank = (po as any).bank_details ?? {};
+  const method = `${bank.bank_name ?? "Bank"} · ${bank.account_number ?? ""}`;
   const subject = "✅ Payout Approved — Payment On Its Way!";
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>Great news! Your payout has been approved and payment is on its way. 🎉</p>
-    <div class="info-box">
-      <h3>PAYMENT DETAILS</h3>
-      <p>Amount Approved: ₦${amount.toLocaleString()}</p>
-      <p>Payment Method: ${paymentMethod}</p>
-      <p>Expected Arrival: 24hrs</p>
-    </div>
-    <p>Once you receive your payment, we'd love for you to share your experience with the trading community. Your success story inspires other Nigerian traders! 🇳🇬</p>
-    <p>Ready to keep trading? Your account balance has been reset and you can continue toward your next payout.</p>
-    <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+  const details =
+    `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">PAYMENT DETAILS</div>` +
+    detailRow("Amount Approved", fmtNaira((po as any).amount_naira)) +
+    detailRow("Payment Method", method) +
+    detailRow("Expected Arrival", "24hrs") +
+    `</div>`;
+  const html = shell({
+    title: subject,
+    preview: "Your payout has been approved.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`Great news! Your payout has been approved and payment is on its way. 🎉`) +
+      details +
+      p(`Once you receive your payment, we'd love for you to share your experience with the trading community. Your success story inspires other Nigerian traders! 🇳🇬`) +
+      p(`Ready to keep trading? Your account balance has been reset and you can continue toward your next payout.`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Payout approved: ${fmtNaira((po as any).amount_naira)} · ${name ?? email}`, shell({
+    title: "Payout approved",
+    body: h1("Payout approved") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + details,
+  }));
+  return r;
 }
 
-export function sendPayoutRejectedEmail(email: string, firstName: string, reason: string) {
+async function payoutRejected(payoutId: string, reason: string) {
+  const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
+  if (!po) return { ok: false, error: "payout not found" };
+  const { email, name } = await getUserEmail((po as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
   const subject = "Payout Request Update — Action Required";
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>We have reviewed your payout request and unfortunately it cannot be processed at this time.</p>
-    <div class="info-box">
-      <h3>REASON</h3>
-      <p>${reason}</p>
-    </div>
-    <p>Common reasons for payout rejection include:</p>
-    <ul>
-      <li>Incomplete KYC verification</li>
-      <li>Bank details mismatch</li>
-      <li>Minimum payout amount not reached</li>
-      <li>Outstanding rule violations</li>
-    </ul>
-    <p>If you believe this is an error or need clarification, please contact us at <a href="mailto:support@fundedng.fun" style="color: #16A34A;">support@fundedng.fun</a> and we will resolve it promptly.</p>
-    <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+  const reasonBox =
+    `<div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;margin:14px 0;font-size:13px;color:#7f1d1d;">` +
+    `<div style="font-weight:700;margin-bottom:4px;">REASON</div>${escapeHtml(reason)}</div>`;
+  const html = shell({
+    title: subject,
+    preview: "Your payout request needs attention.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`We have reviewed your payout request and unfortunately it cannot be processed at this time.`) +
+      reasonBox +
+      p(`<b>Common reasons for payout rejection include:</b><br>• Incomplete KYC verification<br>• Bank details mismatch<br>• Minimum payout amount not reached<br>• Outstanding rule violations`) +
+      p(`If you believe this is an error or need clarification, please contact us at <a href="mailto:support@fundedng.fun" style="color:#0a8f5a;">support@fundedng.fun</a> and we will resolve it promptly.`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Payout rejected: ${name ?? email}`, shell({
+    title: "Payout rejected",
+    body: h1("Payout rejected") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Amount", fmtNaira((po as any).amount_naira)) + p(`<b>Reason:</b> ${escapeHtml(reason)}`),
+  }));
+  return r;
 }
 
-export function sendAccountBreachedEmail(email: string, firstName: string, breachReason: string, breachDate: string) {
+async function breached(accountId: string, reason: string) {
+  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, mt5_login").eq("id", accountId).maybeSingle();
+  if (!acc) return { ok: false, error: "account not found" };
+  const { email, name } = await getUserEmail((acc as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
   const subject = "Account Update — Challenge Ended";
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>We regret to inform you that your FundedNG challenge account has been terminated.</p>
-    <div class="info-box">
-      <h3>BREACH DETAILS</h3>
-      <p>Reason: ${breachReason}</p>
-      <p>Date: ${breachDate}</p>
-    </div>
-    <p>Every great trader faces setbacks. What separates the best is how they respond. Review what happened, adjust your strategy and come back stronger.</p>
-    <p>Ready to try again? Use code RETRY20 for 20% off your next challenge.</p>
-    <a href="https://fundedng.fun/buy" class="cta-button">START FRESH →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+  const reasonBox =
+    `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#dc2626;letter-spacing:1px;margin-bottom:10px;">BREACH DETAILS</div>` +
+    detailRow("Reason", reason) +
+    detailRow("Date", new Date().toLocaleDateString("en-NG")) +
+    `</div>`;
+  const html = shell({
+    title: subject,
+    preview: "Your challenge has ended.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`We regret to inform you that your FundedNG challenge account has been terminated.`) +
+      reasonBox +
+      p(`Every great trader faces setbacks. What separates the best is how they respond. Review what happened, adjust your strategy and come back stronger.`) +
+      p(`Ready to try again? Use code <b style="background:#fef3c7;padding:2px 8px;border-radius:4px;">RETRY20</b> for 20% off your next challenge.`) +
+      btn(`${SITE}/buy`, "START FRESH →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Breached: ${name ?? email}`, shell({
+    title: "Account breached",
+    body: h1("Account breached") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("MT5 Login", (acc as any).mt5_login ?? "—") + p(`<b>Reason:</b> ${escapeHtml(reason)}`),
+  }));
+  return r;
 }
 
-export function sendKycApprovedEmail(email: string, firstName: string) {
+async function kycApproved(userId: string) {
+  const { email, name } = await getUserEmail(userId);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
   const subject = "Identity Verified ✅ — You're Now Eligible for Payouts";
-  const innerBody = `
-    <p>Hi ${firstName},</p>
-    <p>Your identity has been successfully verified! ✅</p>
-    <p>You are now fully KYC verified on FundedNG which means:</p>
-    <ul>
-      <li>You can request payouts from your funded account</li>
-      <li>Your account has full withdrawal privileges</li>
-      <li>You're part of our verified trader community</li>
-    </ul>
-    <p>To request your first payout simply log in to your dashboard and go to the Payouts tab.</p>
-    <a href="https://fundedng.fun/dashboard" class="cta-button">VIEW DASHBOARD →</a>
-  `;
-  send(email, subject, wrapEmailContent(innerBody));
+  const html = shell({
+    title: subject,
+    preview: "Your KYC has been approved.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`Your identity has been successfully verified! ✅`) +
+      p(`You are now fully KYC verified on FundedNG which means:<br>• You can request payouts from your funded account<br>• Your account has full withdrawal privileges<br>• You're part of our verified trader community`) +
+      p(`To request your first payout simply log in to your dashboard and go to the Payouts tab.`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`KYC approved: ${name ?? email}`, shell({
+    title: "KYC approved",
+    body: h1("KYC approved") + detailRow("Trader", name ?? "—") + detailRow("Email", email),
+  }));
+  return r;
 }

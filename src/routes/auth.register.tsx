@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { subscribeToPush } from "@/lib/push";
+import { notifyEmail } from "@/lib/notify-email";
 
 export const Route = createFileRoute("/auth/register")({ component: RegisterPage });
 
@@ -38,16 +39,10 @@ function RegisterPage() {
     // Mark this session as "freshly registered" so the dashboard can prompt
     // them to install the app to their device. One-shot — cleared after use.
     try { localStorage.setItem("fng-new-user", "1"); } catch { /* ignore */ }
-    // Send welcome email via server API (fire-and-forget)
-    fetch("/api/welcome-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: signUpData?.user?.id,
-        email: form.email,
-        fullName: form.full_name,
-      }),
-    });
+    // Send welcome email via notifyEmail (fire-and-forget)
+    if (signUpData?.user?.id) {
+      notifyEmail({ type: "welcome", userId: signUpData.user.id });
+    }
     // Auto-subscribe to push notifications (fire-and-forget)
     if (signUpData?.user?.id) {
       subscribeToPush(signUpData.user.id, supabase);
