@@ -98,6 +98,63 @@ function RulesPage() {
         </div>
       </section>
 
+      {/* Instant Challenge Rules */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-5xl px-4 py-20 md:px-6">
+          <div className="text-center">
+            <Badge variant="outline" className="font-display border-chart-2/40 text-chart-2">INSTANT CHALLENGE RULES</Badge>
+            <h2 className="font-display mt-4 text-4xl font-bold">Different rules for Instant Challenges</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+              Instant Challenges are a 1-step evaluation with a few key differences from the standard 2-step program.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            <div className="rounded-xl border-2 border-chart-2/40 bg-card p-8">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-chart-2/30">01</div>
+                <TrendingUp className="h-8 w-8 text-chart-2" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">15% Profit Target</h3>
+              <p className="mt-3 text-muted-foreground">
+                Instant Challenges require a 15% profit target — a single phase to funded. No phase 2. Reach 15% while staying within all drawdown limits and the account is funded.
+              </p>
+            </div>
+
+            <div className="rounded-xl border-2 border-chart-2/40 bg-card p-8">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-chart-2/30">02</div>
+                <ShieldCheck className="h-8 w-8 text-chart-2" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">5% Daily Drawdown</h3>
+              <p className="mt-3 text-muted-foreground">
+                Your equity must not drop more than 5% in a single trading day, measured from the start-of-day equity. In addition to the 20% total trailing drawdown, this daily limit applies exclusively to Instant Challenges.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Resets each trading day based on starting equity.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Combined with the 20% trailing max drawdown.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border-2 border-chart-2/40 bg-card p-8">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-chart-2/30">03</div>
+                <Clock className="h-8 w-8 text-chart-2" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">5–45 Day Trading Window</h3>
+              <p className="mt-3 text-muted-foreground">
+                You have a window of 5 to 45 calendar days to complete the Instant Challenge. You need a minimum of 5 trading days, and the entire challenge must be completed within 45 days.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Min 5 trading days (instead of 3 for standard).</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Max 45 calendar days to complete the challenge.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Same 80% profit split and weekly payouts apply.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Detailed rules */}
       <section className="border-b border-border bg-surface">
         <div className="mx-auto max-w-4xl px-4 py-20 md:px-6">

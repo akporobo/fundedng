@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
+// Mirror of EmailEvent (kept local so this client file never imports the
+// .server module — the bundler blocks server files from client chunks).
 export type EmailEvent =
   | { type: "welcome"; userId: string }
   | { type: "purchase_confirmed"; orderId: string }
@@ -12,6 +14,11 @@ export type EmailEvent =
   | { type: "breached"; accountId: string; reason: string }
   | { type: "kyc_approved"; userId: string };
 
+/**
+ * Fire-and-forget client helper to trigger a transactional email via
+ * /api/send-email. Always non-blocking — failures are logged but never
+ * thrown so they cannot break the UX flow that triggered them.
+ */
 export async function notifyEmail(event: EmailEvent) {
   try {
     const { data: { session } } = await supabase.auth.getSession();

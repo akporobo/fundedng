@@ -2,6 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail, type EmailEvent } from "@/lib/email.server";
 
+/**
+ * Authenticated email dispatcher. Client posts { event } and the server
+ * verifies authorization based on the event type before sending.
+ * - welcome / kyc_approved : the caller themselves
+ * - purchase_confirmed / payout_requested : caller must own the referenced row
+ * - everything else (admin-side) : caller must have role=admin
+ */
 export const Route = createFileRoute("/api/send-email")({
   server: {
     handlers: {
@@ -28,6 +35,7 @@ export const Route = createFileRoute("/api/send-email")({
             return !!roles?.some((r) => r.role === "admin");
           };
 
+          // Authorize per event
           switch (ev.type) {
             case "welcome":
             case "kyc_approved":

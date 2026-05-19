@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL;
-const FROM = "FundedNG <noreply@fundedng.fun>";
+const FROM = "FundedNG <support@fundedng.fun>";
 const SITE = "https://fundedng.fun";
 
 function fmtNaira(n: number | null | undefined) {
@@ -51,6 +51,8 @@ async function resendSend(payload: {
     return { ok: false, error: e instanceof Error ? e.message : "send failed" };
   }
 }
+
+/* ----------------------------- HTML shell ----------------------------- */
 
 function shell(opts: { title: string; preview?: string; body: string }) {
   const preview = opts.preview ?? "";
@@ -107,6 +109,8 @@ function p(text: string) {
   return `<p style="font-size:14px;line-height:1.6;color:#374151;margin:0 0 14px;">${text}</p>`;
 }
 
+/* --------------------------- Lookup helpers --------------------------- */
+
 async function getUserEmail(userId: string): Promise<{ email: string | null; name: string | null }> {
   const [{ data: u }, { data: p }] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
@@ -119,6 +123,8 @@ async function sendAdminCopy(subject: string, html: string) {
   if (!ADMIN_EMAIL) return;
   await resendSend({ to: ADMIN_EMAIL, subject: `[Admin] ${subject}`, html });
 }
+
+/* ------------------------------- Events ------------------------------- */
 
 export type EmailEvent =
   | { type: "welcome"; userId: string }
@@ -162,6 +168,7 @@ export async function sendEventEmail(ev: EmailEvent): Promise<{ ok: boolean; err
   }
 }
 
+/* 1. Welcome */
 async function welcome(userId: string) {
   const { email, name } = await getUserEmail(userId);
   if (!email) return { ok: false, error: "no email" };
@@ -175,7 +182,7 @@ async function welcome(userId: string) {
       p(`Welcome to <b>FundedNG</b> — The Best Prop Firm for 9ja Traders wey sabi trade.`) +
       p(`Your account has been created successfully. You're now part of a growing community of Nigerian traders getting funded and getting paid.`) +
       p(`<b>Here's what you can do next:</b><br>• Browse our challenge accounts starting from <b>₦7,500</b><br>• Pick a challenge that fits your trading style<br>• Pass the evaluation and get funded`) +
-      p(`No dollar stress. No complicated rules. Just 3 simple rules and you're good to go.`) +
+      p(`No dollar stress. No complicated rules. Just 3 fair rules and you're good to go.`) +
       btn(`${SITE}/buy`, "GET STARTED →"),
   });
   const r = await resendSend({ to: email, subject, html });
@@ -186,6 +193,7 @@ async function welcome(userId: string) {
   return r;
 }
 
+/* 2. Purchase confirmed */
 async function purchaseConfirmed(orderId: string) {
   const { data: order } = await supabaseAdmin.from("orders").select("*").eq("id", orderId).maybeSingle();
   if (!order) return { ok: false, error: "order not found" };
@@ -221,6 +229,7 @@ async function purchaseConfirmed(orderId: string) {
   return r;
 }
 
+/* 3. MT5 delivered */
 async function mt5Delivered(orderId: string, login: string, password: string, server: string) {
   const { data: order } = await supabaseAdmin.from("orders").select("user_id, challenge_id").eq("id", orderId).maybeSingle();
   if (!order) return { ok: false, error: "order not found" };
@@ -242,9 +251,9 @@ async function mt5Delivered(orderId: string, login: string, password: string, se
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">YOUR CHALLENGE RULES</div>` +
     `<ul style="margin:0 0 14px 18px;padding:0;font-size:14px;color:#374151;line-height:1.7;">` +
     `<li>Profit Target: <b>${(ch as any)?.profit_target_percent ?? "—"}%</b></li>` +
-    `<li>Max Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b> (equity trailing from highest peak)</li>` +
-    `<li>No Tick Scalping: <b>3-minute minimum hold</b> on manual closes</li>` +
-    `<li>Min Trading Days: <b>3 days</b> to clear a phase · <b>1 trade/week</b> to stay active</li>` +
+    `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b></li>` +
+    `<li>Min Trade Duration: <b>3 minutes</b> (no scalping)</li>` +
+    `<li>No holding trades over weekends</li>` +
     `</ul>`;
   const html = shell({
     title: subject,
@@ -265,6 +274,7 @@ async function mt5Delivered(orderId: string, login: string, password: string, se
   return r;
 }
 
+/* 4. Phase 1 passed */
 async function phase1Passed(accountId: string) {
   const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance, challenge_id").eq("id", accountId).maybeSingle();
   if (!acc) return { ok: false, error: "account not found" };
@@ -278,7 +288,7 @@ async function phase1Passed(accountId: string) {
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">PHASE 2 DETAILS</div>` +
     detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
     detailRow("Profit Target", `${(ch as any)?.profit_target_percent ?? "—"}%`) +
-    detailRow("Max Drawdown (Trailing)", `${(ch as any)?.max_drawdown_percent ?? "—"}%`) +
+    detailRow("Max Total Drawdown", `${(ch as any)?.max_drawdown_percent ?? "—"}%`) +
     `</div>`;
   const html = shell({
     title: subject,
@@ -300,6 +310,7 @@ async function phase1Passed(accountId: string) {
   return r;
 }
 
+/* 5. Funded */
 async function funded(accountId: string) {
   const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance").eq("id", accountId).maybeSingle();
   if (!acc) return { ok: false, error: "account not found" };
@@ -313,7 +324,7 @@ async function funded(accountId: string) {
     detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
     detailRow("Profit Split", "80% in your favour") +
     detailRow("First Payout", "After 10% KYC withdrawal") +
-    detailRow("Payout Schedule", "Every 7 days (subject to trading activity)") +
+    detailRow("Payout Schedule", "Every 7 days") +
     `</div>`;
   const how =
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">HOW TO REQUEST A PAYOUT</div>` +
@@ -339,6 +350,7 @@ async function funded(accountId: string) {
   return r;
 }
 
+/* 6. Payout requested */
 async function payoutRequested(payoutId: string) {
   const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
   if (!po) return { ok: false, error: "payout not found" };
@@ -375,6 +387,7 @@ async function payoutRequested(payoutId: string) {
   return r;
 }
 
+/* 7. Payout approved */
 async function payoutApproved(payoutId: string) {
   const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
   if (!po) return { ok: false, error: "payout not found" };
@@ -410,6 +423,7 @@ async function payoutApproved(payoutId: string) {
   return r;
 }
 
+/* 8. Payout rejected */
 async function payoutRejected(payoutId: string, reason: string) {
   const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
   if (!po) return { ok: false, error: "payout not found" };
@@ -439,6 +453,7 @@ async function payoutRejected(payoutId: string, reason: string) {
   return r;
 }
 
+/* 9. Account breached */
 async function breached(accountId: string, reason: string) {
   const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, mt5_login").eq("id", accountId).maybeSingle();
   if (!acc) return { ok: false, error: "account not found" };
@@ -471,6 +486,7 @@ async function breached(accountId: string, reason: string) {
   return r;
 }
 
+/* 10. KYC approved */
 async function kycApproved(userId: string) {
   const { email, name } = await getUserEmail(userId);
   if (!email) return { ok: false, error: "no email" };
@@ -493,3 +509,6 @@ async function kycApproved(userId: string) {
   }));
   return r;
 }
+
+// keep this unused import-free
+export const _divider = divider;

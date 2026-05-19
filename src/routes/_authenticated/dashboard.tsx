@@ -18,6 +18,7 @@ import { subscribeToPush } from "@/lib/push";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
+import { TradingAnalytics } from "@/components/dashboard/TradingAnalytics";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
 import { requestPayoutServer } from "@/server/admin.functions";
@@ -570,7 +571,7 @@ function DashboardPage() {
                     )}
                   </div>
 
-                  {snapshots.length > 0 ? (
+                  {snapshots.length > 1 ? (
                     <div className="rounded-xl border border-border bg-card p-6">
                       <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve</h3>
                       <div className="mt-4 h-56">
@@ -588,8 +589,8 @@ function DashboardPage() {
                               contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }}
                               formatter={(v: number, name: string) => [formatNaira(v), name === "equity" ? "Equity" : name === "balance" ? "Balance" : name]}
                             />
-                            <Line type="monotone" dataKey="equity" stroke="var(--primary)" strokeWidth={2} dot={snapshots.length <= 2} />
-                            <Line type="monotone" dataKey="balance" stroke="var(--warning)" strokeWidth={1.5} dot={snapshots.length <= 2} strokeDasharray="5 5" />
+                            <Line type="monotone" dataKey="equity" stroke="var(--primary)" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="balance" stroke="var(--warning)" strokeWidth={1.5} dot={false} strokeDasharray="5 5" />
                             <ReferenceLine y={drawdownLimit} stroke="hsl(0, 84%, 60%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Drawdown Limit: ${formatNaira(drawdownLimit)}`, position: "insideTopLeft", fill: "hsl(0, 84%, 60%)", fontSize: 10 }} />
                             <ReferenceLine y={profitTarget} stroke="hsl(142, 76%, 36%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Target: ${formatNaira(profitTarget)}`, position: "insideTopRight", fill: "hsl(142, 76%, 36%)", fontSize: 10 }} />
                             <ReferenceLine y={currentBalance} stroke="hsl(45, 93%, 47%)" strokeWidth={1} strokeDasharray="4 4" label={{ value: `Balance: ${formatNaira(currentBalance)}`, position: "insideBottomRight", fill: "hsl(45, 93%, 47%)", fontSize: 10 }} />
@@ -597,11 +598,29 @@ function DashboardPage() {
                         </ResponsiveContainer>
                       </div>
                     </div>
+                  ) : snapshots.length > 0 ? (
+                    <div className="rounded-xl border border-border bg-card p-6">
+                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve</h3>
+                      <p className="mt-4 text-sm text-muted-foreground">Not enough data yet. The equity sync runs every 5 minutes — check back soon.</p>
+                    </div>
                   ) : (
                     <div className="rounded-xl border border-border bg-card p-6">
                       <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve</h3>
                       <p className="mt-4 text-sm text-muted-foreground">No equity data yet. The equity sync runs every 5 minutes — check back soon.</p>
                     </div>
+                  )}
+
+                  {snapshots.length > 0 && (
+                    <TradingAnalytics
+                      snapshots={snapshots}
+                      startingBalance={start}
+                      currentEquity={equity}
+                      maxDrawdownPercent={maxDD}
+                      profitTargetPercent={target}
+                      minTradingDays={3}
+                      currentPhase={selected.current_phase}
+                      status={selected.status}
+                    />
                   )}
 
                   <div className="rounded-xl border border-border bg-card p-6">

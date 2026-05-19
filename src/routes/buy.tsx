@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira, formatUSD, formatCompactSize } from "@/lib/utils";
-import { ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Loader2 } from "lucide-react";
+import { ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Brand } from "@/components/site/Brand";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
@@ -522,6 +522,18 @@ function BuyPage() {
                         </span>
                       </div>
 
+                      {/* Daily Drawdown — Instant Challenges only */}
+                      {effectivePlanType === "instant" && (
+                        <div className="flex items-center justify-between border-b border-border pb-2">
+                          <span className="text-muted-foreground">Daily Drawdown</span>
+                          <span className="font-display font-semibold">
+                            {currency === "NGN"
+                              ? `${selected?.max_daily_drawdown_percent ?? 5}%`
+                              : "5%"}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Min Trading Days */}
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Min Trading Days</span>
@@ -642,14 +654,15 @@ function BuyPage() {
               </DialogHeader>
 
               <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
-                {(selected.challenge_type === "instant"
-                  ? [
-                      { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
-                      { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
-                      { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
-                      { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
-                      { icon: Wallet, label: "Profit split", value: "80%" },
-                    ]
+                  {(selected.challenge_type === "instant"
+                    ? [
+                        { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
+                        { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
+                        { icon: AlertTriangle, label: "Daily drawdown", value: `${selected.max_daily_drawdown_percent ?? 5}%` },
+                        { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
+                        { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
+                        { icon: Wallet, label: "Profit split", value: "80%" },
+                      ]
                   : [
                       { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
                       { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
