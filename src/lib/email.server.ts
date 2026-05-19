@@ -175,7 +175,7 @@ async function welcome(userId: string) {
       p(`Welcome to <b>FundedNG</b> — The Best Prop Firm for 9ja Traders wey sabi trade.`) +
       p(`Your account has been created successfully. You're now part of a growing community of Nigerian traders getting funded and getting paid.`) +
       p(`<b>Here's what you can do next:</b><br>• Browse our challenge accounts starting from <b>₦7,500</b><br>• Pick a challenge that fits your trading style<br>• Pass the evaluation and get funded`) +
-      p(`No dollar stress. No complicated rules. Just 3 fair rules and you're good to go.`) +
+      p(`No dollar stress. No complicated rules. Just 3 simple rules and you're good to go.`) +
       btn(`${SITE}/buy`, "GET STARTED →"),
   });
   const r = await resendSend({ to: email, subject, html });
@@ -242,9 +242,9 @@ async function mt5Delivered(orderId: string, login: string, password: string, se
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">YOUR CHALLENGE RULES</div>` +
     `<ul style="margin:0 0 14px 18px;padding:0;font-size:14px;color:#374151;line-height:1.7;">` +
     `<li>Profit Target: <b>${(ch as any)?.profit_target_percent ?? "—"}%</b></li>` +
-    `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b></li>` +
-    `<li>Min Trade Duration: <b>3 minutes</b> (no scalping)</li>` +
-    `<li>No holding trades over weekends</li>` +
+    `<li>Max Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b> (equity trailing from highest peak)</li>` +
+    `<li>No Tick Scalping: <b>3-minute minimum hold</b> on manual closes</li>` +
+    `<li>Min Trading Days: <b>3 days</b> to clear a phase · <b>1 trade/week</b> to stay active</li>` +
     `</ul>`;
   const html = shell({
     title: subject,
@@ -278,7 +278,7 @@ async function phase1Passed(accountId: string) {
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">PHASE 2 DETAILS</div>` +
     detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
     detailRow("Profit Target", `${(ch as any)?.profit_target_percent ?? "—"}%`) +
-    detailRow("Max Total Drawdown", `${(ch as any)?.max_drawdown_percent ?? "—"}%`) +
+    detailRow("Max Drawdown (Trailing)", `${(ch as any)?.max_drawdown_percent ?? "—"}%`) +
     `</div>`;
   const html = shell({
     title: subject,
@@ -313,7 +313,7 @@ async function funded(accountId: string) {
     detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
     detailRow("Profit Split", "80% in your favour") +
     detailRow("First Payout", "After 10% KYC withdrawal") +
-    detailRow("Payout Schedule", "Every 7 days") +
+    detailRow("Payout Schedule", "Every 7 days (subject to trading activity)") +
     `</div>`;
   const how =
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">HOW TO REQUEST A PAYOUT</div>` +

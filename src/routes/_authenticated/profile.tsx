@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LayoutDashboard, ShieldCheck, ShoppingBag, LogOut, Users } from "lucide-react";
+import { LayoutDashboard, ShieldCheck, ShoppingBag, LogOut, Users, LifeBuoy } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/profile")({ component: ProfilePage });
 
@@ -49,6 +49,11 @@ function ProfilePage() {
           <Link to="/community">
             <Button variant="outline" className="w-full justify-start">
               <Users className="mr-2 h-4 w-4" /> Community
+            </Button>
+          </Link>
+          <Link to="/support" className="md:hidden">
+            <Button variant="outline" className="w-full justify-start">
+              <LifeBuoy className="mr-2 h-4 w-4" /> Support
             </Button>
           </Link>
           <Link to="/buy">

@@ -9,9 +9,9 @@ export const Route = createFileRoute("/rules")({
   head: () => ({
     meta: [
       { title: "Trading Rules — FundedNG" },
-      { name: "description", content: "Full breakdown of FundedNG's prop trading rules: 20% max drawdown, 7-day activity, 3-minute minimum trade duration, profit targets, payouts, and what's allowed." },
+      { name: "description", content: "Full breakdown of FundedNG's prop trading rules: no tick scalping, 20% max drawdown (equity trailing), 3 minimum trading days, profit targets, payouts, and what's allowed." },
       { property: "og:title", content: "Trading Rules — FundedNG" },
-      { property: "og:description", content: "Just 3 main rules — 20% max drawdown, trade every 7 days, and a 3-minute minimum trade duration. See the full rulebook here." },
+      { property: "og:description", content: "Just 3 main rules — no tick scalping, 20% max drawdown (equity trailing), and 3 days minimum trading. See the full rulebook here." },
     ],
   }),
   component: RulesPage,
@@ -48,50 +48,50 @@ function RulesPage() {
             <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
               <div className="flex items-start justify-between">
                 <div className="font-display text-6xl font-bold text-primary/30">01</div>
-                <ShieldCheck className="h-8 w-8 text-primary" />
+                <Clock className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">20% Max Drawdown</h3>
+              <h3 className="font-display mt-4 text-2xl font-bold">No Tick Scalping</h3>
               <p className="mt-3 text-muted-foreground">
-                Your account equity must never drop more than 20% below your starting balance.
-                For example, on a ₦200,000 account your equity must stay above ₦160,000 at all times.
+                Closing a trade in less than 3 minutes from open to close is tick scalping and is strictly prohibited.
+                All manually closed trades must be held for at least 3 minutes.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Measured on equity, including floating positions.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> No daily loss limit — only the total 20% cap matters.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Hit it once and the account is closed permanently.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Stop-loss and take-profit hits are fully exempt.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies to manual closes only — not server-triggered exits.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Repeated breaches void the account.</li>
               </ul>
             </div>
 
             <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
               <div className="flex items-start justify-between">
                 <div className="font-display text-6xl font-bold text-primary/30">02</div>
-                <Zap className="h-8 w-8 text-primary" />
+                <ShieldCheck className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">Trade Every 7 Days</h3>
+              <h3 className="font-display mt-4 text-2xl font-bold">20% Max Drawdown (Equity Trailing)</h3>
               <p className="mt-3 text-muted-foreground">
-                Place at least one trade within every rolling 7-day window.
-                This keeps the account active and shows you're a working trader, not parking the account.
+                Your equity must never drop more than 20% from the highest equity peak reached (trailing).
+                For example, if your account peaks at ₦220,000, equity must stay above ₦176,000.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Any single executed trade resets the 7-day timer.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies during evaluation phases and after funding.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Miss a window and the account is closed for inactivity.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Measured on floating equity, trailing from the highest peak.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> No daily loss limit — only the total trailing 20% cap matters.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Hit it once and the account is closed permanently.</li>
               </ul>
             </div>
 
             <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
               <div className="flex items-start justify-between">
                 <div className="font-display text-6xl font-bold text-primary/30">03</div>
-                <Clock className="h-8 w-8 text-primary" />
+                <Zap className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">Min 3-Minute Trade Duration</h3>
+              <h3 className="font-display mt-4 text-2xl font-bold">3 Days Min — 1 Trade/Week</h3>
               <p className="mt-3 text-muted-foreground">
-                All manually closed trades must be held for at least 3 minutes from open to close. This prevents tick-scalping and stale-quote abuse on the FundedNG evaluation feed.
+                You need at least 3 trading days to clear a phase and at least 1 executed trade every calendar week to keep the account active.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Stop-loss and take-profit hits are fully exempt.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies to manual closes only — not server-triggered exits.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Repeated breaches void the account.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> A trading day = at least one executed position on that calendar day.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> At least 1 trade per calendar week to remain active.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies during evaluation phases and after funding.</li>
               </ul>
             </div>
           </div>
@@ -111,12 +111,17 @@ function RulesPage() {
               {
                 icon: TrendingUp,
                 title: "Profit Targets",
-                body: "Each evaluation phase requires a 10% profit on your starting balance. Phase 1 → Phase 2 → Funded. There is no time limit to reach the target — take as long as you need, as long as Rule 02 is respected.",
+                body: "Each evaluation phase requires a 10% profit on your starting balance. Phase 1 → Phase 2 → Funded. There is no time limit to reach the target — take as many days as you need, as long as you meet the minimum trading day requirement.",
               },
               {
                 icon: Clock,
                 title: "Minimum Trading Days",
-                body: "You need at least 1 trading day to clear a phase. A trading day = at least one executed position on that calendar day (Africa/Lagos).",
+                body: "You need at least 3 trading days to clear a phase. A trading day = at least one executed position on that calendar day (Africa/Lagos). The system counts calendar days where at least one trade was opened and closed.",
+              },
+              {
+                icon: Zap,
+                title: "Weekly Activity Requirement",
+                body: "You must execute at least 1 trade every calendar week to keep the account active. Missing a full week without any trade will result in the account being closed for inactivity. This applies during evaluation and after funding.",
               },
               {
                 icon: Wallet,
@@ -126,12 +131,12 @@ function RulesPage() {
               {
                 icon: AlertTriangle,
                 title: "What Counts As A Breach",
-                body: "Equity dropping to 20% drawdown — even momentarily on a spike — is a breach. So is any attempt to manipulate price, abuse evaluation-server latency, or coordinate trades across accounts.",
+                body: "Equity dropping to 20% drawdown (trailing from the highest peak) — even momentarily on a spike — is a breach. So is any attempt to manipulate price, abuse evaluation-server latency, or coordinate trades across accounts.",
               },
               {
                 icon: Ban,
                 title: "Prohibited Strategies",
-                body: "No HFT, no tick scalping that exploits evaluation-feed delays, no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
+                body: "No HFT, no tick scalping (closing trades in less than 3 minutes), no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
               },
               {
                 icon: ShieldCheck,

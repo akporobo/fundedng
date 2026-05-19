@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
 import { updatePayoutServer, approvePhase2Server, approveFundedServer, markBreachedServer } from "@/server/admin.functions";
 import { RefreshButton } from "@/components/ui/refresh-button";
+import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -58,8 +59,12 @@ function AdminConsole() {
   const [form, setForm] = useState({ login: "", password: "", investor: "", server: "" });
   // Tickets
   const [tickets, setTickets] = useState<any[]>([]);
-  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
-  const [replySaving, setReplySaving] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [ticketMessages, setTicketMessages] = useState<any[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const [replySaving, setReplySaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   // Affiliate management
   const [affPayouts, setAffPayouts] = useState<any[]>([]);
   const [freeClaims, setFreeClaims] = useState<any[]>([]);
@@ -314,6 +319,26 @@ function AdminConsole() {
   };
 
   useEffect(() => { loadTickets(); }, []);
+
+  const loadTicketMessages = async (ticketId: string) => {
+    const { data } = await supabase
+      .from("ticket_messages")
+      .select("*")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: true });
+    setTicketMessages((data ?? []) as any[]);
+  };
+
+  const selectTicket = (t: any) => {
+    setSelectedTicket(t);
+    setReplyText("");
+    loadTicketMessages(t.id);
+  };
+
+  const closeTicketDetail = () => {
+    setSelectedTicket(null);
+    setTicketMessages([]);
+  };
 
   const loadAffiliate = async () => {
     const [pRes, cRes] = await Promise.all([
@@ -588,28 +613,75 @@ function AdminConsole() {
     toast.success("Test message sent — check your Telegram");
   };
 
-  const sendReply = async (t: any) => {
-    const reply = (replyDraft[t.id] ?? "").trim();
-    if (!reply) return toast.error("Type a reply first");
-    setReplySaving(t.id);
+  const sendAdminReply = async () => {
+    if (!selectedTicket) return;
+    if (!session?.user?.id) return toast.error("Please sign in again");
+    const text = replyText.trim();
+    if (!text) return toast.error("Type a reply first");
+    setReplySaving(true);
     const { error } = await supabase
-      .from("tickets")
-      .update({ admin_reply: reply, status: "closed" } as never)
-      .eq("id", t.id);
-    setReplySaving(null);
+      .from("ticket_messages")
+      .insert({
+        ticket_id: selectedTicket.id,
+        sender_id: session.user.id,
+        sender_role: "admin",
+        message: text,
+      });
+    setReplySaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Reply sent — ticket closed");
-    setReplyDraft((d) => ({ ...d, [t.id]: "" }));
+
+    // Send Telegram notification
+    await supabase.rpc("send_telegram", {
+      p_message: `<b>Support Ticket Updated</b>\nTrader: ${selectedTicket.profiles?.full_name ?? "—"}\nSubject: ${selectedTicket.subject}\nAdmin replied to ticket.`,
+    });
+
+    // Send in-app notification to trader
+    await supabase.from("notifications").insert({
+      user_id: selectedTicket.user_id,
+      title: "Support Ticket Update",
+      message: `Admin replied to your ticket "${selectedTicket.subject}".`,
+      type: "info",
+    });
+
+    toast.success("Reply sent");
+    setReplyText("");
+    await loadTicketMessages(selectedTicket.id);
     loadTickets();
   };
 
-  const reopenTicket = async (t: any) => {
+  const updateTicketStatus = async (t: any, newStatus: string) => {
+    setStatusUpdating(t.id);
     const { error } = await supabase
       .from("tickets")
-      .update({ status: "open" } as never)
+      .update({ status: newStatus } as never)
       .eq("id", t.id);
+    setStatusUpdating(null);
     if (error) return toast.error(error.message);
+
+    // Send Telegram notification
+    await supabase.rpc("send_telegram", {
+      p_message: `<b>Support Ticket ${newStatus.replace("_", " ").toUpperCase()}</b>\nTrader: ${t.profiles?.full_name ?? "—"}\nSubject: ${t.subject}\nStatus changed to ${newStatus.replace("_", " ")}.`,
+    });
+
+    // Send in-app notification to trader
+    await supabase.from("notifications").insert({
+      user_id: t.user_id,
+      title: "Support Ticket Updated",
+      message: `Your ticket "${t.subject}" status changed to ${newStatus.replace("_", " ")}.`,
+      type: "info",
+    });
+
+    toast.success(`Status changed to ${newStatus.replace("_", " ")}`);
+    if (selectedTicket?.id === t.id) {
+      setSelectedTicket((prev: any) => prev ? { ...prev, status: newStatus } : null);
+    }
     loadTickets();
+  };
+
+  const statusFlow: Record<string, string[]> = {
+    open: ["in_progress"],
+    in_progress: ["resolved"],
+    resolved: ["open"],
   };
 
   const openDeliver = (req: any) => {
@@ -779,11 +851,12 @@ function AdminConsole() {
               <TabsTrigger value="discounts">Discounts</TabsTrigger>
               <TabsTrigger value="tickets">
                 Tickets
-                {tickets.filter((t) => t.status === "open").length > 0 && (
-                  <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">
-                    {tickets.filter((t) => t.status === "open").length}
-                  </span>
-                )}
+                {(() => {
+                  const unresolved = tickets.filter((t) => t.status === "open" || t.status === "in_progress").length;
+                  return unresolved > 0 ? (
+                    <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[10px] text-warning">{unresolved}</span>
+                  ) : null;
+                })()}
               </TabsTrigger>
               <TabsTrigger value="affiliate">
                 Affiliate
@@ -1132,61 +1205,145 @@ function AdminConsole() {
             </div>
           </TabsContent>
 
-          <TabsContent value="tickets" className="mt-6 space-y-3">
-            {tickets.length === 0 ? (
-              <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                No support tickets yet.
-              </div>
-            ) : tickets.map((t) => (
-              <div key={t.id} className="rounded-xl border border-border bg-card p-5">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="font-semibold">{t.subject}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {t.profiles?.full_name ?? "—"} · {new Date(t.created_at).toLocaleString()}
+          <TabsContent value="tickets" className="mt-6">
+            {!selectedTicket ? (
+              <>
+                {/* Status filter */}
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {["all", "open", "in_progress", "resolved"].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setStatusFilter(s)}
+                      className={`rounded-md px-3 py-1.5 text-xs font-display font-medium transition-colors ${
+                        statusFilter === s
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {s === "all" ? "All" : s === "in_progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  {tickets.filter((t) => statusFilter === "all" || t.status === statusFilter).length === 0 ? (
+                    <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+                      No support tickets yet.
+                    </div>
+                  ) : tickets
+                    .filter((t) => statusFilter === "all" || t.status === statusFilter)
+                    .map((t) => (
+                      <div key={t.id} className="rounded-xl border border-border bg-card p-5">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex-1 min-w-[200px]">
+                            <div className="font-semibold">{t.subject}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {t.profiles?.full_name ?? "—"} · {t.category} · {new Date(t.created_at).toLocaleString()}
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`font-display ${
+                              t.status === "open" ? "border-warning/40 text-warning" :
+                              t.status === "in_progress" ? "border-info/40 text-info" :
+                              "border-primary/40 text-primary"
+                            }`}
+                          >
+                            {t.status === "in_progress" ? "IN PROGRESS" : t.status.toUpperCase()}
+                          </Badge>
+                          <div className="text-xs text-muted-foreground">
+                            Updated {new Date(t.updated_at).toLocaleDateString()}
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => selectTicket(t)}>
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </>
+            ) : (
+              /* Ticket Detail View */
+              <div>
+                <button onClick={closeTicketDetail} className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4" /> Back to all tickets
+                </button>
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="font-display text-xl font-bold">{selectedTicket.subject}</h2>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {selectedTicket.profiles?.full_name ?? "—"} · {selectedTicket.category} · Created {new Date(selectedTicket.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`font-display ${
+                        selectedTicket.status === "open" ? "border-warning/40 text-warning" :
+                        selectedTicket.status === "in_progress" ? "border-info/40 text-info" :
+                        "border-primary/40 text-primary"
+                      }`}
+                    >
+                      {selectedTicket.status === "in_progress" ? "IN PROGRESS" : selectedTicket.status.toUpperCase()}
+                    </Badge>
+                  </div>
+
+                  {/* Messages Thread */}
+                  <div className="mt-6 space-y-4">
+                    {ticketMessages.length === 0 && (
+                      <div className="py-6 text-center text-sm text-muted-foreground">No messages yet.</div>
+                    )}
+                    {ticketMessages.map((m) => (
+                      <div key={m.id} className={`flex ${m.sender_role === "trader" ? "justify-start" : "justify-end"}`}>
+                        <div className={`max-w-[85%] rounded-xl p-4 ${m.sender_role === "trader" ? "bg-muted" : "bg-primary/10 border border-primary/20"}`}>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span className="font-display font-semibold">
+                              {m.sender_role === "trader" ? selectedTicket.profiles?.full_name ?? "Trader" : "Admin"}
+                            </span>
+                            <span>·</span>
+                            <span>{new Date(m.created_at).toLocaleString()}</span>
+                          </div>
+                          <p className="mt-2 whitespace-pre-wrap text-sm">{m.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Admin Reply & Status Controls */}
+                  <div className="mt-6 flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[240px]">
+                      <Label htmlFor="admin-reply" className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Reply as Admin
+                      </Label>
+                      <Textarea
+                        id="admin-reply"
+                        rows={2}
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Type your reply…"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(statusFlow[selectedTicket.status] ?? []).map((nextStatus) => (
+                        <Button
+                          key={nextStatus}
+                          size="sm"
+                          variant={nextStatus === "resolved" ? "default" : "outline"}
+                          onClick={() => updateTicketStatus(selectedTicket, nextStatus)}
+                          disabled={statusUpdating === selectedTicket.id}
+                        >
+                          {statusUpdating === selectedTicket.id ? "…" : `Mark ${nextStatus.replace("_", " ")}`}
+                        </Button>
+                      ))}
+                      <Button size="sm" onClick={sendAdminReply} disabled={replySaving || !replyText.trim()}>
+                        {replySaving ? "Sending…" : "Send Reply"}
+                      </Button>
                     </div>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={`font-display ${t.status === "open" ? "border-warning/40 text-warning" : "border-primary/40 text-primary"}`}
-                  >
-                    {t.status.toUpperCase()}
-                  </Badge>
-                </div>
-                <p className="mt-3 whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-sm">
-                  {t.message}
-                </p>
-                {t.admin_reply ? (
-                  <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
-                    <div className="text-[10px] font-display uppercase tracking-wider text-primary">Your reply</div>
-                    <p className="mt-1 whitespace-pre-wrap">{t.admin_reply}</p>
-                  </div>
-                ) : null}
-                <div className="mt-3 flex flex-wrap items-end gap-2">
-                  <div className="flex-1 min-w-[240px]">
-                    <Label htmlFor={`reply-${t.id}`} className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {t.admin_reply ? "Update reply" : "Reply"}
-                    </Label>
-                    <Textarea
-                      id={`reply-${t.id}`}
-                      rows={2}
-                      value={replyDraft[t.id] ?? ""}
-                      onChange={(e) => setReplyDraft((d) => ({ ...d, [t.id]: e.target.value }))}
-                      placeholder="Type your reply…"
-                      className="mt-1"
-                    />
-                  </div>
-                  <Button size="sm" onClick={() => sendReply(t)} disabled={replySaving === t.id}>
-                    {replySaving === t.id ? "Sending…" : "Send & close"}
-                  </Button>
-                  {t.status === "closed" && (
-                    <Button size="sm" variant="outline" onClick={() => reopenTicket(t)}>
-                      Reopen
-                    </Button>
-                  )}
                 </div>
               </div>
-            ))}
+            )}
           </TabsContent>
 
           <TabsContent value="affiliate" className="mt-6 space-y-6">

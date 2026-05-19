@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { formatNaira, formatUSD, formatCompactSize } from "@/lib/utils";
-import { Zap, ShieldCheck, Trophy, ArrowRight, Clock } from "lucide-react";
+import { Zap, ShieldCheck, Trophy, ArrowRight, Clock, Ban } from "lucide-react";
 import tradingChartHero from "@/assets/trading-chart-hero.jpg";
 import tradingChartHeroDark from "@/assets/trading-chart-hero-dark.jpg";
 
@@ -76,8 +76,8 @@ function Index() {
             The Best Prop-Firm for 9ja traders wey sabi
           </p>
           <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground md:text-base">
-            Pass two phases. Get funded. Withdraw 24 hours after your 7-day payout
-            window opens — no wahala.
+            Pass two phases. Get funded. Withdraw 24 hours after your payout
+            is approved — no wahala.
           </p>
 
           <div className="mx-auto mt-12 grid max-w-2xl grid-cols-2 gap-6 md:grid-cols-4">
@@ -125,9 +125,9 @@ function Index() {
           <h2 className="font-display mt-4 text-4xl font-bold">Just 3 Rules. That's It.</h2>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {[
-              { num: "01", title: "20% Max Drawdown", desc: "Don't lose more than 20% of your starting balance. No daily loss limit.", icon: ShieldCheck },
-              { num: "02", title: "Trade Every 7 Days", desc: "Place at least one trade within every 7-day window to keep your account active.", icon: Zap },
-              { num: "03", title: "Min 3-Minute Trade Duration", desc: "All manually closed trades must be held for at least 3 minutes. Stop-loss and take-profit hits are fully exempt from this rule.", icon: Clock },
+              { num: "01", title: "No Tick Scalping", desc: "Closing a trade in less than 3 minutes is prohibited. Stop-loss and take-profit hits are exempt.", icon: Clock },
+              { num: "02", title: "20% Max Drawdown (Trailing)", desc: "Your equity must never drop more than 20% from the highest peak reached. No daily loss limit.", icon: ShieldCheck },
+              { num: "03", title: "3 Days Min — 1 Trade/Week", desc: "At least 3 trading days to clear a phase and at least 1 trade every calendar week to stay active.", icon: Zap },
             ].map((r) => (
               <div key={r.num} className="rounded-xl border border-border bg-card p-8 text-left transition-colors hover:border-primary/40">
                 <div className="flex items-start justify-between">

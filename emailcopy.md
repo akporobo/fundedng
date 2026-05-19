@@ -14,7 +14,7 @@ Here's what you can do next:
 - Pick a challenge that fits your trading style
 - Pass the evaluation and get funded
 
-No dollar stress. No complicated rules. Just 3 fair rules and you're good to go.
+No dollar stress. No complicated rules. Just 3 simple rules and you're good to go.
 
 [GET STARTED →] (link to fundedng.fun/buy)
 
@@ -63,9 +63,9 @@ Server: [MT5 Server]
 
 YOUR CHALLENGE RULES
 - Profit Target: [X]%
-- Max Total Drawdown: [X]%
-- Min Trade Duration: 3 minutes (no scalping)
-- No holding trades over weekends
+- Max Drawdown: [X]% (equity trailing from highest peak)
+- No Tick Scalping: 3-minute minimum hold on manual closes
+- Min Trading Days: 3 days to clear a phase · 1 trade/week to stay active
 
 [HOW TO LOGIN →] (link to fundedng.fun/rules)
 
@@ -86,7 +86,7 @@ PHASE 2 DETAILS
 ━━━━━━━━━━━━━━━━━━━━
 Account Size: ₦[Account Size]
 Profit Target: [X]%
-Max Total Drawdown: [X]%
+Max Drawdown (Trailing): [X]%
 ━━━━━━━━━━━━━━━━━━━━
 
 Keep the same discipline that got you here. Phase 2 is your final step before becoming a fully funded FundedNG trader.
@@ -111,7 +111,7 @@ FUNDED ACCOUNT DETAILS
 Account Size: ₦[Account Size]
 Profit Split: 80% in your favour
 First Payout: Available after 10% KYC withdrawal
-Payout Schedule: Every 7 days
+Payout Schedule: Every 7 days (subject to trading activity)
 ━━━━━━━━━━━━━━━━━━━━
 
 HOW TO REQUEST A PAYOUT

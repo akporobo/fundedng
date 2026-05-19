@@ -522,9 +522,9 @@ function BuyPage() {
                         </span>
                       </div>
 
-                      {/* Max Total Drawdown */}
+                      {/* Max Drawdown (Trailing) */}
                       <div className="flex items-center justify-between border-b border-border pb-2">
-                        <span className="text-muted-foreground">Max Total Drawdown</span>
+                        <span className="text-muted-foreground">Max Drawdown (Trailing)</span>
                         <span className="font-display font-semibold">
                           {currency === "NGN"
                             ? `${selected?.max_drawdown_percent ?? 0}%`
@@ -681,7 +681,8 @@ function BuyPage() {
               <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
                 <span className="font-display block font-semibold text-warning">Rules reminder</span>
                 Trade only on your FundedNG MT5 evaluation account. No automated
-                trading. No copy trading. Place at least one trade every 7 days.
+                trading. No copy trading. No tick scalping (closing in under 3 minutes).
+                20% trailing drawdown from highest equity peak.
               </div>
 
               <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background/50 p-3 text-xs">

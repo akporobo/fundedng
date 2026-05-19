@@ -25,6 +25,7 @@ import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-
 import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-new-purchase'
 import { Route as ApiInitializePaymentRouteImport } from './routes/api.initialize-payment'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
+import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPartnerRouteImport } from './routes/_authenticated/partner'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -115,6 +116,11 @@ const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
   path: '/api/deliver-account',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/partner': typeof AuthenticatedPartnerRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/partner': typeof AuthenticatedPartnerRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/partner': typeof AuthenticatedPartnerRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/partner'
     | '/profile'
+    | '/support'
     | '/api/deliver-account'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/partner'
     | '/profile'
+    | '/support'
     | '/api/deliver-account'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/partner'
     | '/_authenticated/profile'
+    | '/_authenticated/support'
     | '/api/deliver-account'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
@@ -469,6 +481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDeliverAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/support': {
+      id: '/_authenticated/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof AuthenticatedSupportRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -565,6 +584,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedPartnerRoute: typeof AuthenticatedPartnerRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -574,6 +594,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedPartnerRoute: AuthenticatedPartnerRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedSupportRoute: AuthenticatedSupportRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

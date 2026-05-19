@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift, Handshake } from "lucide-react";
+import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift, Handshake, LifeBuoy } from "lucide-react";
 import { Brand } from "./Brand";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: Home, match: (p: string) => p.startsWith("/dashboard") },
   { to: "/buy", label: "Buy", icon: PlusCircle, match: (p: string) => p.startsWith("/buy") },
+  { to: "/support", label: "Support", icon: LifeBuoy, match: (p: string) => p.startsWith("/support") },
   { to: "/affiliate", label: "Affiliate", icon: Gift, match: (p: string) => p.startsWith("/affiliate") },
   { to: "/community", label: "Community", icon: Users, match: (p: string) => p.startsWith("/community") },
   { to: "/profile", label: "Profile", icon: User, match: (p: string) => p.startsWith("/profile") },
@@ -113,9 +114,11 @@ export function AppSidebar() {
 export function MobileBottomNav() {
   const { pathname } = useLocation();
   const { isPartner } = useAuth();
+  // Support appears inside the Profile page on mobile (not in bottom nav)
+  const mobileItems = NAV.filter((n) => n.label !== "Support");
   const mobileNav = isPartner
-    ? [...NAV.filter((n) => n.label !== "Affiliate"), { to: "/partner", label: "Partner", icon: Handshake, match: (p: string) => p.startsWith("/partner") }]
-    : NAV;
+    ? [...mobileItems.filter((n) => n.label !== "Affiliate"), { to: "/partner", label: "Partner", icon: Handshake, match: (p: string) => p.startsWith("/partner") }]
+    : mobileItems;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-xl md:hidden">
       <div className="mx-auto flex h-16 max-w-lg items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">

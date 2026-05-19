@@ -324,10 +324,10 @@ function DashboardPage() {
   const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
   const unread = notifications.filter((n) => !n.is_read).length;
 
-  const maxEquity = snapshots.length > 0
-    ? Math.max(equity, ...snapshots.map((s) => Number(s.equity)))
-    : equity;
-  const drawdownLimit = maxEquity * (1 - maxDD / 100);
+  const peakEquity = snapshots.length > 0
+    ? Math.max(start, equity, ...snapshots.map((s) => Number(s.equity)))
+    : Math.max(start, equity);
+  const drawdownLimit = peakEquity * (1 - maxDD / 100);
   const profitTarget = selected?.status === "funded"
     ? start * (1 + 0.5)
     : start * (1 + target / 100);
@@ -419,7 +419,7 @@ function DashboardPage() {
                 <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
                   {[
                     "Instant FundedNG MT5 evaluation account",
-                    "Just 3 trading rules — 20% drawdown, trade every 7 days, 3-min minimum hold",
+                    "Just 3 trading rules — no tick scalping, 20% trailing drawdown, 3 min trading days",
                     "80% profit split, paid in Naira",
                     "Full equity & drawdown tracking on this dashboard",
                   ].map((b) => (
