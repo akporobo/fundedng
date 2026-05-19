@@ -1017,6 +1017,7 @@ function AdminConsole() {
 
           <TabsContent value="accounts" className="mt-6 space-y-2">
             {accounts.map((a) => (
+              <>
               <div key={a.id} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex-1 min-w-[180px]">
@@ -1134,43 +1135,24 @@ function AdminConsole() {
                       className="mt-1 h-9"
                     />
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => submitEquity(a)}
-                    disabled={equitySaving === a.id}
-                    className="font-display"
-                  >
-                    {equitySaving === a.id ? "Saving…" : "Record snapshot"}
-                  </Button>
-                  <p className="basis-full text-[11px] text-muted-foreground">
-                    Creates a snapshot. Drawdown breach is automatic; phase progression is manual via the buttons above.
-                  </p>
+                  <Button size="sm" onClick={() => submitEquity(a)}>Save</Button>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-background p-3 text-xs">
-                  <div className="flex-1 min-w-[260px]">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">KYC bank account</div>
-                    {a.profiles?.bank_account_number ? (
-                      <div className="font-display mt-0.5">
-                        <span className="font-mono text-primary">{a.profiles.bank_account_number}</span>
-                        <span className="text-muted-foreground"> · </span>
-                        <span>{a.profiles.bank_name}</span>
-                        <span className="text-muted-foreground"> · </span>
-                        <span>{a.profiles.bank_account_name}</span>
-                      </div>
-                    ) : (
-                      <div className="mt-0.5 text-muted-foreground">Trader hasn't submitted bank details.</div>
-                    )}
+                {a.profiles && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">KYC:</span>
+                      <Badge variant="outline" className={`font-display text-[10px] ${a.profiles.kyc_verified ? "border-green-500/50 text-green-500" : "border-amber-500/50 text-amber-500"}`}>
+                        {a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}
+                      </Badge>
+                      {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && (
+                        <Button size="sm" onClick={() => openKycVerify(a)}>
+                          Verify bank matches MT5
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Badge className={`font-display ${a.profiles?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
-                    {a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}
-                  </Badge>
-                  {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && (
-                    <Button size="sm" onClick={() => openKycVerify(a)}>
-                      Verify bank matches MT5
-                    </Button>
-                  )}
-                </div>
-              </div>
+                )}
+              </>
             ))}
           </TabsContent>
 
