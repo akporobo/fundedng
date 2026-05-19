@@ -32,6 +32,7 @@ interface Challenge {
   challenge_type?: "standard" | "instant" | null;
   max_daily_drawdown_percent?: number | null;
   max_trading_days?: number | null;
+  min_trading_days?: number;
 }
 
 function BuyPage() {
@@ -142,7 +143,6 @@ function BuyPage() {
   const usdRules = {
     profitTargetPhase1: 8,
     profitTargetPhase2: 5,
-    maxDailyDrawdown: 5,
     maxTotalDrawdown: 10,
     minTradingDays: 3,
     profitSplit: 80,
@@ -512,16 +512,6 @@ function BuyPage() {
                         </div>
                       )}
 
-                      {/* Max Daily Drawdown */}
-                      <div className="flex items-center justify-between border-b border-border pb-2">
-                        <span className="text-muted-foreground">Max Daily Drawdown</span>
-                        <span className="font-display font-semibold">
-                          {currency === "NGN"
-                            ? `${selected?.max_daily_drawdown_percent ?? 5}%`
-                            : `${usdRules.maxDailyDrawdown}%`}
-                        </span>
-                      </div>
-
                       {/* Max Drawdown (Trailing) */}
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Max Drawdown (Trailing)</span>
@@ -537,7 +527,7 @@ function BuyPage() {
                         <span className="text-muted-foreground">Min Trading Days</span>
                         <span className="font-display font-semibold">
                           {currency === "NGN"
-                            ? `${selected?.max_trading_days ?? 1}`
+                            ? `${selected?.min_trading_days ?? 3}`
                             : `${usdRules.minTradingDays}`}
                         </span>
                       </div>
@@ -655,7 +645,6 @@ function BuyPage() {
                 {(selected.challenge_type === "instant"
                   ? [
                       { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
-                      { icon: Zap, label: "Max daily drawdown", value: `${selected.max_daily_drawdown_percent ?? 10}%` },
                       { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
                       { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
                       { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
@@ -665,6 +654,7 @@ function BuyPage() {
                       { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
                       { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
                       { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
+                      { icon: Clock, label: "Min trading days", value: `${selected?.min_trading_days ?? 3}` },
                       { icon: Wallet, label: "Profit split", value: "80%" },
                       { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
                     ]
