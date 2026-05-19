@@ -69,6 +69,10 @@ function AdminConsole() {
   const [affPayouts, setAffPayouts] = useState<any[]>([]);
   const [freeClaims, setFreeClaims] = useState<any[]>([]);
   const [affSaving, setAffSaving] = useState<string | null>(null);
+  const [affiliateStats, setAffiliateStats] = useState<any[]>([]);
+  const [affiliateSummary, setAffiliateSummary] = useState({
+    total: 0, referrals: 0, earned: 0, paid: 0, pending: 0, revenue: 0,
+  });
   // Partner management
   const [partners, setPartners] = useState<any[]>([]);
   const [partnerPayouts, setPartnerPayouts] = useState<any[]>([]);
@@ -341,24 +345,89 @@ function AdminConsole() {
   };
 
   const loadAffiliate = async () => {
-    const [pRes, cRes] = await Promise.all([
+    const [pRes, cRes, affRes, refRes, commRes, ordRes, chRes] = await Promise.all([
       supabase.from("affiliate_payouts").select("*").order("requested_at", { ascending: false }),
       supabase.from("affiliate_free_accounts").select("*").order("created_at", { ascending: false }),
+      supabase.from("affiliate_profiles").select("*"),
+      supabase.from("referrals").select("*"),
+      supabase.from("affiliate_commissions").select("*"),
+      supabase.from("orders").select("id, user_id, amount_paid, challenge_id, status").in("status", ["paid", "delivered"]),
+      supabase.from("challenges").select("id, account_size"),
     ]);
     const payRows = (pRes.data ?? []) as any[];
     const claimRows = (cRes.data ?? []) as any[];
-    const userIds = Array.from(new Set([
+    const affRows = (affRes.data ?? []) as any[];
+    const refRows = (refRes.data ?? []) as any[];
+    const commRows = (commRes.data ?? []) as any[];
+    const ordRows = (ordRes.data ?? []) as any[];
+    const chRows = (chRes.data ?? []) as any[];
+
+    const allUserIds = Array.from(new Set([
       ...payRows.map((r) => r.user_id),
       ...claimRows.map((r) => r.affiliate_id),
+      ...affRows.map((r) => r.user_id),
+      ...refRows.map((r) => [r.referrer_id, r.referred_user_id]).flat(),
     ]));
-    const profMap = new Map<string, any>();
-    if (userIds.length) {
-      const { data: profs } = await supabase
-        .from("profiles").select("id, full_name").in("id", userIds);
-      (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
-    }
+    const { data: profs } = await supabase
+      .from("profiles").select("id, full_name").in("id", allUserIds);
+    const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+
     setAffPayouts(payRows.map((r) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
     setFreeClaims(claimRows.map((r) => ({ ...r, profiles: profMap.get(r.affiliate_id) ?? null })));
+
+    // Build affiliate stats
+    const chMap = new Map(chRows.map((c: any) => [c.id, c]));
+    const refByAff = new Map<string, any[]>();
+    for (const r of refRows) {
+      const list = refByAff.get(r.referrer_id) ?? [];
+      list.push(r);
+      refByAff.set(r.referrer_id, list);
+    }
+    const commByAff = new Map<string, any[]>();
+    for (const c of commRows) {
+      const list = commByAff.get(c.affiliate_user_id) ?? [];
+      list.push(c);
+      commByAff.set(c.affiliate_user_id, list);
+    }
+    const ordByUser = new Map<string, any[]>();
+    for (const o of ordRows) {
+      const list = ordByUser.get(o.user_id) ?? [];
+      list.push(o);
+      ordByUser.set(o.user_id, list);
+    }
+
+    const stats = affRows.map((a: any) => {
+      const refs = refByAff.get(a.user_id) ?? [];
+      const comms = commByAff.get(a.user_id) ?? [];
+      const paidOrders = ordRows.filter((o) => refs.some((r) => r.referred_user_id === o.user_id));
+      const revenue = paidOrders.reduce((s: number, o: any) => s + Number(o.amount_paid) / 100, 0);
+      const accountSize = paidOrders.reduce((s: number, o: any) => {
+        const ch = chMap.get(o.challenge_id);
+        return s + (ch ? Number(ch.account_size) : 0);
+      }, 0);
+      const pendingComms = comms.filter((c) => c.status === "pending").reduce((s: number, c: any) => s + Number(c.amount_naira), 0);
+      return {
+        ...a,
+        profile: profMap.get(a.user_id) ?? null,
+        referralCount: refs.length,
+        paidReferralCount: refs.filter((r) => r.first_paid_at).length,
+        pendingCommissions: pendingComms,
+        totalRevenue: revenue,
+        totalAccountSize: accountSize,
+        ordersCount: paidOrders.length,
+      };
+    });
+
+    stats.sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
+    setAffiliateStats(stats);
+    setAffiliateSummary({
+      total: stats.length,
+      referrals: stats.reduce((s: number, a: any) => s + a.referralCount, 0),
+      earned: stats.reduce((s: number, a: any) => s + Number(a.total_earned_naira), 0),
+      paid: stats.reduce((s: number, a: any) => s + Number(a.total_paid_naira), 0),
+      pending: stats.reduce((s: number, a: any) => s + a.pendingCommissions, 0),
+      revenue: stats.reduce((s: number, a: any) => s + a.totalRevenue, 0),
+    });
   };
   useEffect(() => { loadAffiliate(); }, []);
 
@@ -770,8 +839,9 @@ function AdminConsole() {
     if (!Number.isFinite(equity) || equity < 0) return toast.error("Equity must be a positive number");
     setEquitySaving(account.id);
     const starting = Number(account.starting_balance) || 0;
+    const peak = Math.max(starting, Number(account.peak_equity ?? starting), equity);
     const profit = equity - starting;
-    const drawdown = starting > 0 ? Math.max(0, ((starting - equity) / starting) * 100) : 0;
+    const drawdown = peak > 0 ? Math.max(0, ((peak - equity) / peak) * 100) : 0;
     const { error } = await supabase.from("account_snapshots").insert({
       trader_account_id: account.id,
       equity,
@@ -956,7 +1026,42 @@ function AdminConsole() {
                   <div className="text-sm">{formatNaira(a.starting_balance)}</div>
                   <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
                   <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
-                  <div className="flex flex-wrap gap-1">
+                </div>
+                {/* Account metrics row */}
+                {(() => {
+                  const eq = Number(a.current_equity ?? a.starting_balance);
+                  const st = Number(a.starting_balance);
+                  const pk = Number(a.peak_equity ?? a.starting_balance);
+                  const profitPct = st > 0 ? ((eq - st) / st) * 100 : 0;
+                  const ddPct = pk > 0 ? Math.max(0, ((pk - eq) / pk) * 100) : 0;
+                  const maxDD = Number(a.challenges?.max_drawdown_percent ?? 20);
+                  const ddColor = ddPct / maxDD > 0.75 ? "text-red-500" : ddPct / maxDD > 0.5 ? "text-amber-500" : "text-green-500";
+                  return (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                      <span className="text-muted-foreground">
+                        Equity: <span className="font-display text-primary">{formatNaira(eq)}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        P/L: <span className={`font-display ${profitPct >= 0 ? "text-green-500" : "text-red-500"}`}>
+                          {profitPct >= 0 ? "+" : ""}{profitPct.toFixed(2)}%
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Drawdown: <span className={`font-display ${ddColor}`}>{ddPct.toFixed(2)}%</span>
+                        <span className="text-muted-foreground/60"> / {maxDD}%</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Peak: <span className="font-display">{formatNaira(pk)}</span>
+                      </span>
+                      {a.last_synced_at && (
+                        <span className="text-muted-foreground/60">
+                          Synced: {new Date(a.last_synced_at).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+                <div className="mt-2 flex flex-wrap gap-1">
                     {(() => {
                       if (a.current_phase >= 2 || a.status !== "active") return null;
                       const target = Number(a.challenges?.profit_target_percent ?? 10);
@@ -1347,6 +1452,88 @@ function AdminConsole() {
           </TabsContent>
 
           <TabsContent value="affiliate" className="mt-6 space-y-6">
+            {/* Overview stats */}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+              {[
+                ["Total Affiliates", affiliateSummary.total, ""],
+                ["Total Referrals", affiliateSummary.referrals, ""],
+                ["Total Earned (₦)", formatNaira(affiliateSummary.earned), "text-primary"],
+                ["Total Paid (₦)", formatNaira(affiliateSummary.paid), "text-green-500"],
+                ["Pending (₦)", formatNaira(affiliateSummary.pending), "text-warning"],
+                ["Revenue Generated (₦)", formatNaira(affiliateSummary.revenue), "text-primary"],
+              ].map(([l, v, c]: any) => (
+                <div key={l} className="rounded-xl border border-border bg-card p-4">
+                  <div className="text-[11px] text-muted-foreground">{l}</div>
+                  <div className={`font-display mt-1 text-lg font-bold ${c ?? ""}`}>{v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* All Affiliates list */}
+            <div>
+              <h3 className="font-display text-lg font-bold">All Affiliates</h3>
+              {affiliateStats.length === 0 ? (
+                <div className="mt-3 rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                  No affiliates yet.
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {affiliateStats.map((a: any) => (
+                    <div key={a.id} className="rounded-xl border border-border bg-card p-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex-1 min-w-[160px]">
+                          <div className="font-semibold">{a.profile?.full_name ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Code: <span className="font-mono text-primary">{a.code}</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs md:grid-cols-4">
+                          <div>
+                            <span className="text-muted-foreground">Refs: </span>
+                            <span className="font-display">{a.referralCount}</span>
+                            {a.paidReferralCount > 0 && (
+                              <span className="text-muted-foreground/60"> ({a.paidReferralCount} paid)</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Earned: </span>
+                            <span className="font-display text-primary">{formatNaira(Number(a.total_earned_naira))}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Paid: </span>
+                            <span className="font-display text-green-500">{formatNaira(Number(a.total_paid_naira))}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Pending: </span>
+                            <span className={`font-display ${a.pendingCommissions > 0 ? "text-warning" : ""}`}>
+                              {formatNaira(a.pendingCommissions)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Revenue: </span>
+                            <span className="font-display text-primary">{formatNaira(a.totalRevenue)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Acct Size: </span>
+                            <span className="font-display">{formatNaira(a.totalAccountSize)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Free Accts: </span>
+                            <span className="font-display">{a.free_accounts_credited} credited / {a.free_accounts_claimed} claimed</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Orders: </span>
+                            <span className="font-display">{a.ordersCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Payout Requests */}
             <div>
               <h3 className="font-display text-lg font-bold">Payout Requests</h3>
               <div className="mt-3 space-y-3">
@@ -1389,6 +1576,7 @@ function AdminConsole() {
               </div>
             </div>
 
+            {/* Free Account Claims */}
             <div>
               <h3 className="font-display text-lg font-bold">Free Account Claims</h3>
               <div className="mt-3 space-y-3">
@@ -1419,7 +1607,8 @@ function AdminConsole() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl border border-border bg-card p-6">
+            {/* Telegram Settings */}
+            <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="font-display text-lg font-bold">📲 Telegram Admin Notifications</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Get realtime pings for new orders, payout requests, free-account claims, support tickets and account-delivery requests.

@@ -25,7 +25,7 @@ async function syncEquity() {
   const startedAt = Date.now();
   const { data: accounts, error } = await supabaseAdmin
     .from("trader_accounts")
-    .select("id, mt5_login, provider, starting_balance, status")
+    .select("id, mt5_login, provider, starting_balance, peak_equity, status")
     .in("status", ["active", "funded"])
     .eq("provider", "exness-bot");
 
@@ -48,9 +48,14 @@ async function syncEquity() {
         continue;
       }
       const profit = info.equity - acct.starting_balance;
+      const peak = Math.max(
+        acct.starting_balance,
+        Number(acct.peak_equity ?? acct.starting_balance),
+        info.equity
+      );
       const drawdown =
-        info.equity < acct.starting_balance
-          ? ((acct.starting_balance - info.equity) / acct.starting_balance) * 100
+        info.equity < peak
+          ? ((peak - info.equity) / peak) * 100
           : 0;
 
       const { error: snapErr } = await supabaseAdmin.from("account_snapshots").insert({

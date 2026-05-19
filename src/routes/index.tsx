@@ -5,7 +5,6 @@ import { PublicHeader } from "@/components/site/PublicHeader";
 import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { formatNaira, formatUSD, formatCompactSize } from "@/lib/utils";
 import { Zap, ShieldCheck, Trophy, ArrowRight, Clock, Ban } from "lucide-react";
 import tradingChartHero from "@/assets/trading-chart-hero.jpg";
@@ -179,7 +178,6 @@ function Index() {
         </div>
       </footer>
 
-      <PWAInstallButton />
     </div>
   );
 }

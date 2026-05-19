@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Download } from "lucide-react";
 import { Brand } from "./Brand";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
@@ -66,6 +66,15 @@ export function PublicHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <a
+            href="/fundedng.apk"
+            download
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            title="Download the FundedNG App"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">App</span>
+          </a>
           <ThemeToggle />
           <Link
             to="/auth/login"

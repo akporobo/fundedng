@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock, Trash2 } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import { subscribeToPush } from "@/lib/push";
-import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { TradingAnalytics } from "@/components/dashboard/TradingAnalytics";
@@ -319,15 +318,14 @@ function DashboardPage() {
   const equity = Number(selected?.current_equity ?? selected?.starting_balance ?? 0);
   const start = Number(selected?.starting_balance ?? 0);
   const profitPct = start ? ((equity - start) / start) * 100 : 0;
-  const minEquity = snapshots.reduce((m, s) => Math.min(m, Number(s.equity)), equity);
-  const ddPct = start ? Math.max(0, ((start - minEquity) / start) * 100) : 0;
+  const peakEquity = snapshots.length > 0
+    ? Math.max(start, equity, ...snapshots.map((s) => Number(s.equity)))
+    : Math.max(start, equity);
+  const ddPct = peakEquity > 0 ? Math.max(0, ((peakEquity - equity) / peakEquity) * 100) : 0;
   const target = selected?.challenges?.profit_target_percent ?? 10;
   const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
   const unread = notifications.filter((n) => !n.is_read).length;
 
-  const peakEquity = snapshots.length > 0
-    ? Math.max(start, equity, ...snapshots.map((s) => Number(s.equity)))
-    : Math.max(start, equity);
   const drawdownLimit = peakEquity * (1 - maxDD / 100);
   const profitTarget = selected?.status === "funded"
     ? start * (1 + 0.5)
@@ -802,7 +800,6 @@ function DashboardPage() {
 
         )}
       </div>
-      <PWAInstallButton />
       <NewUserInstallPrompt />
     </div>
   );

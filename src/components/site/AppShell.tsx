@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift, Handshake, LifeBuoy } from "lucide-react";
+import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift, Handshake, LifeBuoy, Download } from "lucide-react";
 import { Brand } from "./Brand";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -175,6 +175,15 @@ export function AppShell() {
           </div>
           <div className="hidden md:block" />
           <div className="flex items-center gap-1">
+            <a
+              href="/fundedng.apk"
+              download
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+              title="Download the FundedNG App"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">App</span>
+            </a>
             <ThemeToggle />
             <NotificationBell />
           </div>
