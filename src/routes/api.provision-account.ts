@@ -150,8 +150,10 @@ export const Route = createFileRoute("/api/provision-account")({
              url: "/dashboard",
            });
 
-           // Send account delivered email (fire-and-forget)
-           sendEventEmail({ type: "mt5_delivered", orderId: order.id, mt5Login: provisioned.login, mt5Password: provisioned.password, mt5Server: provisioned.server });
+           // Send account delivered email
+           await sendEventEmail({ type: "mt5_delivered", orderId: order.id, mt5Login: provisioned.login, mt5Password: provisioned.password, mt5Server: provisioned.server }).catch((e) =>
+             console.error("[provision-account] email send failed", e),
+           );
 
            await sendPushToAdmins({
             title: "New challenge purchase",

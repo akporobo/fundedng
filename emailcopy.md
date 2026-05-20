@@ -234,3 +234,27 @@ To request your first payout simply log in to your dashboard and go to the Payou
 
 If You Sabi Trade, We Sabi Pay. 🇳🇬
 — The FundedNG Team
+
+11. Payout Paid
+Subject: 💵 Payout Paid — Payment Sent Successfully!
+Hi [First Name],
+
+Your payout has been sent successfully! 🎉
+
+The amount has been transferred to your bank account. It should reflect in your account shortly depending on your bank's processing time.
+
+PAYMENT DETAILS
+━━━━━━━━━━━━━━━━━━━━
+Amount Paid: ₦[Amount]
+Payment Method: [Bank/Method]
+Date Paid: [Date]
+━━━━━━━━━━━━━━━━━━━━
+
+Congratulations on your successful payout! Keep up the great trading and we look forward to processing more payouts for you. 🇳🇬
+
+If you have any questions contact us at support@fundedng.fun
+
+[VIEW DASHBOARD →] (link to fundedng.fun/dashboard)
+
+If You Sabi Trade, We Sabi Pay. 🇳🇬
+— The FundedNG Team

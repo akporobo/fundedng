@@ -60,7 +60,9 @@ export const requestPayoutServer = createServerFn({ method: "POST" })
 
       if (insertErr || !payoutInsert) return { ok: false as const, error: insertErr?.message ?? "Insert failed" };
 
-      sendEventEmail({ type: "payout_requested", payoutId: (payoutInsert as any).id });
+      await sendEventEmail({ type: "payout_requested", payoutId: (payoutInsert as any).id }).catch((e) =>
+        console.error("[requestPayoutServer] email send failed", e),
+      );
 
       return { ok: true as const, payoutId: (payoutInsert as any).id };
     } catch (e) {
@@ -92,10 +94,18 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
         .eq("id", data.payoutId);
       if (error) return { ok: false as const, error: error.message };
 
-      if (data.status === "approved" || data.status === "paid") {
-        sendEventEmail({ type: "payout_approved", payoutId: data.payoutId });
+      if (data.status === "approved") {
+        await sendEventEmail({ type: "payout_approved", payoutId: data.payoutId }).catch((e) =>
+          console.error("[updatePayoutServer] payout_approved email failed", e),
+        );
+      } else if (data.status === "paid") {
+        await sendEventEmail({ type: "payout_paid", payoutId: data.payoutId }).catch((e) =>
+          console.error("[updatePayoutServer] payout_paid email failed", e),
+        );
       } else if (data.status === "rejected") {
-        sendEventEmail({ type: "payout_rejected", payoutId: data.payoutId, reason: "Rejected by admin." });
+        await sendEventEmail({ type: "payout_rejected", payoutId: data.payoutId, reason: "Rejected by admin." }).catch((e) =>
+          console.error("[updatePayoutServer] payout_rejected email failed", e),
+        );
       }
 
       return { ok: true as const };
@@ -158,7 +168,9 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
         type: "success",
       } as never);
 
-      sendEventEmail({ type: "phase1_passed", accountId: data.accountId });
+      await sendEventEmail({ type: "phase1_passed", accountId: data.accountId }).catch((e) =>
+        console.error("[approvePhase2Server] email send failed", e),
+      );
 
       return { ok: true as const };
     } catch (e) {
@@ -220,7 +232,9 @@ export const approveFundedServer = createServerFn({ method: "POST" })
         type: "success",
       } as never);
 
-      sendEventEmail({ type: "funded", accountId: data.accountId });
+      await sendEventEmail({ type: "funded", accountId: data.accountId }).catch((e) =>
+        console.error("[approveFundedServer] email send failed", e),
+      );
 
       return { ok: true as const };
     } catch (e) {
@@ -255,7 +269,9 @@ export const markBreachedServer = createServerFn({ method: "POST" })
         .eq("id", data.accountId);
       if (error) return { ok: false as const, error: error.message };
 
-      sendEventEmail({ type: "breached", accountId: data.accountId, reason: data.reason.trim() });
+      await sendEventEmail({ type: "breached", accountId: data.accountId, reason: data.reason.trim() }).catch((e) =>
+        console.error("[markBreachedServer] email send failed", e),
+      );
 
       return { ok: true as const };
     } catch (e) {

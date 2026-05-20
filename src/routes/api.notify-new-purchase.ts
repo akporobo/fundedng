@@ -47,8 +47,10 @@ export const Route = createFileRoute("/api/notify-new-purchase")({
             url: "/admin",
           });
 
-          // Send purchase confirmed email (fire-and-forget)
-          sendEventEmail({ type: "purchase_confirmed", orderId: order.id });
+          // Send purchase confirmed email
+          await sendEventEmail({ type: "purchase_confirmed", orderId: order.id }).catch((e) =>
+            console.error("[notify-new-purchase] email send failed", e),
+          );
 
           return Response.json({ ok: true });
         } catch (e) {

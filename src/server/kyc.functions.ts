@@ -81,8 +81,10 @@ export const verifyKycServer = createServerFn({ method: "POST" })
          type: "success",
        });
 
-       // Send KYC approved email (fire-and-forget)
-       sendEventEmail({ type: "kyc_approved", userId: data.userId });
+       // Send KYC approved email
+       await sendEventEmail({ type: "kyc_approved", userId: data.userId }).catch((e) =>
+         console.error("[verifyKycServer] email send failed", e),
+       );
 
        return { ok: true as const };
     } catch (e) {
@@ -237,8 +239,10 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
          type: "success",
        });
 
-       // Send KYC approved email (fire-and-forget)
-       sendEventEmail({ type: "kyc_approved", userId });
+       // Send KYC approved email
+       await sendEventEmail({ type: "kyc_approved", userId }).catch((e) =>
+         console.error("[verifyKycPaystack] email send failed", e),
+       );
 
        return { ok: true as const, accountName: resolvedName };
     } catch (e) {

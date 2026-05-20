@@ -10,6 +10,7 @@ export type EmailEvent =
   | { type: "funded"; accountId: string }
   | { type: "payout_requested"; payoutId: string }
   | { type: "payout_approved"; payoutId: string }
+  | { type: "payout_paid"; payoutId: string }
   | { type: "payout_rejected"; payoutId: string; reason?: string }
   | { type: "breached"; accountId: string; reason: string }
   | { type: "kyc_approved"; userId: string };

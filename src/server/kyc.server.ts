@@ -67,7 +67,9 @@ export async function runVerifyKycAdmin(input: {
       type: "success",
     });
 
-    sendEventEmail({ type: "kyc_approved", userId: input.userId });
+    await sendEventEmail({ type: "kyc_approved", userId: input.userId }).catch((e) =>
+      console.error("[runVerifyKycAdmin] email send failed", e),
+    );
 
     return { ok: true as const };
   } catch (e) {
@@ -198,7 +200,9 @@ export async function runVerifyKycPaystack(input: {
       type: "success",
     });
 
-    sendEventEmail({ type: "kyc_approved", userId });
+    await sendEventEmail({ type: "kyc_approved", userId }).catch((e) =>
+      console.error("[runVerifyKycPaystack] email send failed", e),
+    );
 
     return { ok: true as const, accountName: resolvedName };
   } catch (e) {

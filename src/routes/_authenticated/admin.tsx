@@ -800,7 +800,8 @@ function AdminConsole() {
     const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Payout ${status}`);
-    if (status === "approved" || status === "paid") notifyEmail({ type: "payout_approved", payoutId: id });
+    if (status === "approved") notifyEmail({ type: "payout_approved", payoutId: id });
+    if (status === "paid") notifyEmail({ type: "payout_paid", payoutId: id });
     if (status === "rejected") notifyEmail({ type: "payout_rejected", payoutId: id, reason: "Rejected by admin." });
     load();
   };

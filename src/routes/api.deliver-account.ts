@@ -156,8 +156,10 @@ export const Route = createFileRoute("/api/deliver-account")({
              url: "/dashboard",
            });
 
-           // Send account delivered email (fire-and-forget)
-           sendEventEmail({ type: "mt5_delivered", orderId: order.id, mt5Login: mt5_login, mt5Password: mt5_password, mt5Server: mt5_server });
+           // Send account delivered email
+           await sendEventEmail({ type: "mt5_delivered", orderId: order.id, mt5Login: mt5_login, mt5Password: mt5_password, mt5Server: mt5_server }).catch((e) =>
+             console.error("[deliver-account] email send failed", e),
+           );
 
           return Response.json({ ok: true, login: mt5_login, server: mt5_server });
         } catch (e) {

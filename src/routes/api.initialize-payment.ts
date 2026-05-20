@@ -142,7 +142,9 @@ export const Route = createFileRoute("/api/initialize-payment")({
               await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
             }
 
-            sendEventEmail({ type: "purchase_confirmed", orderId: order.id });
+            await sendEventEmail({ type: "purchase_confirmed", orderId: order.id }).catch((e) =>
+              console.error("[initialize-payment] email send failed", e),
+            );
 
             return Response.json({ ok: true, free: true, order_id: order.id, reference });
           }

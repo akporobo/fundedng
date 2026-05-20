@@ -155,8 +155,10 @@ export const Route = createFileRoute("/api/verify-payment")({
              await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
            }
 
-           // Send purchase confirmed email (fire-and-forget)
-           sendEventEmail({ type: "purchase_confirmed", orderId: order.id });
+           // Send purchase confirmed email
+           await sendEventEmail({ type: "purchase_confirmed", orderId: order.id }).catch((e) =>
+             console.error("[verify-payment] email send failed", e),
+           );
 
            return Response.json({ ok: true, order_id: order.id });
         } catch (e) {

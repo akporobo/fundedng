@@ -134,6 +134,7 @@ export type EmailEvent =
   | { type: "funded"; accountId: string }
   | { type: "payout_requested"; payoutId: string }
   | { type: "payout_approved"; payoutId: string }
+  | { type: "payout_paid"; payoutId: string }
   | { type: "payout_rejected"; payoutId: string; reason?: string }
   | { type: "breached"; accountId: string; reason: string }
   | { type: "kyc_approved"; userId: string };
@@ -155,6 +156,8 @@ export async function sendEventEmail(ev: EmailEvent): Promise<{ ok: boolean; err
         return await payoutRequested(ev.payoutId);
       case "payout_approved":
         return await payoutApproved(ev.payoutId);
+      case "payout_paid":
+        return await payoutPaid(ev.payoutId);
       case "payout_rejected":
         return await payoutRejected(ev.payoutId, ev.reason ?? "Not specified.");
       case "breached":
@@ -423,7 +426,44 @@ async function payoutApproved(payoutId: string) {
   return r;
 }
 
-/* 8. Payout rejected */
+/* 8. Payout paid */
+async function payoutPaid(payoutId: string) {
+  const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
+  if (!po) return { ok: false, error: "payout not found" };
+  const { email, name } = await getUserEmail((po as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
+  const bank = (po as any).bank_details ?? {};
+  const method = `${bank.bank_name ?? "Bank"} · ${bank.account_number ?? ""}`;
+  const subject = "💵 Payout Paid — Payment Sent Successfully!";
+  const details =
+    `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
+    `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">PAYMENT DETAILS</div>` +
+    detailRow("Amount Paid", fmtNaira((po as any).amount_naira)) +
+    detailRow("Payment Method", method) +
+    detailRow("Date Paid", new Date((po as any).processed_at ?? (po as any).updated_at ?? new Date()).toLocaleDateString("en-NG")) +
+    `</div>`;
+  const html = shell({
+    title: subject,
+    preview: "Your payout has been sent.",
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`Your payout has been sent successfully! 🎉`) +
+      p(`The amount has been transferred to your bank account. It should reflect in your account shortly depending on your bank's processing time.`) +
+      details +
+      p(`Congratulations on your successful payout! Keep up the great trading and we look forward to processing more payouts for you. 🇳🇬`) +
+      p(`If you have any questions contact us at <a href="mailto:support@fundedng.fun" style="color:#0a8f5a;">support@fundedng.fun</a>`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`Payout paid: ${fmtNaira((po as any).amount_naira)} · ${name ?? email}`, shell({
+    title: "Payout paid",
+    body: h1("Payout paid") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + details,
+  }));
+  return r;
+}
+
+/* 9. Payout rejected */
 async function payoutRejected(payoutId: string, reason: string) {
   const { data: po } = await supabaseAdmin.from("payouts").select("*").eq("id", payoutId).maybeSingle();
   if (!po) return { ok: false, error: "payout not found" };
@@ -453,7 +493,7 @@ async function payoutRejected(payoutId: string, reason: string) {
   return r;
 }
 
-/* 9. Account breached */
+/* 10. Account breached */
 async function breached(accountId: string, reason: string) {
   const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, mt5_login").eq("id", accountId).maybeSingle();
   if (!acc) return { ok: false, error: "account not found" };
@@ -486,7 +526,7 @@ async function breached(accountId: string, reason: string) {
   return r;
 }
 
-/* 10. KYC approved */
+/* 11. KYC approved */
 async function kycApproved(userId: string) {
   const { email, name } = await getUserEmail(userId);
   if (!email) return { ok: false, error: "no email" };
