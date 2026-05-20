@@ -137,7 +137,8 @@ export type EmailEvent =
   | { type: "payout_paid"; payoutId: string }
   | { type: "payout_rejected"; payoutId: string; reason?: string }
   | { type: "breached"; accountId: string; reason: string }
-  | { type: "kyc_approved"; userId: string };
+  | { type: "kyc_approved"; userId: string }
+  | { type: "phase_rejected"; accountId: string; reason: string; phaseType: "phase2" | "funded" };
 
 export async function sendEventEmail(ev: EmailEvent): Promise<{ ok: boolean; error?: string }> {
   try {
@@ -164,6 +165,8 @@ export async function sendEventEmail(ev: EmailEvent): Promise<{ ok: boolean; err
         return await breached(ev.accountId, ev.reason);
       case "kyc_approved":
         return await kycApproved(ev.userId);
+      case "phase_rejected":
+        return await phaseRequestRejected(ev.accountId, ev.reason, ev.phaseType);
     }
   } catch (e) {
     console.error("[email] event failed", ev.type, e);
@@ -546,6 +549,37 @@ async function kycApproved(userId: string) {
   await sendAdminCopy(`KYC approved: ${name ?? email}`, shell({
     title: "KYC approved",
     body: h1("KYC approved") + detailRow("Trader", name ?? "—") + detailRow("Email", email),
+  }));
+  return r;
+}
+
+/* 12. Phase request rejected */
+async function phaseRequestRejected(accountId: string, reason: string, phaseType: "phase2" | "funded") {
+  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, mt5_login, starting_balance, challenge_id").eq("id", accountId).maybeSingle();
+  if (!acc) return { ok: false, error: "account not found" };
+  const { email, name } = await getUserEmail((acc as any).user_id);
+  if (!email) return { ok: false, error: "no email" };
+  const fn = firstName(name);
+  const phaseLabel = phaseType === "phase2" ? "Phase 2" : "Funded";
+  const subject = `${phaseLabel} Request Update — FundedNG`;
+  const reasonBox =
+    `<div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;margin:14px 0;font-size:13px;color:#7f1d1d;">` +
+    `<div style="font-weight:700;margin-bottom:4px;">REASON</div>${escapeHtml(reason)}</div>`;
+  const html = shell({
+    title: subject,
+    preview: `Your ${phaseLabel.toLowerCase()} request needs attention.`,
+    body:
+      h1(`Hi ${escapeHtml(fn)},`) +
+      p(`We have reviewed your request to advance to <b>${escapeHtml(phaseLabel)}</b> and unfortunately it cannot be approved at this time.`) +
+      reasonBox +
+      p(`Don't be discouraged — keep trading and you can request again once you're ready. Focus on the rules and consistency.`) +
+      p(`If you believe this is an error or need clarification, please contact us at <a href="mailto:support@fundedng.fun" style="color:#0a8f5a;">support@fundedng.fun</a> and we will resolve it promptly.`) +
+      btn(`${SITE}/dashboard`, "VIEW DASHBOARD →"),
+  });
+  const r = await resendSend({ to: email, subject, html });
+  await sendAdminCopy(`${phaseLabel} request rejected: ${name ?? email}`, shell({
+    title: `${phaseLabel} request rejected`,
+    body: h1(`${phaseLabel} request rejected`) + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("MT5 Login", (acc as any).mt5_login ?? "—") + p(`<b>Reason:</b> ${escapeHtml(reason)}`),
   }));
   return r;
 }

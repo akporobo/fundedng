@@ -13,7 +13,8 @@ export type EmailEvent =
   | { type: "payout_paid"; payoutId: string }
   | { type: "payout_rejected"; payoutId: string; reason?: string }
   | { type: "breached"; accountId: string; reason: string }
-  | { type: "kyc_approved"; userId: string };
+  | { type: "kyc_approved"; userId: string }
+  | { type: "phase_rejected"; accountId: string; reason: string; phaseType: "phase2" | "funded" };
 
 /**
  * Fire-and-forget client helper to trigger a transactional email via

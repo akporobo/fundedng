@@ -37,7 +37,7 @@ function AdminPage() {
 }
 
 function AdminConsole() {
-  const { session } = useAuth();
+  const { session, user, profile } = useAuth();
   const [stats, setStats] = useState({
     traders: 0,
     accounts: 0,
@@ -109,6 +109,11 @@ function AdminConsole() {
   const [breachTarget, setBreachTarget] = useState<any | null>(null);
   const [breachReason, setBreachReason] = useState("");
   const [breaching, setBreaching] = useState(false);
+  // Reject phase request dialog
+  const [rejectTarget, setRejectTarget] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectType, setRejectType] = useState<"phase2" | "funded" | null>(null);
 
   // ---- Challenges management ----
   const [challengeList, setChallengeList] = useState<any[]>([]);
@@ -840,6 +845,8 @@ function AdminConsole() {
       current_equity: a.starting_balance,
       phase1_passed_at: new Date().toISOString(),
       phase2_requested_at: null,
+      phase_rejected_reason: null,
+      phase_rejected_at: null,
       status: "active",
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
@@ -870,6 +877,8 @@ function AdminConsole() {
       phase2_passed_at: new Date().toISOString(),
       funded_at: new Date().toISOString(),
       funded_requested_at: null,
+      phase_rejected_reason: null,
+      phase_rejected_at: null,
     } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
     await supabase.from("account_snapshots").insert({
@@ -945,6 +954,44 @@ function AdminConsole() {
     setBreachReason("");
   };
 
+  const openRejectDialog = (account: any, type: "phase2" | "funded") => {
+    setRejectTarget(account);
+    setRejectType(type);
+    setRejectReason("");
+  };
+
+  const submitRejectPhase = async () => {
+    if (!rejectTarget || !rejectType) return;
+    const reason = rejectReason.trim();
+    if (reason.length < 3) { toast.error("Please write a reason (min 3 chars)."); return; }
+    setRejecting(true);
+    try {
+      const isPhase2 = rejectType === "phase2";
+      const patch: Record<string, any> = {
+        ...(isPhase2 ? { phase2_requested_at: null } : { funded_requested_at: null }),
+        phase_rejected_reason: reason,
+        phase_rejected_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from("trader_accounts").update(patch as never).eq("id", rejectTarget.id);
+      if (error) { toast.error(error.message); return; }
+      const phaseLabel = isPhase2 ? "Phase 2" : "Funded";
+      await supabase.from("notifications").insert({
+        user_id: rejectTarget.user_id,
+        title: `❌ ${phaseLabel} Request Rejected`,
+        message: `Your ${phaseLabel} request for account ${rejectTarget.mt5_login} has been rejected. Reason: ${reason}`,
+        type: "error",
+      } as never);
+      toast.success(`${phaseLabel} request rejected`);
+      notifyEmail({ type: "phase_rejected", accountId: rejectTarget.id, reason, phaseType: rejectType });
+      setRejectTarget(null);
+      setRejectReason("");
+      setRejectType(null);
+      load();
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const submitBreach = async () => {
     if (!breachTarget) return;
     const reason = breachReason.trim();
@@ -953,7 +1000,7 @@ function AdminConsole() {
     try {
       const { error } = await supabase
         .from("trader_accounts")
-        .update({ status: "breached", breach_reason: reason } as never)
+        .update({ status: "breached", breach_reason: reason, phase_rejected_reason: null, phase_rejected_at: null } as never)
         .eq("id", breachTarget.id);
       if (error) { toast.error(error.message); return; }
       const adminName = (profile?.full_name && profile.full_name.trim()) || (user?.email ?? null);
@@ -1157,9 +1204,14 @@ function AdminConsole() {
                       return (
                         <>
                           {requested && (
-                            <Badge variant="outline" className="font-display border-warning/40 text-warning">
-                              PHASE 2 REQUESTED
-                            </Badge>
+                            <>
+                              <Badge variant="outline" className="font-display border-warning/40 text-warning">
+                                PHASE 2 REQUESTED
+                              </Badge>
+                              <Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "phase2")}>
+                                Reject
+                              </Button>
+                            </>
                           )}
                           {hit ? (
                             <Button size="sm" onClick={() => approvePhase2(a)}>
@@ -1180,24 +1232,29 @@ function AdminConsole() {
                         const required = Number(a.starting_balance) * (1 + target / 100);
                         const hit = equity >= required;
                         const requested = !!a.funded_requested_at;
-                        return (
-                          <>
-                            {requested && (
-                              <Badge variant="outline" className="font-display border-warning/40 text-warning">
-                                FUNDED REQUESTED
-                              </Badge>
-                            )}
-                            {hit ? (
-                              <Button size="sm" onClick={() => approveFunded(a)}>
-                                Phase 2 passed → Approve Funded
-                              </Button>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground">
-                                Needs {formatNaira(Math.ceil(required))} equity ({target}% target)
-                              </span>
-                            )}
-                          </>
-                        );
+                          return (
+                            <>
+                              {requested && (
+                                <>
+                                  <Badge variant="outline" className="font-display border-warning/40 text-warning">
+                                    FUNDED REQUESTED
+                                  </Badge>
+                                  <Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "funded")}>
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {hit ? (
+                                <Button size="sm" onClick={() => approveFunded(a)}>
+                                  Phase 2 passed → Approve Funded
+                                </Button>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground">
+                                  Needs {formatNaira(Math.ceil(required))} equity ({target}% target)
+                                </span>
+                              )}
+                            </>
+                          );
                       })()
                     )}
                     <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
@@ -2135,6 +2192,37 @@ function AdminConsole() {
             </Button>
             <Button variant="destructive" onClick={submitBreach} disabled={breaching || !breachReason.trim()}>
               {breaching ? "Breaching…" : "Breach Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => !rejecting && !o && setRejectTarget(null)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject {rejectType === "phase2" ? "Phase 2" : "Funded"} Request</DialogTitle>
+            <DialogDescription>
+              Rejecting {rejectType === "phase2" ? "Phase 2" : "Funded"} request for {rejectTarget?.profiles?.full_name ?? "trader"} ({rejectTarget?.mt5_login}). This will notify the trader.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="reject-reason">Reason for rejection</Label>
+              <Textarea
+                id="reject-reason"
+                placeholder="Enter the reason for rejecting this request..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); setRejectType(null); }} disabled={rejecting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={submitRejectPhase} disabled={rejecting || !rejectReason.trim()}>
+              {rejecting ? "Rejecting…" : "Reject Request"}
             </Button>
           </DialogFooter>
         </DialogContent>

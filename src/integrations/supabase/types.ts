@@ -1119,9 +1119,11 @@ export type Database = {
           mt5_server: string
           order_id: string
           phase1_passed_at: string | null
-          phase2_passed_at: string | null
-          phase2_requested_at: string | null
-          provider: string
+           phase2_passed_at: string | null
+           phase2_requested_at: string | null
+           phase_rejected_at: string | null
+           phase_rejected_reason: string | null
+           provider: string
           starting_balance: number
           status: Database["public"]["Enums"]["account_status"]
           updated_at: string
@@ -1147,6 +1149,8 @@ export type Database = {
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
           phase2_requested_at?: string | null
+          phase_rejected_at?: string | null
+          phase_rejected_reason?: string | null
           provider?: string
           starting_balance: number
           status?: Database["public"]["Enums"]["account_status"]
@@ -1173,6 +1177,8 @@ export type Database = {
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
           phase2_requested_at?: string | null
+          phase_rejected_at?: string | null
+          phase_rejected_reason?: string | null
           provider?: string
           starting_balance?: number
           status?: Database["public"]["Enums"]["account_status"]

@@ -34,6 +34,8 @@ interface Account {
   challenge_id: string;
   phase2_requested_at: string | null;
   funded_requested_at: string | null;
+  phase_rejected_reason?: string | null;
+  phase_rejected_at?: string | null;
   deleted_at?: string | null;
   challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
@@ -351,6 +353,7 @@ function DashboardPage() {
     if (!selected) return;
     const { error } = await supabase.rpc("request_phase2", { _account_id: selected.id });
     if (error) return toast.error(error.message);
+    await supabase.from("trader_accounts").update({ phase_rejected_reason: null, phase_rejected_at: null } as never).eq("id", selected.id);
     toast.success("Phase 2 approval requested. An admin will review shortly.");
     load();
   };
@@ -359,6 +362,7 @@ function DashboardPage() {
     if (!selected) return;
     const { error } = await supabase.rpc("request_funded", { _account_id: selected.id });
     if (error) return toast.error(error.message);
+    await supabase.from("trader_accounts").update({ phase_rejected_reason: null, phase_rejected_at: null } as never).eq("id", selected.id);
     toast.success("Funded approval requested. An admin will review shortly.");
     load();
   };
@@ -493,6 +497,18 @@ function DashboardPage() {
                             </Button>
                           </div>
                         )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {selected.phase_rejected_reason && selected.status !== "breached" && (
+                    <Alert variant="destructive">
+                      <ShieldAlert className="h-4 w-4" />
+                      <AlertDescription>
+                        <span className="font-display font-semibold">
+                          {selected.current_phase < 2 ? "Phase 2" : "Funded"} Request Rejected
+                        </span>
+                        <p className="mt-1 text-sm">{selected.phase_rejected_reason}</p>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -792,8 +808,18 @@ function DashboardPage() {
             <TabsContent value="notifications" className="mt-6 space-y-2">
               {notifications.length === 0 ? <p className="text-muted-foreground">No notifications.</p> : notifications.map((n) => (
                 <div key={n.id} className={`rounded-xl border bg-card p-4 ${n.is_read ? "border-border" : "border-primary/40"}`}>
-                  <div className="flex justify-between"><div className="font-semibold">{n.title}</div><div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleDateString()}</div></div>
-                  <p className="mt-1 text-sm text-muted-foreground">{n.message}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between"><div className="font-semibold">{n.title}</div><div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleDateString()}</div></div>
+                      <p className="mt-1 text-sm text-muted-foreground">{n.message}</p>
+                    </div>
+                    {!n.is_read && (
+                      <Button size="sm" variant="outline" className="shrink-0 mt-0.5" onClick={async () => {
+                        await supabase.from("notifications").update({ is_read: true } as never).eq("id", n.id);
+                        setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x));
+                      }}>OKAY</Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </TabsContent>
