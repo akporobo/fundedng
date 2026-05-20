@@ -315,7 +315,8 @@ function DashboardPage() {
      load();
   };
 
-  const equity = Number(selected?.current_equity ?? selected?.starting_balance ?? 0);
+  const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+  const equity = Number(latestSnapshot?.equity ?? selected?.current_equity ?? selected?.starting_balance ?? 0);
   const start = Number(selected?.starting_balance ?? 0);
   const profitPct = start ? ((equity - start) / start) * 100 : 0;
   const peakEquity = snapshots.length > 0
@@ -418,7 +419,7 @@ function DashboardPage() {
                 <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
                   {[
                     "Instant FundedNG MT5 evaluation account",
-                    "Just 3 trading rules — no tick scalping, 20% trailing drawdown, 3 min trading days",
+                    "Just 3 trading rules — no tick scalping, 20% trailing drawdown, 3 min trading days (profits spread across them)",
                     "80% profit split, paid in Naira",
                     "Full equity & drawdown tracking on this dashboard",
                   ].map((b) => (

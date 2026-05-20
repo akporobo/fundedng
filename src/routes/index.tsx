@@ -126,7 +126,7 @@ function Index() {
             {[
               { num: "01", title: "No Tick Scalping", desc: "Closing a trade in less than 3 minutes is prohibited. Stop-loss and take-profit hits are exempt.", icon: Clock },
               { num: "02", title: "20% Max Drawdown (Trailing)", desc: "Your equity must never drop more than 20% from the highest peak reached. No daily loss limit.", icon: ShieldCheck },
-              { num: "03", title: "3 Days Min — 1 Trade/Week", desc: "At least 3 trading days to clear a phase and at least 1 trade every calendar week to stay active.", icon: Zap },
+              { num: "03", title: "3 Days Min — 1 Trade/Week", desc: "All profits spread across at least 3 trading days per phase and at least 1 trade every calendar week to stay active.", icon: Zap },
             ].map((r) => (
               <div key={r.num} className="rounded-xl border border-border bg-card p-8 text-left transition-colors hover:border-primary/40">
                 <div className="flex items-start justify-between">

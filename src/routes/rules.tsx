@@ -86,10 +86,11 @@ function RulesPage() {
               </div>
               <h3 className="font-display mt-4 text-2xl font-bold">3 Days Min — 1 Trade/Week</h3>
               <p className="mt-3 text-muted-foreground">
-                You need at least 3 trading days to clear a phase and at least 1 executed trade every calendar week to keep the account active.
+                All profits in each phase must be made in at least 3 min trading days and at least 1 executed trade every calendar week to keep the account active.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> A trading day = at least one executed position on that calendar day.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Profits must be spread across at least 3 different trading days per phase.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> At least 1 trade per calendar week to remain active.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies during evaluation phases and after funding.</li>
               </ul>
@@ -146,7 +147,7 @@ function RulesPage() {
                 You have a window of 5 to 45 calendar days to complete the Instant Challenge. You need a minimum of 5 trading days, and the entire challenge must be completed within 45 days.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Min 5 trading days (instead of 3 for standard).</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Min 5 trading days (instead of 3 for standard) with profits spread across them.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Max 45 calendar days to complete the challenge.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-chart-2" /> Same 80% profit split and weekly payouts apply.</li>
               </ul>
@@ -173,7 +174,7 @@ function RulesPage() {
               {
                 icon: Clock,
                 title: "Minimum Trading Days",
-                body: "You need at least 3 trading days to clear a phase. A trading day = at least one executed position on that calendar day (Africa/Lagos). The system counts calendar days where at least one trade was opened and closed.",
+                body: "All profits in each phase must be made in at least 3 min trading days. A trading day = at least one executed position on that calendar day (Africa/Lagos). The system counts calendar days where at least one trade was opened and closed.",
               },
               {
                 icon: Zap,

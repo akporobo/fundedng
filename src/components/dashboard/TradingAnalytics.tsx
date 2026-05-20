@@ -134,8 +134,8 @@ function RuleChecklist({ status, profitPct, target, ddPct, maxDD, daysTraded, mi
       warn: ddPct / maxDD > 0.75,
     },
     {
-      label: `Minimum ${minDays} trading days`,
-      description: `${daysTraded} of ${minDays} days completed`,
+      label: `All profits in ${minDays}+ min trading days`,
+      description: `${daysTraded} of ${minDays} days traded (profits must be spread across ${minDays} days)`,
       passed: daysTraded >= minDays,
       warn: daysTraded > 0 && daysTraded < minDays,
     },

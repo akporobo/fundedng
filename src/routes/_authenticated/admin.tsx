@@ -224,7 +224,8 @@ function AdminConsole() {
     const orderIds = Array.from(new Set(reqRows.map((r) => r.order_id)));
     const accountIds = poRows.map((p) => p.trader_account_id).filter(Boolean);
 
-    const [profRes, chRes, ordRes, taRes] = await Promise.all([
+    const accIdList = Array.from(new Set(accRows.map((a: any) => a.id)));
+    const [profRes, chRes, ordRes, taRes, snapRes] = await Promise.all([
       userIds.length
         ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds)
         : Promise.resolve({ data: [] as any[] }),
@@ -237,16 +238,33 @@ function AdminConsole() {
       accountIds.length
         ? supabase.from("trader_accounts").select("id, mt5_login").in("id", accountIds)
         : Promise.resolve({ data: [] as any[] }),
+      accIdList.length
+        ? supabase.from("account_snapshots").select("trader_account_id, snapshot_time").in("trader_account_id", accIdList)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
     const profMap = new Map((profRes.data ?? []).map((p: any) => [p.id, p]));
     const chMap = new Map((chRes.data ?? []).map((c: any) => [c.id, c]));
     const ordMap = new Map((ordRes.data ?? []).map((o: any) => [o.id, o]));
     const taMap = new Map((taRes.data ?? []).map((t: any) => [t.id, t]));
 
+    // Build trading days count per account from snapshots
+    const tradingDaysMap = new Map<string, number>();
+    const snapRows = (snapRes.data ?? []) as any[];
+    if (snapRows.length > 0) {
+      const daySets = new Map<string, Set<string>>();
+      for (const s of snapRows) {
+        const day = s.snapshot_time.slice(0, 10);
+        if (!daySets.has(s.trader_account_id)) daySets.set(s.trader_account_id, new Set());
+        daySets.get(s.trader_account_id)!.add(day);
+      }
+      for (const [id, days] of daySets) tradingDaysMap.set(id, days.size);
+    }
+
     const accList = accRows.map((a) => ({
       ...a,
       profiles: profMap.get(a.user_id) ?? null,
       challenges: chMap.get(a.challenge_id) ?? null,
+      _trading_days: tradingDaysMap.get(a.id) ?? 0,
     }));
     const poList = poRows.map((p) => ({
       ...p,
@@ -1116,6 +1134,9 @@ function AdminConsole() {
                       </span>
                       <span className="text-muted-foreground">
                         Peak: <span className="font-display">{formatNaira(pk)}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Days traded: <span className="font-display">{a._trading_days ?? 0}</span>
                       </span>
                       {a.last_synced_at && (
                         <span className="text-muted-foreground/60">
