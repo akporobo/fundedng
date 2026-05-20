@@ -14,7 +14,7 @@ import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
-import { updatePayoutServer, approvePhase2Server, approveFundedServer, markBreachedServer } from "@/server/admin.functions";
+import { notifyEmail } from "@/lib/notify-email";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { ArrowLeft } from "lucide-react";
 
@@ -796,13 +796,14 @@ function AdminConsole() {
     }
   };
 
-   const updatePayout = async (id: string, status: "approved" | "paid" | "rejected") => {
-     if (!session?.access_token) return toast.error("Please sign in again");
-     const res = await updatePayoutServer({ data: { accessToken: session.access_token, payoutId: id, status } });
-     if (!res.ok) return toast.error(res.error ?? "Update failed");
-     toast.success(`Payout ${status}`);
-     load();
-   };
+  const updatePayout = async (id: string, status: "approved" | "paid" | "rejected") => {
+    const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success(`Payout ${status}`);
+    if (status === "approved" || status === "paid") notifyEmail({ type: "payout_approved", payoutId: id });
+    if (status === "rejected") notifyEmail({ type: "payout_rejected", payoutId: id, reason: "Rejected by admin." });
+    load();
+  };
 
   const updateAccount = async (id: string, patch: Record<string, any>) => {
     const { error } = await supabase.from("trader_accounts").update(patch as never).eq("id", id);
@@ -813,22 +814,60 @@ function AdminConsole() {
 
   // Phase 1 → Phase 2: reset equity to starting balance and bump phase.
   const approvePhase2 = async (a: any) => {
-    if (!session?.access_token) return toast.error("Please sign in again");
     if (a.current_phase >= 2) return toast.error("Already in Phase 2 or beyond");
     if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
-    const res = await approvePhase2Server({ data: { accessToken: session.access_token, accountId: a.id } });
-    if (!res.ok) return toast.error(res.error ?? "Approval failed");
+    const { error } = await supabase.from("trader_accounts").update({
+      current_phase: 2,
+      current_equity: a.starting_balance,
+      phase1_passed_at: new Date().toISOString(),
+      phase2_requested_at: null,
+      status: "active",
+    } as never).eq("id", a.id);
+    if (error) return toast.error(error.message);
+    await supabase.from("account_snapshots").insert({
+      trader_account_id: a.id,
+      equity: a.starting_balance,
+      balance: a.starting_balance,
+      profit: 0,
+      drawdown_percent: 0,
+    } as never);
+    await supabase.from("notifications").insert({
+      user_id: a.user_id,
+      title: "🎯 Phase 1 Passed",
+      message: "Congratulations — you're now in Phase 2. Your equity has been reset to the starting balance.",
+      type: "success",
+    } as never);
     toast.success("Phase 2 approved");
+    notifyEmail({ type: "phase1_passed", accountId: a.id });
     load();
   };
 
   const approveFunded = async (a: any) => {
-    if (!session?.access_token) return toast.error("Please sign in again");
     if (a.status === "funded") return toast.error("Already funded");
     if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
-    const res = await approveFundedServer({ data: { accessToken: session.access_token, accountId: a.id } });
-    if (!res.ok) return toast.error(res.error ?? "Approval failed");
+    const { error } = await supabase.from("trader_accounts").update({
+      status: "funded",
+      current_equity: a.starting_balance,
+      phase2_passed_at: new Date().toISOString(),
+      funded_at: new Date().toISOString(),
+      funded_requested_at: null,
+    } as never).eq("id", a.id);
+    if (error) return toast.error(error.message);
+    await supabase.from("account_snapshots").insert({
+      trader_account_id: a.id,
+      equity: a.starting_balance,
+      balance: a.starting_balance,
+      profit: 0,
+      drawdown_percent: 0,
+    } as never);
+    await supabase.from("notifications").insert({
+      user_id: a.user_id,
+      title: "🏆 You're Funded!",
+      message: "Congratulations — your account is now funded. Equity has been reset to the starting balance. Start trading and request payouts.",
+      type: "success",
+    } as never);
     toast.success("Account funded");
+    notifyEmail({ type: "funded", accountId: a.id });
     load();
   };
 
@@ -887,19 +926,42 @@ function AdminConsole() {
     setBreachReason("");
   };
 
-   const submitBreach = async () => {
-     if (!breachTarget) return;
-     if (!breachReason.trim()) return toast.error("Breach reason is required");
-     if (!session?.access_token) return toast.error("Please sign in again");
-     setBreaching(true);
-     const res = await markBreachedServer({ data: { accessToken: session.access_token, accountId: breachTarget.id, reason: breachReason.trim() } });
-     setBreaching(false);
-     if (!res.ok) return toast.error(res.error ?? "Breach failed");
-     toast.success("Account breached");
-     setBreachTarget(null);
-     setBreachReason("");
-     load();
-   };
+  const submitBreach = async () => {
+    if (!breachTarget) return;
+    const reason = breachReason.trim();
+    if (reason.length < 3) { toast.error("Please write a breach reason (min 3 chars)."); return; }
+    setBreaching(true);
+    try {
+      const { error } = await supabase
+        .from("trader_accounts")
+        .update({ status: "breached", breach_reason: reason } as never)
+        .eq("id", breachTarget.id);
+      if (error) { toast.error(error.message); return; }
+      const adminName = (profile?.full_name && profile.full_name.trim()) || (user?.email ?? null);
+      await supabase.from("breach_audit_log").insert({
+        trader_account_id: breachTarget.id,
+        user_id: breachTarget.user_id,
+        admin_id: user?.id ?? null,
+        admin_name: adminName,
+        admin_email: user?.email ?? null,
+        reason,
+        mt5_login: breachTarget.mt5_login ?? null,
+      } as never).then(({ error: e }) => { if (e) console.error("[breach audit log] insert failed", e.message); });
+      await supabase.from("notifications").insert({
+        user_id: breachTarget.user_id,
+        title: "❌ Account breached",
+        message: `Your account ${breachTarget.mt5_login} has been marked as breached. Reason: ${reason}`,
+        type: "error",
+      } as never);
+      toast.success("Account breached. It will disappear from this list in 5 minutes.");
+      notifyEmail({ type: "breached", accountId: breachTarget.id, reason });
+      setBreachTarget(null);
+      setBreachReason("");
+      load();
+    } finally {
+      setBreaching(false);
+    }
+  };
 
   return (
     <>
