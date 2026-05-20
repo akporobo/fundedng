@@ -513,11 +513,12 @@ function DashboardPage() {
                     </Alert>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                     {[
                       { label: "Account Size", value: formatNaira(start) },
                       { label: "Equity", value: formatNaira(equity), color: "text-primary" },
                       { label: "P/L", value: formatNaira(equity - start), color: equity-start >= 0 ? "text-primary" : "text-destructive" },
+                      { label: "Drawdown Amount", value: formatNaira(peakEquity - equity), color: "text-red-500" },
                        { label: "Phase", value: selected.status === "funded" ? "FUNDED" : `${selected.current_phase}/${selected.challenges?.phases ?? 2}`, color: "text-gold" },
                       { label: "Status", value: <Badge className={`${statusVariant[selected.status]} font-display`}>{selected.status.toUpperCase()}</Badge> },
                     ].map((m, i) => (
