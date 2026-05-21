@@ -32,6 +32,10 @@ interface Account {
   status: "active" | "breached" | "passed" | "funded";
   breach_reason?: string;
   challenge_id: string;
+  created_at: string;
+  phase1_passed_at: string | null;
+  phase2_passed_at: string | null;
+  funded_at: string | null;
   phase2_requested_at: string | null;
   funded_requested_at: string | null;
   phase_rejected_reason?: string | null;
@@ -263,7 +267,17 @@ function DashboardPage() {
   };
   useEffect(() => {
     if (!selected) return;
-    supabase.from("account_snapshots").select("snapshot_time, equity, balance").eq("trader_account_id", selected.id).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
+    const phaseStart = selected.status === "funded"
+      ? selected.phase2_passed_at ?? selected.funded_at
+      : selected.current_phase >= 2
+        ? selected.phase1_passed_at
+        : selected.created_at;
+    let query = supabase
+      .from("account_snapshots")
+      .select("snapshot_time, equity, balance")
+      .eq("trader_account_id", selected.id);
+    if (phaseStart) query = query.gte("snapshot_time", phaseStart);
+    query.order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
   }, [selected]);
 
   const requestPayout = async () => {
