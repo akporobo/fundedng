@@ -843,6 +843,7 @@ function AdminConsole() {
     const { error } = await supabase.from("trader_accounts").update({
       current_phase: 2,
       current_equity: a.starting_balance,
+      peak_equity: a.starting_balance,
       phase1_passed_at: new Date().toISOString(),
       phase2_requested_at: null,
       phase_rejected_reason: null,
@@ -874,6 +875,7 @@ function AdminConsole() {
     const { error } = await supabase.from("trader_accounts").update({
       status: "funded",
       current_equity: a.starting_balance,
+      peak_equity: a.starting_balance,
       phase2_passed_at: new Date().toISOString(),
       funded_at: new Date().toISOString(),
       funded_requested_at: null,

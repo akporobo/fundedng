@@ -146,6 +146,7 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
         .update({
           current_phase: 2,
           current_equity: startingBalance,
+          peak_equity: startingBalance,
           phase1_passed_at: new Date().toISOString(),
           phase2_requested_at: null,
           status: "active",
@@ -210,6 +211,7 @@ export const approveFundedServer = createServerFn({ method: "POST" })
         .update({
           status: "funded",
           current_equity: startingBalance,
+          peak_equity: startingBalance,
           phase2_passed_at: new Date().toISOString(),
           funded_at: new Date().toISOString(),
           funded_requested_at: null,
