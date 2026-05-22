@@ -109,6 +109,9 @@ function AdminConsole() {
   const [breachTarget, setBreachTarget] = useState<any | null>(null);
   const [breachReason, setBreachReason] = useState("");
   const [breaching, setBreaching] = useState(false);
+  const [warnTarget, setWarnTarget] = useState<any | null>(null);
+  const [warnReason, setWarnReason] = useState("");
+  const [warning, setWarning] = useState(false);
   // Reject phase request dialog
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -956,6 +959,11 @@ function AdminConsole() {
     setBreachReason("");
   };
 
+  const openWarningDialog = (account: any) => {
+    setWarnTarget(account);
+    setWarnReason("");
+  };
+
   const openRejectDialog = (account: any, type: "phase2" | "funded") => {
     setRejectTarget(account);
     setRejectType(type);
@@ -1028,6 +1036,26 @@ function AdminConsole() {
       load();
     } finally {
       setBreaching(false);
+    }
+  };
+
+  const submitWarning = async () => {
+    if (!warnTarget) return;
+    const reason = warnReason.trim();
+    if (reason.length < 3) { toast.error("Please write a warning reason (min 3 chars)."); return; }
+    setWarning(true);
+    try {
+      await supabase.from("notifications").insert({
+        user_id: warnTarget.user_id,
+        title: "⚠️ Trading Warning",
+        message: `Warning for account ${warnTarget.mt5_login}: ${reason}`,
+        type: "warning",
+      } as never);
+      toast.success("Warning sent to trader.");
+      setWarnTarget(null);
+      setWarnReason("");
+    } finally {
+      setWarning(false);
     }
   };
 
@@ -1262,6 +1290,7 @@ function AdminConsole() {
                           );
                       })()
                     )}
+                    <Button size="sm" variant="outline" onClick={() => openWarningDialog(a)}>Warning</Button>
                     <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
                   </div>
                 </div>
@@ -2197,6 +2226,37 @@ function AdminConsole() {
             </Button>
             <Button variant="destructive" onClick={submitBreach} disabled={breaching || !breachReason.trim()}>
               {breaching ? "Breaching…" : "Breach Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!warnTarget} onOpenChange={(o) => !warning && !o && setWarnTarget(null)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Warning</DialogTitle>
+            <DialogDescription>
+              Send a warning to {warnTarget?.profiles?.full_name ?? "trader"} ({warnTarget?.mt5_login}) about their trading activities.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="warn-reason">Warning message</Label>
+              <Textarea
+                id="warn-reason"
+                placeholder="Describe the concerning trading activity..."
+                value={warnReason}
+                onChange={(e) => setWarnReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setWarnTarget(null); setWarnReason(""); }} disabled={warning}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={submitWarning} disabled={warning || !warnReason.trim()}>
+              {warning ? "Sending…" : "Send Warning"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -515,6 +515,21 @@ function DashboardPage() {
                     </Alert>
                   )}
 
+                  {notifications.filter((n) => n.type === "warning" && !n.is_read).map((w) => (
+                    <Alert key={w.id} variant="default" className="border-warning/50 bg-warning/5">
+                      <ShieldAlert className="h-4 w-4 text-warning" />
+                      <AlertDescription>
+                        <span className="font-display font-semibold text-warning">⚠️ Trading Warning</span>
+                        <p className="mt-1 text-sm">{w.message}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
+                        <Button size="sm" variant="outline" className="mt-3 h-7 text-xs" onClick={async () => {
+                          await supabase.from("notifications").update({ is_read: true } as never).eq("id", w.id);
+                          setNotifications((prev) => prev.map((x) => x.id === w.id ? { ...x, is_read: true } : x));
+                        }}>Noted</Button>
+                      </AlertDescription>
+                    </Alert>
+                  ))}
+
                   {selected.phase_rejected_reason && selected.status !== "breached" && (
                     <Alert variant="destructive">
                       <ShieldAlert className="h-4 w-4" />
