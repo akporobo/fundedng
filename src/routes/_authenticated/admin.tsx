@@ -1046,12 +1046,13 @@ function AdminConsole() {
     if (reason.length < 3) { toast.error("Please write a warning reason (min 3 chars)."); return; }
     setWarning(true);
     try {
-      await supabase.from("notifications").insert({
+      const { error } = await supabase.from("notifications").insert({
         user_id: warnTarget.user_id,
         title: "⚠️ Trading Warning",
         message: `Warning for account ${warnTarget.mt5_login}: ${reason}`,
         type: "warning",
       } as never);
+      if (error) { toast.error(error.message); return; }
       toast.success("Warning sent to trader.");
       setWarnTarget(null);
       setWarnReason("");
