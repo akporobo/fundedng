@@ -524,7 +524,7 @@ function DashboardPage() {
                         <p className="mt-1 text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
                         <Button size="sm" variant="outline" className="mt-3 h-7 text-xs" onClick={async () => {
                           await supabase.from("notifications").update({ is_read: true } as never).eq("id", w.id);
-                          setNotifications((prev) => prev.map((x) => x.id === w.id ? { ...x, is_read: true } : x));
+                          setNotifications((prev) => prev.filter((x) => x.id !== w.id));
                         }}>Noted</Button>
                       </AlertDescription>
                     </Alert>
