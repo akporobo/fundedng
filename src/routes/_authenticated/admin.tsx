@@ -790,7 +790,8 @@ function AdminConsole() {
       toast.error("Login, password and server are required");
       return;
     }
-    if (!session?.access_token) {
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session?.access_token) {
       toast.error("Please sign in again");
       return;
     }
@@ -800,7 +801,7 @@ function AdminConsole() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${sess.session.access_token}`,
         },
         body: JSON.stringify({
           order_id: deliverFor.order_id,

@@ -104,6 +104,7 @@ export function PendingAccounts({ userId }: { userId: string }) {
       order_id: openTicketFor.id,
       subject: subject.trim() || "Account login request",
       message: message.trim(),
+      category: "Other",
     } as never);
     setSubmitting(false);
     if (error) return toast.error(error.message);

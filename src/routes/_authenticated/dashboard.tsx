@@ -515,7 +515,7 @@ function DashboardPage() {
                     </Alert>
                   )}
 
-                  {notifications.filter((n) => n.type === "warning" && !n.is_read).map((w) => (
+                  {notifications.filter((n) => n.type === "warning").map((w) => (
                     <Alert key={w.id} variant="default" className="border-warning/50 bg-warning/5">
                       <ShieldAlert className="h-4 w-4 text-warning" />
                       <AlertDescription>
