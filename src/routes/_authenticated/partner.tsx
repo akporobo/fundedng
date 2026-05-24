@@ -156,12 +156,21 @@ function PartnerPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="font-display text-base font-bold">🎁 Free 1M Elite Partnership Account</div>
-            <p className="mt-1 text-sm text-muted-foreground">Every partner gets one free ₦1,000,000 Elite challenge account. Request below and admin will deliver your MT5 credentials.</p>
+            <p className="mt-1 text-sm text-muted-foreground">After 5 referral purchases, you unlock a free ₦1,000,000 Elite challenge account. You have <span className="font-semibold text-foreground">{purchases}/5</span> purchases.</p>
           </div>
           {freeAccounts.length === 0 ? (
-            <Button onClick={claimFreeAccount} disabled={claiming} className="font-display">
-              <Gift className="mr-1 h-4 w-4" />{claiming ? "Requesting..." : "Request 1M Account"}
-            </Button>
+            purchases >= 5 ? (
+              <Button onClick={claimFreeAccount} disabled={claiming} className="font-display">
+                <Gift className="mr-1 h-4 w-4" />{claiming ? "Requesting..." : "Request 1M Account"}
+              </Button>
+            ) : (
+              <div className="text-right">
+                <Button disabled className="font-display opacity-50">
+                  <Gift className="mr-1 h-4 w-4" />Request 1M Account
+                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">{5 - purchases} more purchase(s) needed</p>
+              </div>
+            )
           ) : (
             <Badge variant="outline" className="capitalize">{freeAccounts[0].status}</Badge>
           )}

@@ -213,15 +213,27 @@ function BuyPage() {
     const code = promoCode.trim().toUpperCase();
     if (!code) return setPromoDiscount(null);
     if (!selected) return toast.error("Select a challenge first");
+
     const { data, error } = await supabase.rpc("validate_discount_code" as any, { _code: code, _challenge_id: selected.id });
     const row = Array.isArray(data) ? data[0] : null;
-    if (error || !row) {
-      setPromoDiscount(null);
-      toast.error("Promo code is invalid or expired");
+    if (!error && row) {
+      setPromoDiscount({ code: row.code, percent: Number(row.percent_off) });
+      toast.success(`${row.percent_off}% discount applied`);
       return;
     }
-    setPromoDiscount({ code: row.code, percent: Number(row.percent_off) });
-    toast.success(`${row.percent_off}% discount applied`);
+
+    if (!partnerCode) {
+      const { data: partnerValid } = await supabase.rpc("validate_partner_code" as any, { _code: code });
+      if (partnerValid) {
+        setPromoDiscount(null);
+        setPartnerCode(code);
+        toast.success("Partner code applied: 15% off");
+        return;
+      }
+    }
+
+    setPromoDiscount(null);
+    toast.error("Promo code is invalid or expired");
   };
 
   const partnerDiscountPercent = partnerCode ? 15 : 0;
