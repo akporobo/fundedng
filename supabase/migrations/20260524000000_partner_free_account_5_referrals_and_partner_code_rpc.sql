@@ -91,3 +91,31 @@ AS $$
       AND is_active = true
   )
 $$;
+
+-- 3. RPC to delete a partner (admin only)
+CREATE OR REPLACE FUNCTION public.delete_partner_role(_partner_profile_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+DECLARE
+  uid uuid;
+BEGIN
+  IF NOT has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Admin only'; END IF;
+
+  SELECT user_id INTO uid FROM public.partner_profiles WHERE id = _partner_profile_id;
+  IF uid IS NULL THEN RAISE EXCEPTION 'Partner not found'; END IF;
+
+  DELETE FROM public.partner_clicks WHERE partner_id = uid;
+  DELETE FROM public.partner_referrals WHERE partner_id = uid;
+  DELETE FROM public.partner_payouts WHERE partner_id = uid;
+  DELETE FROM public.partner_free_accounts WHERE partner_id = uid;
+
+  UPDATE public.profiles SET partner_referred_by = NULL WHERE partner_referred_by = uid;
+
+  DELETE FROM public.partner_profiles WHERE id = _partner_profile_id;
+
+  DELETE FROM public.user_roles WHERE user_id = uid AND role = 'partner';
+END;
+$$;

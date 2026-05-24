@@ -1264,7 +1264,9 @@ export type Database = {
       claim_admin_if_unclaimed: { Args: never; Returns: boolean }
       claim_free_account: { Args: never; Returns: string }
       claim_partner_free_account: { Args: never; Returns: string }
+      delete_partner_role: { Args: { _partner_profile_id: string }; Returns: undefined }
       gen_partner_promo_code: { Args: { _full_name: string }; Returns: string }
+      validate_partner_code: { Args: { _code: string }; Returns: boolean }
       generate_affiliate_code: { Args: never; Returns: string }
       get_affiliate_claimable_batch: {
         Args: { p_affiliate_id: string }

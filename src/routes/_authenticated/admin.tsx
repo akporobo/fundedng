@@ -526,6 +526,16 @@ function AdminConsole() {
     loadPartners();
   };
 
+  const deletePartner = async (p: any) => {
+    if (!confirm(`Delete partner ${p.profiles?.full_name ?? p.promo_code}? This cannot be undone.`)) return;
+    setPartnerSaving(p.id);
+    const { error } = await supabase.rpc("delete_partner_role" as any, { _partner_profile_id: p.id });
+    setPartnerSaving(null);
+    if (error) return toast.error(error.message);
+    toast.success("Partner deleted");
+    loadPartners();
+  };
+
   const setPartnerPayoutStatus = async (id: string, status: "approved" | "paid" | "rejected") => {
     setPartnerSaving(id);
     const { error } = await supabase.from("partner_payouts").update({ status } as never).eq("id", id);
@@ -1838,6 +1848,9 @@ function AdminConsole() {
                             </Button>
                             <Button size="sm" variant={p.is_active ? "outline" : "default"} onClick={() => togglePartnerActive(p)} disabled={partnerSaving === p.id}>
                               {p.is_active ? "Deactivate" : "Activate"}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => deletePartner(p)} disabled={partnerSaving === p.id}>
+                              Delete
                             </Button>
                           </div>
                         </div>
