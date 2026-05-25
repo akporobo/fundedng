@@ -17,6 +17,7 @@ import { verifyKycServer } from "@/server/kyc.functions";
 import { notifyEmail } from "@/lib/notify-email";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { ArrowLeft } from "lucide-react";
+import { generateFundedCertificate, generatePayoutCertificate } from "@/components/certificates/certificateGenerator";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -833,13 +834,22 @@ function AdminConsole() {
     }
   };
 
-  const updatePayout = async (id: string, status: "approved" | "paid" | "rejected") => {
-    const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", id);
+  const updatePayout = async (p: any, status: "approved" | "paid" | "rejected") => {
+    const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", p.id);
     if (error) return toast.error(error.message);
     toast.success(`Payout ${status}`);
-    if (status === "approved") notifyEmail({ type: "payout_approved", payoutId: id });
-    if (status === "paid") notifyEmail({ type: "payout_paid", payoutId: id });
-    if (status === "rejected") notifyEmail({ type: "payout_rejected", payoutId: id, reason: "Rejected by admin." });
+    if (status === "approved") notifyEmail({ type: "payout_approved", payoutId: p.id });
+    if (status === "paid") {
+      notifyEmail({ type: "payout_paid", payoutId: p.id });
+      generatePayoutCertificate({
+        traderName: p.profiles?.full_name ?? "Trader",
+        amount: p.amount_naira,
+        date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }),
+        method: p.payment_method === "usdt" ? "USDT" : "Bank Transfer",
+        payoutId: p.id,
+      });
+    }
+    if (status === "rejected") notifyEmail({ type: "payout_rejected", payoutId: p.id, reason: "Rejected by admin." });
     load();
   };
 
@@ -912,6 +922,11 @@ function AdminConsole() {
     } as never);
     toast.success("Account funded");
     notifyEmail({ type: "funded", accountId: a.id });
+    generateFundedCertificate({
+      traderName: a.profiles?.full_name ?? "Trader",
+      date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }),
+      accountSize: a.starting_balance,
+    });
     load();
   };
 
@@ -1177,9 +1192,9 @@ function AdminConsole() {
                 <div className="font-display font-bold text-primary">{formatNaira(p.amount_naira)}</div>
                 <Badge variant="outline" className="font-display">{p.status.toUpperCase()}</Badge>
                 <div className="flex gap-2">
-                  {p.status === "pending" && <Button size="sm" onClick={() => updatePayout(p.id, "approved")}>Approve</Button>}
-                  {p.status === "approved" && <Button size="sm" onClick={() => updatePayout(p.id, "paid")}>Mark Paid</Button>}
-                  {p.status === "pending" && <Button size="sm" variant="outline" onClick={() => updatePayout(p.id, "rejected")}>Reject</Button>}
+                  {p.status === "pending" && <Button size="sm" onClick={() => updatePayout(p, "approved")}>Approve</Button>}
+                  {p.status === "approved" && <Button size="sm" onClick={() => updatePayout(p, "paid")}>Mark Paid</Button>}
+                  {p.status === "pending" && <Button size="sm" variant="outline" onClick={() => updatePayout(p, "rejected")}>Reject</Button>}
                 </div>
               </div>
             ))}

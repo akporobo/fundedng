@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Download, FileImage, FileText, BarChart3 } from "lucide-react";
+import { Download, FileImage, FileText, BarChart3, Printer } from "lucide-react";
 import { formatNaira } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { generateFundedCertificate, generatePayoutCertificate } from "./certificateGenerator";
 
 export interface Certificate {
   id: string;
@@ -432,6 +433,25 @@ export function CertificateCard({ cert }: { cert: Certificate }) {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={downloadPng}>
               <FileImage className="mr-2 h-4 w-4" /> PNG image
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              if (isPayout) {
+                generatePayoutCertificate({
+                  traderName: cert.full_name,
+                  amount: cert.payout_amount ?? 0,
+                  date: dateStr,
+                  method: "Bank Transfer",
+                  payoutId: cert.certificate_number,
+                });
+              } else {
+                generateFundedCertificate({
+                  traderName: cert.full_name,
+                  date: dateStr,
+                  accountSize: cert.account_size,
+                });
+              }
+            }}>
+              <Printer className="mr-2 h-4 w-4" /> Print certificate
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
