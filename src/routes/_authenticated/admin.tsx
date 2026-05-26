@@ -204,12 +204,13 @@ function AdminConsole() {
   };
 
   const load = async () => {
-    const [pr, ord, accRaw, poRaw, req] = await Promise.all([
+    const [pr, ord, accRaw, poRaw, req, breachedRes] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("orders").select("amount_paid,status,challenge_id"),
       supabase.from("trader_accounts").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").order("created_at", { ascending: false }),
       supabase.from("account_requests").select("*").in("status", ["pending", "failed"]).order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("id", { count: "exact", head: true }).eq("status", "breached"),
     ]);
     if (accRaw.error) console.error("[admin] trader_accounts load failed:", accRaw.error);
     if (poRaw.error) console.error("[admin] payouts load failed:", poRaw.error);
@@ -318,7 +319,7 @@ function AdminConsole() {
       funded: accList.filter((a) => a.status === "funded").length,
       active: accList.filter((a) => a.status === "active").length,
       passed: accList.filter((a) => a.status === "passed").length,
-      breached: accList.filter((a) => a.status === "breached").length,
+      breached: breachedRes.count ?? 0,
       pending: poList.filter((p) => p.status === "pending").length,
       revenue: ordersList
         .filter((o) => o.status === "paid" || o.status === "delivered")
