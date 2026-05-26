@@ -869,6 +869,31 @@ function AdminConsole() {
     }
   };
 
+  const deleteRequest = async (req: any) => {
+    if (!confirm(`Delete this pending request for ${req.profiles?.full_name ?? "trader"}? This will also cancel the order.`)) return;
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session?.access_token) {
+      toast.error("Please sign in again");
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/delete-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sess.session.access_token}`,
+        },
+        body: JSON.stringify({ request_id: req.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Delete failed");
+      toast.success("Request deleted");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Delete failed");
+    }
+  };
+
   const updatePayout = async (p: any, status: "approved" | "paid" | "rejected") => {
     const { error } = await supabase.from("payouts").update({ status, processed_at: new Date().toISOString() }).eq("id", p.id);
     if (error) return toast.error(error.message);
@@ -1211,6 +1236,9 @@ function AdminConsole() {
                   </Badge>
                   <Button size="sm" onClick={() => openDeliver(r)}>
                     Deliver manually
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => deleteRequest(r)}>
+                    Delete
                   </Button>
                 </div>
                 {r.failure_reason && (

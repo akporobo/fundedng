@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
+import { claimPoolAccount } from "@/lib/account-pool.server";
 
 /**
  * Server-side Paystack initialization for the redirect/standard checkout flow.
@@ -142,11 +143,39 @@ export const Route = createFileRoute("/api/initialize-payment")({
               await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
             }
 
+            // Auto-deliver from pool for free orders too
+            const poolResult = await claimPoolAccount({
+              orderId: order.id,
+              accountSizeNgn: challenge.account_size,
+              challengeId: challenge.id,
+              userId: user.id,
+            }).catch((e) => {
+              console.error("[initialize-payment] claimPoolAccount threw", e);
+              return null;
+            });
+
+            const { data: prof } = await supabaseAdmin
+              .from("profiles")
+              .select("full_name")
+              .eq("id", user.id)
+              .maybeSingle();
+            const traderName = prof?.full_name || user.email || "A trader";
+
+            if (poolResult?.ok) {
+              await supabaseAdmin.rpc("send_telegram" as never, {
+                p_message: `✅ <b>Free Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
+              } as never).catch((e) => console.error("[initialize-payment] telegram send failed", e));
+            } else {
+              await supabaseAdmin.rpc("send_telegram" as never, {
+                p_message: `⏳ <b>Free Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
+              } as never).catch((e) => console.error("[initialize-payment] telegram send failed", e));
+            }
+
             await sendEventEmail({ type: "purchase_confirmed", orderId: order.id }).catch((e) =>
               console.error("[initialize-payment] email send failed", e),
             );
 
-            return Response.json({ ok: true, free: true, order_id: order.id, reference });
+            return Response.json({ ok: true, free: true, order_id: order.id, reference, auto_delivered: poolResult?.ok ?? false });
           }
 
           const paystackSecret = process.env.PAYSTACK_SECRET_KEY;

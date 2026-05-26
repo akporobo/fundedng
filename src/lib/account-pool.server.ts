@@ -158,7 +158,18 @@ export async function claimPoolAccount(args: {
       .update({ status: "delivered" })
       .eq("id", args.orderId);
 
-    // 6. Send welcome notification to trader
+    // 6. Mark account_request as fulfilled (so it doesn't show in admin pending tab)
+    await supabaseAdmin
+      .from("account_requests")
+      .update({
+        status: "fulfilled",
+        fulfilled_at: new Date().toISOString(),
+        claimed_by: "pool",
+        provider_response: { login: poolRow.mt5_login, server: poolRow.mt5_server },
+      })
+      .eq("order_id", args.orderId);
+
+    // 7. Send welcome notification to trader
     await supabaseAdmin
       .from("notifications")
       .insert({
@@ -168,7 +179,7 @@ export async function claimPoolAccount(args: {
         type: "welcome",
       });
 
-    // 7. Check if stock is low for this size
+    // 8. Check if stock is low for this size
     const { count: remaining } = await supabaseAdmin
       .from("account_pool")
       .select("id", { count: "exact", head: true })

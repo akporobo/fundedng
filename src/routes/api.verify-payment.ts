@@ -167,6 +167,16 @@ export const Route = createFileRoute("/api/verify-payment")({
              return null;
            });
 
+           // Fetch profile for Telegram / logs
+           const { data: prof } = await supabaseAdmin
+             .from("profiles")
+             .select("full_name")
+             .eq("id", userId)
+             .maybeSingle();
+           const traderName = prof?.full_name || "A trader";
+           const chName = challenge.name;
+           const chSize = challenge.account_size;
+
            if (poolResult?.ok) {
              await sendEventEmail({
                type: "mt5_delivered",
@@ -175,10 +185,18 @@ export const Route = createFileRoute("/api/verify-payment")({
                mt5Password: poolResult.mt5Password,
                mt5Server: poolResult.mt5Server,
              }).catch((e) => console.error("[verify-payment] delivery email failed", e));
+
+             await supabaseAdmin.rpc("send_telegram" as never, {
+               p_message: `✅ <b>New Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ₦${chSize?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
+             } as never).catch((e) => console.error("[verify-payment] telegram send failed", e));
            } else {
              // Pool empty or error — order stays "paid" for manual delivery.
              // claimPoolAccount already notified admins. Still send purchase receipt.
              console.warn("[verify-payment] pool claim failed", poolResult?.error ?? "unexpected");
+
+             await supabaseAdmin.rpc("send_telegram" as never, {
+               p_message: `⏳ <b>New Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ₦${chSize?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
+             } as never).catch((e) => console.error("[verify-payment] telegram send failed", e));
            }
 
            // Send purchase confirmed email
