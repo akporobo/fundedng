@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
+import { claimPoolAccount } from "@/lib/account-pool.server";
 
 /**
  * Server-side Paystack verification.
@@ -155,12 +156,37 @@ export const Route = createFileRoute("/api/verify-payment")({
              await supabaseAdmin.rpc("increment_discount_redemption" as never, { _code: discountCode } as never);
            }
 
+           // ---- 7. Try to deliver from pool automatically ----
+           const poolResult = await claimPoolAccount({
+             orderId: order.id,
+             accountSizeNgn: challenge.account_size,
+             challengeId: challenge.id,
+             userId,
+           }).catch((e) => {
+             console.error("[verify-payment] claimPoolAccount threw", e);
+             return null;
+           });
+
+           if (poolResult?.ok) {
+             await sendEventEmail({
+               type: "mt5_delivered",
+               orderId: order.id,
+               mt5Login: poolResult.mt5Login,
+               mt5Password: poolResult.mt5Password,
+               mt5Server: poolResult.mt5Server,
+             }).catch((e) => console.error("[verify-payment] delivery email failed", e));
+           } else {
+             // Pool empty or error — order stays "paid" for manual delivery.
+             // claimPoolAccount already notified admins. Still send purchase receipt.
+             console.warn("[verify-payment] pool claim failed", poolResult?.error ?? "unexpected");
+           }
+
            // Send purchase confirmed email
            await sendEventEmail({ type: "purchase_confirmed", orderId: order.id }).catch((e) =>
-             console.error("[verify-payment] email send failed", e),
+             console.error("[verify-payment] purchase email failed", e),
            );
 
-           return Response.json({ ok: true, order_id: order.id });
+           return Response.json({ ok: true, order_id: order.id, auto_delivered: poolResult?.ok ?? false });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Verification failed";
           console.error("[verify-payment] unexpected", msg);
