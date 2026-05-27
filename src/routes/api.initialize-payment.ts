@@ -110,7 +110,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
             }
           }
 
-          const discountPercent = Math.max(promoPercent, partnerPercent);
+          const discountPercent = promoPercent > 0 ? promoPercent : partnerPercent;
           const discountAmountNaira = Math.floor(originalAmountNaira * discountPercent / 100);
           const amountKobo = Math.max(0, originalAmountNaira - discountAmountNaira) * 100;
 

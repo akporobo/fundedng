@@ -1391,6 +1391,9 @@ function AdminConsole() {
                     )}
                     <Button size="sm" variant="outline" onClick={() => openWarningDialog(a)}>Warning</Button>
                     <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
+                    <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => setViewCredsFor(a)}>
+                      <Eye className="mr-1 h-3.5 w-3.5" />Credentials
+                    </Button>
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-background p-3">

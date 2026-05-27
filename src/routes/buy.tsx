@@ -239,7 +239,7 @@ function BuyPage() {
   const partnerDiscountPercent = partnerCode ? 15 : 0;
   const promoDiscountPercent = promoDiscount?.percent ?? 0;
   const challengeDiscountPercent = selected?.discount_percent ?? 0;
-  const discountPercent = Math.max(partnerDiscountPercent, promoDiscountPercent, challengeDiscountPercent);
+  const discountPercent = promoDiscountPercent > 0 ? promoDiscountPercent : (partnerDiscountPercent > 0 ? partnerDiscountPercent : challengeDiscountPercent);
   const discountAmount = selected ? Math.floor(Number(selected.price_naira) * discountPercent / 100) : 0;
   const payable = selected ? Math.max(0, Number(selected.price_naira) - discountAmount) : 0;
 
