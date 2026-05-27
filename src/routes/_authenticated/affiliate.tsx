@@ -142,7 +142,7 @@ function AffiliatePage() {
 
       {/* Stats */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat icon={Users} label="Referrals" value={referrals.length.toString()} sub={`${paidReferrals} paid`} />
+        <Stat icon={Users} label="Paid Referrals" value={paidReferrals.toString()} sub={`${referrals.length} total referred`} />
         <Stat icon={Wallet} label="Available" value={formatNaira(Math.max(0, balance))} sub="Min ₦5,000 to withdraw" />
         <Stat icon={Send} label="Total earned" value={formatNaira(ap?.total_earned_naira ?? 0)} sub={`Paid: ${formatNaira(ap?.total_paid_naira ?? 0)}`} />
         <Stat icon={Gift} label="Free 200k accounts" value={`${freeAvailable}`} sub={`${ap?.free_accounts_claimed ?? 0} claimed · 5 per 5 referrals`} />

@@ -35,6 +35,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authenticated/community.index'
 import { Route as ApiPublicPushEventRouteImport } from './routes/api.public.push-event'
 import { Route as ApiAdminPoolRouteImport } from './routes/api.admin.pool'
+import { Route as ApiAdminDeleteRequestRouteImport } from './routes/api.admin.delete-request'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
 
@@ -168,6 +169,11 @@ const ApiAdminPoolRoute = ApiAdminPoolRouteImport.update({
   path: '/api/admin/pool',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminDeleteRequestRoute = ApiAdminDeleteRequestRouteImport.update({
+  id: '/api/admin/delete-request',
+  path: '/api/admin/delete-request',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCommunitySlugRoute =
   AuthenticatedCommunitySlugRouteImport.update({
     id: '/$slug',
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/payment/callback': typeof PaymentCallbackRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
@@ -232,6 +239,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/payment/callback': typeof PaymentCallbackRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
@@ -263,6 +271,7 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/payment/callback': typeof PaymentCallbackRoute
   '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
+  '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/payment/callback'
     | '/community/$slug'
+    | '/api/admin/delete-request'
     | '/api/admin/pool'
     | '/api/public/push-event'
     | '/community/'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/payment/callback'
     | '/community/$slug'
+    | '/api/admin/delete-request'
     | '/api/admin/pool'
     | '/api/public/push-event'
     | '/community'
@@ -352,6 +363,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/payment/callback'
     | '/_authenticated/community/$slug'
+    | '/api/admin/delete-request'
     | '/api/admin/pool'
     | '/api/public/push-event'
     | '/_authenticated/community/'
@@ -375,6 +387,7 @@ export interface RootRouteChildren {
   AuthRegisterRoute: typeof AuthRegisterRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   PaymentCallbackRoute: typeof PaymentCallbackRoute
+  ApiAdminDeleteRequestRoute: typeof ApiAdminDeleteRequestRoute
   ApiAdminPoolRoute: typeof ApiAdminPoolRoute
   ApiPublicPushEventRoute: typeof ApiPublicPushEventRoute
   ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
@@ -564,6 +577,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminPoolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/delete-request': {
+      id: '/api/admin/delete-request'
+      path: '/api/admin/delete-request'
+      fullPath: '/api/admin/delete-request'
+      preLoaderRoute: typeof ApiAdminDeleteRequestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/community/$slug': {
       id: '/_authenticated/community/$slug'
       path: '/$slug'
@@ -638,6 +658,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRegisterRoute: AuthRegisterRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   PaymentCallbackRoute: PaymentCallbackRoute,
+  ApiAdminDeleteRequestRoute: ApiAdminDeleteRequestRoute,
   ApiAdminPoolRoute: ApiAdminPoolRoute,
   ApiPublicPushEventRoute: ApiPublicPushEventRoute,
   ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,

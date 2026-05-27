@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
 import { notifyEmail } from "@/lib/notify-email";
 import { RefreshButton } from "@/components/ui/refresh-button";
-import { ArrowLeft, AlertTriangle, Plus, Archive, Box } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Plus, Archive, Box, Eye } from "lucide-react";
 import { generateFundedCertificate, generatePayoutCertificate } from "@/components/certificates/certificateGenerator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -128,6 +128,8 @@ function AdminConsole() {
   const [poolLoading, setPoolLoading] = useState(false);
   const [poolFormOpen, setPoolFormOpen] = useState(false);
   const [poolSaving, setPoolSaving] = useState(false);
+  const [viewCredsFor, setViewCredsFor] = useState<any | null>(null);
+
   const [poolForm, setPoolForm] = useState({
     mt5_login: "", mt5_password: "", investor_password: "",
     mt5_server: "Exness-MT5Trial9", account_size_ngn: "", notes: "",
@@ -480,15 +482,16 @@ function AdminConsole() {
       };
     });
 
-    stats.sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
-    setAffiliateStats(stats);
+    const filtered = stats.filter((a: any) => a.paidReferralCount > 0 || a.ordersCount > 0);
+    filtered.sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
+    setAffiliateStats(filtered);
     setAffiliateSummary({
-      total: stats.length,
-      referrals: stats.reduce((s: number, a: any) => s + a.referralCount, 0),
-      earned: stats.reduce((s: number, a: any) => s + Number(a.total_earned_naira), 0),
-      paid: stats.reduce((s: number, a: any) => s + Number(a.total_paid_naira), 0),
-      pending: stats.reduce((s: number, a: any) => s + a.pendingCommissions, 0),
-      revenue: stats.reduce((s: number, a: any) => s + a.totalRevenue, 0),
+      total: filtered.length,
+      referrals: filtered.reduce((s: number, a: any) => s + a.paidReferralCount, 0),
+      earned: filtered.reduce((s: number, a: any) => s + Number(a.total_earned_naira), 0),
+      paid: filtered.reduce((s: number, a: any) => s + Number(a.total_paid_naira), 0),
+      pending: filtered.reduce((s: number, a: any) => s + a.pendingCommissions, 0),
+      revenue: filtered.reduce((s: number, a: any) => s + a.totalRevenue, 0),
     });
   };
   useEffect(() => { loadAffiliate(); }, []);
@@ -2120,34 +2123,44 @@ function AdminConsole() {
                             {a.notes ?? "—"}
                           </TableCell>
                           <TableCell>
-                            {a.status === "available" && (
+                            <div className="flex items-center gap-1">
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                                onClick={async () => {
-                                  const { data: { session } } = await supabase.auth.getSession();
-                                  if (!session?.access_token) return;
-                                  const res = await fetch("/api/admin/pool", {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                      Authorization: `Bearer ${session.access_token}`,
-                                    },
-                                    body: JSON.stringify({ action: "archive", id: a.id }),
-                                  });
-                                  const json = await res.json();
-                                  if (json.ok) {
-                                    toast.success("Account archived");
-                                    loadPool();
-                                  } else {
-                                    toast.error(json.error ?? "Failed to archive");
-                                  }
-                                }}
+                                className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                                onClick={() => setViewCredsFor(a)}
                               >
-                                <Archive className="h-3.5 w-3.5" />
+                                <Eye className="h-3.5 w-3.5" />
                               </Button>
-                            )}
+                              {a.status === "available" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                                  onClick={async () => {
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    if (!session?.access_token) return;
+                                    const res = await fetch("/api/admin/pool", {
+                                      method: "POST",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${session.access_token}`,
+                                      },
+                                      body: JSON.stringify({ action: "archive", id: a.id }),
+                                    });
+                                    const json = await res.json();
+                                    if (json.ok) {
+                                      toast.success("Account archived");
+                                      loadPool();
+                                    } else {
+                                      toast.error(json.error ?? "Failed to archive");
+                                    }
+                                  }}
+                                >
+                                  <Archive className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -2159,6 +2172,43 @@ function AdminConsole() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* View pool account credentials */}
+      <Dialog open={!!viewCredsFor} onOpenChange={(o) => !o && setViewCredsFor(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>MT5 Credentials</DialogTitle>
+            <DialogDescription>
+              Login: <span className="font-mono font-medium text-foreground">{viewCredsFor?.mt5_login}</span>
+            </DialogDescription>
+          </DialogHeader>
+          {viewCredsFor && (
+            <div className="grid gap-3">
+              <div className="grid gap-1">
+                <Label className="text-xs text-muted-foreground">Server</Label>
+                <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">
+                  {viewCredsFor.mt5_server}
+                </div>
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-xs text-muted-foreground">Master Password</Label>
+                <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">
+                  {viewCredsFor.mt5_password}
+                </div>
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-xs text-muted-foreground">Investor Password</Label>
+                <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">
+                  {viewCredsFor.investor_password}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewCredsFor(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit partner commission rate dialog */}
       <Dialog open={!!editingPartner} onOpenChange={(o) => !o && setEditingPartner(null)}>
