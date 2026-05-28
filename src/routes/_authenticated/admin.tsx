@@ -277,13 +277,20 @@ function AdminConsole() {
     const tradingDaysMap = new Map<string, number>();
     const snapRows = (snapRes.data ?? []) as any[];
     if (snapRows.length > 0) {
-      const daySets = new Map<string, Set<string>>();
+      const firstLast = new Map<string, { first: number; last: number }>();
       for (const s of snapRows) {
-        const day = s.snapshot_time.slice(0, 10);
-        if (!daySets.has(s.trader_account_id)) daySets.set(s.trader_account_id, new Set());
-        daySets.get(s.trader_account_id)!.add(day);
+        const t = new Date(s.snapshot_time).getTime();
+        const cur = firstLast.get(s.trader_account_id);
+        if (!cur) {
+          firstLast.set(s.trader_account_id, { first: t, last: t });
+        } else {
+          if (t < cur.first) cur.first = t;
+          if (t > cur.last) cur.last = t;
+        }
       }
-      for (const [id, days] of daySets) tradingDaysMap.set(id, days.size);
+      for (const [id, { first, last }] of firstLast) {
+        tradingDaysMap.set(id, Math.floor((last - first) / (24 * 60 * 60 * 1000)) + 1);
+      }
     }
 
     const accList = accRows.map((a) => ({

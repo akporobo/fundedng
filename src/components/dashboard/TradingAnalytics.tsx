@@ -48,8 +48,11 @@ function getDailyPL(snapshots: Snapshot[]) {
 }
 
 function getDaysTraded(snapshots: Snapshot[]) {
-  const days = new Set(snapshots.map((s) => s.snapshot_time.slice(0, 10)));
-  return days.size;
+  if (snapshots.length === 0) return 0;
+  const first = new Date(snapshots[0].snapshot_time).getTime();
+  const last = new Date(snapshots[snapshots.length - 1].snapshot_time).getTime();
+  const elapsed = last - first;
+  return Math.floor(elapsed / (24 * 60 * 60 * 1000)) + 1;
 }
 
 function getPeakDrawdown(snapshots: Snapshot[], startingBalance: number) {

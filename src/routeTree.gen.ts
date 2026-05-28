@@ -39,6 +39,7 @@ import { Route as ApiAdminDeleteRequestRouteImport } from './routes/api.admin.de
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
 import { Route as ApiPublicCronSyncEquityV2RouteImport } from './routes/api.public.cron.sync-equity-v2'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
+import { Route as ApiPublicCronHandleScalpingRouteImport } from './routes/api.public.cron.handle-scalping'
 
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
@@ -192,6 +193,12 @@ const ApiPublicCronSyncEquityRoute = ApiPublicCronSyncEquityRouteImport.update({
   path: '/api/public/cron/sync-equity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronHandleScalpingRoute =
+  ApiPublicCronHandleScalpingRouteImport.update({
+    id: '/api/public/cron/handle-scalping',
+    path: '/api/public/cron/handle-scalping',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
+  '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -251,6 +259,7 @@ export interface FileRoutesByTo {
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
+  '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -284,6 +293,7 @@ export interface FileRoutesById {
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
+  '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -317,6 +327,7 @@ export interface FileRouteTypes {
     | '/api/admin/pool'
     | '/api/public/push-event'
     | '/community/'
+    | '/api/public/cron/handle-scalping'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   fileRoutesByTo: FileRoutesByTo
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/api/admin/pool'
     | '/api/public/push-event'
     | '/community'
+    | '/api/public/cron/handle-scalping'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   id:
@@ -379,6 +391,7 @@ export interface FileRouteTypes {
     | '/api/admin/pool'
     | '/api/public/push-event'
     | '/_authenticated/community/'
+    | '/api/public/cron/handle-scalping'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   fileRoutesById: FileRoutesById
@@ -403,6 +416,7 @@ export interface RootRouteChildren {
   ApiAdminDeleteRequestRoute: typeof ApiAdminDeleteRequestRoute
   ApiAdminPoolRoute: typeof ApiAdminPoolRoute
   ApiPublicPushEventRoute: typeof ApiPublicPushEventRoute
+  ApiPublicCronHandleScalpingRoute: typeof ApiPublicCronHandleScalpingRoute
   ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
   ApiPublicCronSyncEquityV2Route: typeof ApiPublicCronSyncEquityV2Route
 }
@@ -619,6 +633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronSyncEquityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/handle-scalping': {
+      id: '/api/public/cron/handle-scalping'
+      path: '/api/public/cron/handle-scalping'
+      fullPath: '/api/public/cron/handle-scalping'
+      preLoaderRoute: typeof ApiPublicCronHandleScalpingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -682,6 +703,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminDeleteRequestRoute: ApiAdminDeleteRequestRoute,
   ApiAdminPoolRoute: ApiAdminPoolRoute,
   ApiPublicPushEventRoute: ApiPublicPushEventRoute,
+  ApiPublicCronHandleScalpingRoute: ApiPublicCronHandleScalpingRoute,
   ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,
   ApiPublicCronSyncEquityV2Route: ApiPublicCronSyncEquityV2Route,
 }
