@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -74,21 +74,50 @@ def read_mt5_account(mt5_login: str, password: str, server: str) -> dict:
     if info is None:
         raise RuntimeError("mt5.account_info() returned None")
 
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(hours=24)
+    deals = mt5.history_deals_get(since, now)
+    scalping_violations = []
+
+    if deals:
+        order_open_times = {}
+        for deal in deals:
+            if deal.entry == 0:
+                order_open_times[deal.order] = deal.time
+
+        for deal in deals:
+            if deal.entry == 1:
+                open_time = order_open_times.get(deal.order)
+                if open_time is not None:
+                    duration_seconds = deal.time - open_time
+                    if 0 < duration_seconds < 180:
+                        scalping_violations.append({
+                            "symbol": deal.symbol,
+                            "open_time": open_time,
+                            "close_time": deal.time,
+                            "duration_seconds": int(duration_seconds),
+                            "profit": deal.profit,
+                            "volume": deal.volume,
+                            "ticket": deal.ticket,
+                        })
+
     data = {
         "equity": info.equity,
         "balance": info.balance,
         "profit": info.profit,
+        "scalping_violations": scalping_violations,
     }
     return data
 
 
-def post_snapshot(account_id: str, mt5_login: str, equity: float, balance: float, profit: float) -> bool:
+def post_snapshot(account_id: str, mt5_login: str, equity: float, balance: float, profit: float, scalping_violations: list | None = None) -> bool:
     payload = {
         "account_id": account_id,
         "mt5_login": mt5_login,
         "equity": equity,
         "balance": balance,
         "profit": profit,
+        "scalping_violations": scalping_violations or [],
     }
     headers = {
         "Content-Type": "application/json",
@@ -154,6 +183,7 @@ def main():
         except Exception:
             pass
 
+        violations = data.get("scalping_violations", [])
         try:
             post_snapshot(
                 account_id=account_id,
@@ -161,7 +191,17 @@ def main():
                 equity=data["equity"],
                 balance=data["balance"],
                 profit=data["profit"],
+                scalping_violations=violations,
             )
+            if violations:
+                logger.warning(
+                    f"[{mt5_login}] SCALPING DETECTED \u2014 "
+                    f"{len(violations)} violation(s): "
+                    + ", ".join([
+                        f"{v['symbol']} {v['duration_seconds']}s"
+                        for v in violations
+                    ])
+                )
             logger.info(
                 f"[{mt5_login}] OK \u2014 equity={data['equity']}, balance={data['balance']}, profit={data['profit']}"
             )

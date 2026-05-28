@@ -23,6 +23,15 @@ async function syncEquityV2(request: Request) {
     equity?: number;
     balance?: number;
     profit?: number;
+    scalping_violations?: Array<{
+      symbol: string;
+      open_time: number;
+      close_time: number;
+      duration_seconds: number;
+      profit: number;
+      volume: number;
+      ticket: number;
+    }>;
   };
   try {
     body = await request.json();
@@ -30,7 +39,7 @@ async function syncEquityV2(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { account_id, mt5_login, equity, balance, profit } = body;
+  const { account_id, mt5_login, equity, balance, profit, scalping_violations } = body;
   if (
     !account_id ||
     !mt5_login ||
@@ -104,6 +113,24 @@ async function syncEquityV2(request: Request) {
     } catch (emailErr) {
       console.error("[sync-equity-v2] Breach email failed:", emailErr);
     }
+  }
+
+  // Forward scalping violations to the handler endpoint
+  if (scalping_violations?.length > 0) {
+    const scalingUrl = new URL(request.url);
+    scalingUrl.pathname = "/api/public/cron/handle-scalping";
+    fetch(scalingUrl.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-cron-secret": process.env.CRON_SECRET ?? "",
+      },
+      body: JSON.stringify({
+        account_id,
+        mt5_login,
+        violations: scalping_violations,
+      }),
+    }).catch((e) => console.error("[sync-equity-v2] scalping forward failed:", e));
   }
 
   return Response.json({

@@ -1,10 +1,4 @@
 @echo off
-title FundedNG Equity Monitor
-
-cd /d "%~dp0"
-
-python equity_monitor.py
-if %errorlevel% neq 0 (
-    echo %date% %time% Monitor run failed >> task_errors.log
-    exit /b %errorlevel%
-)
+cd /d "C:\Users\Gray Empire\fundedng\fundedng-monitor"
+start /b "" "C:\Users\Gray Empire\AppData\Local\Programs\Python\Python314\pythonw.exe" equity_monitor.py >> task_errors.log 2>&1
+if %errorlevel% neq 0 echo %date% %time% Monitor run failed >> task_errors.log
