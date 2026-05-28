@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -126,6 +126,8 @@ function DashboardPage() {
   const [bankCode, setBankCode] = useState("");
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
   const [verifyingKyc, setVerifyingKyc] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
+  const lastEquityRef = useRef<number | null>(null);
 
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
@@ -279,6 +281,63 @@ function DashboardPage() {
     if (phaseStart) query = query.gte("snapshot_time", phaseStart);
     query.order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
   }, [selected]);
+
+  useEffect(() => {
+    if (!selected || !user || selected.status === 'breached') return;
+    setLiveStatus('connecting');
+    const channel = supabase
+      .channel(`account-live-${selected.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'account_snapshots',
+          filter: `trader_account_id=eq.${selected.id}`,
+        },
+        (payload) => {
+          const newEquity = Number(payload.new.equity);
+          if (lastEquityRef.current !== null && lastEquityRef.current !== newEquity) {
+            toast("📊 Equity updated", { duration: 2000 });
+          }
+          lastEquityRef.current = newEquity;
+          setSnapshots((prev) => [
+            ...prev,
+            {
+              snapshot_time: payload.new.snapshot_time,
+              equity: payload.new.equity,
+              balance: payload.new.balance,
+            },
+          ]);
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'trader_accounts',
+          filter: `id=eq.${selected.id}`,
+        },
+        (payload) => {
+          setSelected((prev) => (prev ? { ...prev, ...payload.new } : prev));
+          setAccounts((prev) =>
+            prev.map((a) => (a.id === payload.new.id ? { ...a, ...payload.new } : a)),
+          );
+          if (payload.new.status === 'breached' && payload.old?.status !== 'breached') {
+            toast.error(`⚠️ Account Breached — ${payload.new.breach_reason}`);
+          }
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setLiveStatus('live');
+        else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setLiveStatus('disconnected');
+      });
+    return () => {
+      supabase.removeChannel(channel);
+      lastEquityRef.current = null;
+    };
+  }, [selected?.id, user?.id]);
 
   const requestPayout = async () => {
     if (!selected) return;
@@ -618,7 +677,29 @@ function DashboardPage() {
 
                   {snapshots.length > 1 ? (
                     <div className="rounded-xl border border-border bg-card p-6">
-                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve</h3>
+                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve{liveStatus === 'live' ? (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              <span className="text-xs font-display text-green-500">Live</span>
+            </span>
+          ) : liveStatus === 'connecting' ? (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground" />
+              </span>
+              <span className="text-xs font-display text-muted-foreground">Connecting...</span>
+            </span>
+          ) : (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              <span className="text-xs font-display text-red-500">Reconnecting...</span>
+            </span>
+          )}</h3>
                       <div className="mt-4 h-56">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={snapshots}>
@@ -645,13 +726,57 @@ function DashboardPage() {
                     </div>
                   ) : snapshots.length > 0 ? (
                     <div className="rounded-xl border border-border bg-card p-6">
-                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve</h3>
-                      <p className="mt-4 text-sm text-muted-foreground">Not enough data yet. The equity sync runs every 5 minutes — check back soon.</p>
+                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve{liveStatus === 'live' ? (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              <span className="text-xs font-display text-green-500">Live</span>
+            </span>
+          ) : liveStatus === 'connecting' ? (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground" />
+              </span>
+              <span className="text-xs font-display text-muted-foreground">Connecting...</span>
+            </span>
+          ) : (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              <span className="text-xs font-display text-red-500">Reconnecting...</span>
+            </span>
+          )}</h3>
+                      <p className="mt-4 text-sm text-muted-foreground">Not enough data yet. The equity sync runs every minute — check back soon.</p>
                     </div>
                   ) : (
                     <div className="rounded-xl border border-border bg-card p-6">
-                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve</h3>
-                      <p className="mt-4 text-sm text-muted-foreground">No equity data yet. The equity sync runs every 5 minutes — check back soon.</p>
+                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve{liveStatus === 'live' ? (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              <span className="text-xs font-display text-green-500">Live</span>
+            </span>
+          ) : liveStatus === 'connecting' ? (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground" />
+              </span>
+              <span className="text-xs font-display text-muted-foreground">Connecting...</span>
+            </span>
+          ) : (
+            <span className="ml-auto flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              <span className="text-xs font-display text-red-500">Reconnecting...</span>
+            </span>
+          )}</h3>
+                      <p className="mt-4 text-sm text-muted-foreground">No equity data yet. The equity sync runs every minute — check back soon.</p>
                     </div>
                   )}
 

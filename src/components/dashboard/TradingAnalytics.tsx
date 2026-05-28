@@ -237,7 +237,7 @@ export function TradingAnalytics({
           {
             label: "Sync Points",
             value: tradeCount.toLocaleString(),
-            sub: "equity snapshots",
+            sub: "Updated live",
             icon: Activity,
             color: "text-primary",
             bg: "border-border bg-card",

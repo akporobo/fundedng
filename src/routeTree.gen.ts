@@ -37,6 +37,7 @@ import { Route as ApiPublicPushEventRouteImport } from './routes/api.public.push
 import { Route as ApiAdminPoolRouteImport } from './routes/api.admin.pool'
 import { Route as ApiAdminDeleteRequestRouteImport } from './routes/api.admin.delete-request'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
+import { Route as ApiPublicCronSyncEquityV2RouteImport } from './routes/api.public.cron.sync-equity-v2'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
 
 const RulesRoute = RulesRouteImport.update({
@@ -180,6 +181,12 @@ const AuthenticatedCommunitySlugRoute =
     path: '/$slug',
     getParentRoute: () => AuthenticatedCommunityRoute,
   } as any)
+const ApiPublicCronSyncEquityV2Route =
+  ApiPublicCronSyncEquityV2RouteImport.update({
+    id: '/api/public/cron/sync-equity-v2',
+    path: '/api/public/cron/sync-equity-v2',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronSyncEquityRoute = ApiPublicCronSyncEquityRouteImport.update({
   id: '/api/public/cron/sync-equity',
   path: '/api/public/cron/sync-equity',
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
+  '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -244,6 +252,7 @@ export interface FileRoutesByTo {
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
+  '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -276,6 +285,7 @@ export interface FileRoutesById {
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
+  '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/api/public/push-event'
     | '/community/'
     | '/api/public/cron/sync-equity'
+    | '/api/public/cron/sync-equity-v2'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -337,6 +348,7 @@ export interface FileRouteTypes {
     | '/api/public/push-event'
     | '/community'
     | '/api/public/cron/sync-equity'
+    | '/api/public/cron/sync-equity-v2'
   id:
     | '__root__'
     | '/'
@@ -368,6 +380,7 @@ export interface FileRouteTypes {
     | '/api/public/push-event'
     | '/_authenticated/community/'
     | '/api/public/cron/sync-equity'
+    | '/api/public/cron/sync-equity-v2'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -391,6 +404,7 @@ export interface RootRouteChildren {
   ApiAdminPoolRoute: typeof ApiAdminPoolRoute
   ApiPublicPushEventRoute: typeof ApiPublicPushEventRoute
   ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
+  ApiPublicCronSyncEquityV2Route: typeof ApiPublicCronSyncEquityV2Route
 }
 
 declare module '@tanstack/react-router' {
@@ -591,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommunitySlugRouteImport
       parentRoute: typeof AuthenticatedCommunityRoute
     }
+    '/api/public/cron/sync-equity-v2': {
+      id: '/api/public/cron/sync-equity-v2'
+      path: '/api/public/cron/sync-equity-v2'
+      fullPath: '/api/public/cron/sync-equity-v2'
+      preLoaderRoute: typeof ApiPublicCronSyncEquityV2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/sync-equity': {
       id: '/api/public/cron/sync-equity'
       path: '/api/public/cron/sync-equity'
@@ -662,6 +683,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminPoolRoute: ApiAdminPoolRoute,
   ApiPublicPushEventRoute: ApiPublicPushEventRoute,
   ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,
+  ApiPublicCronSyncEquityV2Route: ApiPublicCronSyncEquityV2Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
