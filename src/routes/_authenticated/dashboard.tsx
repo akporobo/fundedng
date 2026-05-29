@@ -184,8 +184,8 @@ function DashboardPage() {
     }
   };
 
-  const load = async () => {
-    if (!user) return;
+  const load = async (): Promise<Account[]> => {
+    if (!user) return [];
     const [a, p, n, c, pf] = await Promise.all([
       supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases)").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
@@ -252,18 +252,26 @@ function DashboardPage() {
     }
 
     if (!selected && list.length) setSelected(list[0]);
+    return list;
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
   const refreshDashboard = async () => {
-    await load();
-    if (selected) {
-      const { data } = await supabase
+    const list = await load();
+    const fresh = list?.find((a) => a.id === selected?.id) ?? selected;
+    if (fresh) {
+      const phaseStart = fresh.status === "funded"
+        ? fresh.phase2_passed_at ?? fresh.funded_at
+        : fresh.current_phase >= 2
+          ? fresh.phase1_passed_at
+          : fresh.created_at;
+      let query = supabase
         .from("account_snapshots")
         .select("snapshot_time, equity, balance")
-        .eq("trader_account_id", selected.id)
-        .order("snapshot_time");
-      setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []);
+        .eq("trader_account_id", fresh.id);
+      if (phaseStart) query = query.gte("snapshot_time", phaseStart);
+      query.order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
+      if (fresh.id !== selected?.id) setSelected(fresh);
     }
     toast.success("Dashboard updated");
   };

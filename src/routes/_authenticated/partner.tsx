@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
-import { Copy, Gift, MousePointerClick, Users, Wallet, Send, Share2, Percent } from "lucide-react";
+import { Copy, Gift, MousePointerClick, Users, Wallet, Send, Share2, Percent, Mail } from "lucide-react";
 import { RefreshButton } from "@/components/ui/refresh-button";
+import { getBuyerInfo } from "@/server/partner.functions";
 
 export const Route = createFileRoute("/_authenticated/partner")({
   component: PartnerPage,
@@ -34,6 +35,8 @@ function PartnerPage() {
   const [freeAccounts, setFreeAccounts] = useState<FreeAccount[]>([]);
   const [clicks, setClicks] = useState(0);
   const [signups, setSignups] = useState(0);
+  const [buyerEmails, setBuyerEmails] = useState<Record<string, string>>({});
+  const [buyerNames, setBuyerNames] = useState<Record<string, string>>({});
   const [pendingReserved, setPendingReserved] = useState(0);
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -50,14 +53,26 @@ function PartnerPage() {
       supabase.from("profiles").select("*", { count: "exact", head: true }).eq("partner_referred_by", user.id),
       (supabase as any).from("partner_free_accounts").select("*").eq("partner_id", user.id).order("requested_at", { ascending: false }),
     ]);
+    const refList = (refRes.data as Referral[]) ?? [];
     setPp((profRes.data as PartnerProfile | null) ?? null);
-    setReferrals((refRes.data as Referral[]) ?? []);
+    setReferrals(refList);
     const list = (payRes.data as Payout[]) ?? [];
     setPayouts(list);
     setPendingReserved(list.filter((x) => ["pending","approved"].includes(x.status)).reduce((s,x)=>s+Number(x.amount_naira),0));
     setFreeAccounts((freeRes.data as FreeAccount[]) ?? []);
     setClicks(clickRes.count ?? 0);
     setSignups(signupRes.count ?? 0);
+
+    const { data: sess } = await supabase.auth.getSession();
+    if (sess.session && refList.length > 0) {
+      const uids = [...new Set(refList.map((r) => r.referred_user_id))];
+      const res = await getBuyerInfo({ accessToken: sess.session.access_token, userIds: uids });
+      if (res.ok) {
+        setBuyerEmails(res.emails);
+        setBuyerNames(res.names);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -241,7 +256,14 @@ function PartnerPage() {
           <div className="mt-3 divide-y divide-border">
             {referrals.slice(0, 15).map((r) => (
               <div key={r.id} className="flex items-center justify-between py-2 text-sm">
-                <span className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                <div className="flex flex-col">
+                  <span className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground/70">
+                    <Mail className="h-3 w-3" />
+                    {buyerEmails[r.referred_user_id] ?? "—"}
+                    {buyerNames[r.referred_user_id] && <span className="text-muted-foreground/50">· {buyerNames[r.referred_user_id]}</span>}
+                  </span>
+                </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-muted-foreground">Sale: {formatNaira(r.amount_paid_naira)}</span>
                   <span className="font-display font-semibold text-primary">+{formatNaira(r.commission_amount_naira)}</span>
