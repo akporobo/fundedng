@@ -352,9 +352,11 @@ function AdminConsole() {
       passRate,
     });
 
-    const { data: unprovisioned } = await supabase
-      .rpc("find_unprovisioned_orders" as never)
-      .catch(() => ({ data: null }));
+    let unprovisioned = null;
+    try {
+      const { data } = await supabase.rpc("find_unprovisioned_orders" as never);
+      unprovisioned = data;
+    } catch { /* ignore */ }
     setUnprovisionedOrders((unprovisioned as any[]) ?? []);
   };
 

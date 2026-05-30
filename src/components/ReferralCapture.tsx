@@ -26,13 +26,15 @@ export function ReferralCapture() {
         localStorage.setItem(REF_KEY, upper);
         localStorage.setItem(PARTNER_REF_KEY, upper);
         // Fire-and-forget partner click tracker (RPC returns false if not a partner code)
-        supabase
-          .rpc("track_partner_click", {
-            _code: upper,
-            _ua: navigator.userAgent,
-            _ref: document.referrer || undefined,
-          })
-          .then(() => { /* ignore */ });
+        (async () => {
+          try {
+            await supabase.rpc("track_partner_click", {
+              _code: upper,
+              _ua: navigator.userAgent,
+              _ref: document.referrer || undefined,
+            });
+          } catch { /* ignore */ }
+        })();
       }
     } catch {
       /* ignore */
@@ -49,18 +51,24 @@ export function ReferralCapture() {
       pcode = localStorage.getItem(PARTNER_REF_KEY);
     } catch { /* ignore */ }
     if (code) {
-      supabase.rpc("attach_referral", { _code: code }).then(({ data, error }) => {
-        if (!error && data) {
-          try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ }
-        }
-      });
+      (async () => {
+        try {
+          const { data, error } = await supabase.rpc("attach_referral", { _code: code });
+          if (!error && data) {
+            try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ }
+          }
+        } catch { /* ignore */ }
+      })();
     }
     if (pcode) {
-      supabase.rpc("attach_partner_referral", { _code: pcode }).then(({ data, error }) => {
-        if (!error && data) {
-          try { localStorage.removeItem(PARTNER_REF_KEY); } catch { /* ignore */ }
-        }
-      });
+      (async () => {
+        try {
+          const { data, error } = await supabase.rpc("attach_partner_referral", { _code: pcode });
+          if (!error && data) {
+            try { localStorage.removeItem(PARTNER_REF_KEY); } catch { /* ignore */ }
+          }
+        } catch { /* ignore */ }
+      })();
     }
   }, [user]);
 

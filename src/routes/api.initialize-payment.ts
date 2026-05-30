@@ -162,13 +162,21 @@ export const Route = createFileRoute("/api/initialize-payment")({
             const traderName = prof?.full_name || user.email || "A trader";
 
             if (poolResult?.ok) {
-              await supabaseAdmin.rpc("send_telegram" as never, {
-                p_message: `✅ <b>Free Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
-              } as never).catch((e) => console.error("[initialize-payment] telegram send failed", e));
+              try {
+                await supabaseAdmin.rpc("send_telegram" as never, {
+                  p_message: `✅ <b>Free Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
+                } as never);
+              } catch (e) {
+                console.error("[initialize-payment] telegram send failed", e);
+              }
             } else {
-              await supabaseAdmin.rpc("send_telegram" as never, {
-                p_message: `⏳ <b>Free Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
-              } as never).catch((e) => console.error("[initialize-payment] telegram send failed", e));
+              try {
+                await supabaseAdmin.rpc("send_telegram" as never, {
+                  p_message: `⏳ <b>Free Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
+                } as never);
+              } catch (e) {
+                console.error("[initialize-payment] telegram send failed", e);
+              }
             }
 
             await sendEventEmail({ type: "purchase_confirmed", orderId: order.id }).catch((e) =>

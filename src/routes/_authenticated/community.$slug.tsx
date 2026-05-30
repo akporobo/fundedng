@@ -158,7 +158,9 @@ function GroupChatPage() {
           });
           if (m.user_id !== user.id) {
             // mark as read
-            supabase.from("message_reads").insert({ message_id: m.id, user_id: user.id }).then(() => {});
+            (async () => {
+              try { await supabase.from("message_reads").insert({ message_id: m.id, user_id: user.id }); } catch { /* ignore */ }
+            })();
           }
         }
       )
@@ -222,22 +224,22 @@ function GroupChatPage() {
       (m) => m.user_id !== user.id && !(reads[m.id]?.has(user.id))
     );
     if (unread.length === 0) return;
-    supabase
-      .from("message_reads")
-      .insert(unread.map((m) => ({ message_id: m.id, user_id: user.id })))
-      .then(() => {});
+    (async () => {
+      try { await supabase.from("message_reads").insert(unread.map((m) => ({ message_id: m.id, user_id: user.id }))); } catch { /* ignore */ }
+    })();
   }, [messages, user?.id]);
 
   // ----- Typing notifier -----
   const notifyTyping = () => {
     if (!user || !groupId) return;
-    supabase
-      .from("typing_status")
-      .upsert({ group_id: groupId, user_id: user.id, updated_at: new Date().toISOString() })
-      .then(() => {});
+    (async () => {
+      try { await supabase.from("typing_status").upsert({ group_id: groupId, user_id: user.id, updated_at: new Date().toISOString() }); } catch { /* ignore */ }
+    })();
     if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = window.setTimeout(() => {
-      supabase.from("typing_status").delete().eq("group_id", groupId).eq("user_id", user.id).then(() => {});
+      (async () => {
+        try { await supabase.from("typing_status").delete().eq("group_id", groupId).eq("user_id", user.id); } catch { /* ignore */ }
+      })();
     }, 3000);
   };
 
