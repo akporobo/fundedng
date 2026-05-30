@@ -177,19 +177,33 @@ export const Route = createFileRoute("/api/verify-payment")({
            const chName = challenge.name;
            const chSize = challenge.account_size;
 
-           if (poolResult?.ok) {
-             await sendEventEmail({
-               type: "mt5_delivered",
-               orderId: order.id,
-               mt5Login: poolResult.mt5Login,
-               mt5Password: poolResult.mt5Password,
-               mt5Server: poolResult.mt5Server,
-             }).catch((e) => console.error("[verify-payment] delivery email failed", e));
+            if (poolResult?.ok) {
+              // Verify the account was actually created
+              const { data: verifyAccount } = await supabaseAdmin
+                .from("trader_accounts")
+                .select("id")
+                .eq("order_id", order.id)
+                .maybeSingle();
 
-             await supabaseAdmin.rpc("send_telegram" as never, {
-               p_message: `✅ <b>New Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ₦${chSize?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
-             } as never).catch((e) => console.error("[verify-payment] telegram send failed", e));
-           } else {
+              if (!verifyAccount) {
+                console.error("[verify-payment] CRITICAL: pool returned ok but no trader_account found for order", order.id);
+                await supabaseAdmin.rpc("send_telegram" as never, {
+                  p_message: `🚨 PROVISIONING FAILURE\nOrder: ${order.id}\nTrader: ${traderName}\nPool returned ok but no account created. Manual delivery needed.`,
+                } as never).catch(() => {});
+              } else {
+                await sendEventEmail({
+                  type: "mt5_delivered",
+                  orderId: order.id,
+                  mt5Login: poolResult.mt5Login,
+                  mt5Password: poolResult.mt5Password,
+                  mt5Server: poolResult.mt5Server,
+                }).catch((e) => console.error("[verify-payment] delivery email failed", e));
+
+                await supabaseAdmin.rpc("send_telegram" as never, {
+                  p_message: `✅ <b>New Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ₦${chSize?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
+                } as never).catch((e) => console.error("[verify-payment] telegram send failed", e));
+              }
+            } else {
              // Pool empty or error — order stays "paid" for manual delivery.
              // claimPoolAccount already notified admins. Still send purchase receipt.
              console.warn("[verify-payment] pool claim failed", poolResult?.error ?? "unexpected");

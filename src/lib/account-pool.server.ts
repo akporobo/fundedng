@@ -159,15 +159,24 @@ export async function claimPoolAccount(args: {
       .eq("id", args.orderId);
 
     // 6. Mark account_request as fulfilled (so it doesn't show in admin pending tab)
+    // Uses upsert to avoid race with tg_orders_queue_request trigger
     await supabaseAdmin
       .from("account_requests")
-      .update({
+      .upsert({
+        order_id: args.orderId,
+        user_id: args.userId,
+        challenge_id: args.challengeId,
         status: "fulfilled",
         fulfilled_at: new Date().toISOString(),
         claimed_by: "pool",
         provider_response: { login: poolRow.mt5_login, server: poolRow.mt5_server },
+      }, {
+        onConflict: "order_id",
+        ignoreDuplicates: false,
       })
-      .eq("order_id", args.orderId);
+      .then(({ error }) => {
+        if (error) console.warn("[claimPoolAccount] account_requests upsert failed:", error.message);
+      });
 
     // 7. Send welcome notification to trader
     await supabaseAdmin

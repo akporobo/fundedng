@@ -55,6 +55,7 @@ function AdminConsole() {
     sold: 0,
     passRate: 0,
   });
+  const [unprovisionedOrders, setUnprovisionedOrders] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -350,6 +351,11 @@ function AdminConsole() {
       paid: poList.filter((p) => p.status === "paid").reduce((s: number, p: any) => s + Number(p.amount_naira), 0),
       passRate,
     });
+
+    const { data: unprovisioned } = await supabase
+      .rpc("find_unprovisioned_orders" as never)
+      .catch(() => ({ data: null }));
+    setUnprovisionedOrders((unprovisioned as any[]) ?? []);
   };
 
   const loadPool = async () => {
@@ -934,11 +940,13 @@ function AdminConsole() {
   const approvePhase2 = async (a: any) => {
     if (a.current_phase >= 2) return toast.error("Already in Phase 2 or beyond");
     if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
+    const phasePassedAt = new Date(Date.now() - 1000).toISOString();
+    const resetSnapshotAt = new Date().toISOString();
     const { error } = await supabase.from("trader_accounts").update({
       current_phase: 2,
       current_equity: a.starting_balance,
       peak_equity: a.starting_balance,
-      phase1_passed_at: new Date().toISOString(),
+      phase1_passed_at: phasePassedAt,
       phase2_requested_at: null,
       phase_rejected_reason: null,
       phase_rejected_at: null,
@@ -951,6 +959,7 @@ function AdminConsole() {
       balance: a.starting_balance,
       profit: 0,
       drawdown_percent: 0,
+      snapshot_time: resetSnapshotAt,
     } as never);
     await supabase.from("notifications").insert({
       user_id: a.user_id,
@@ -966,12 +975,14 @@ function AdminConsole() {
   const approveFunded = async (a: any) => {
     if (a.status === "funded") return toast.error("Already funded");
     if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
+    const phasePassedAt = new Date(Date.now() - 1000).toISOString();
+    const resetSnapshotAt = new Date().toISOString();
     const { error } = await supabase.from("trader_accounts").update({
       status: "funded",
       current_equity: a.starting_balance,
       peak_equity: a.starting_balance,
-      phase2_passed_at: new Date().toISOString(),
-      funded_at: new Date().toISOString(),
+      phase2_passed_at: phasePassedAt,
+      funded_at: phasePassedAt,
       funded_requested_at: null,
       phase_rejected_reason: null,
       phase_rejected_at: null,
@@ -983,6 +994,7 @@ function AdminConsole() {
       balance: a.starting_balance,
       profit: 0,
       drawdown_percent: 0,
+      snapshot_time: resetSnapshotAt,
     } as never);
     await supabase.from("notifications").insert({
       user_id: a.user_id,
@@ -1208,7 +1220,20 @@ function AdminConsole() {
             </TabsList>
           </div>
 
-          <TabsContent value="stats" className="mt-6 grid gap-4 md:grid-cols-4">
+          <TabsContent value="stats" className="mt-6">
+            {unprovisionedOrders.length > 0 && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  ⚠️ <strong>{unprovisionedOrders.length} paid order(s)</strong> have no account delivered.{" "}
+                  <span className="cursor-pointer underline" onClick={() => {
+                    const tab = document.querySelector('[value="pending"]');
+                    if (tab) (tab as HTMLElement).click();
+                  }}>Check the Pending tab immediately.</span>
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="grid gap-4 md:grid-cols-4">
             {[
               ["Traders", stats.traders],
               ["Accounts Sold (Funded Value)", formatNaira(stats.sold), "text-primary"],
@@ -1227,6 +1252,7 @@ function AdminConsole() {
                 <div className={`font-display mt-2 text-2xl font-bold ${c ?? ""}`}>{v}</div>
               </div>
             ))}
+            </div>
           </TabsContent>
 
           <TabsContent value="pending" className="mt-6 space-y-3">

@@ -29,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({ component: D
 interface Account {
   id: string; mt5_login: string; mt5_password: string; mt5_server: string;
   starting_balance: number; current_equity: number | null; current_phase: number;
+  peak_equity?: number | null;
   status: "active" | "breached" | "passed" | "funded";
   breach_reason?: string;
   challenge_id: string;
@@ -402,9 +403,13 @@ function DashboardPage() {
   const equity = Number(latestSnapshot?.equity ?? selected?.current_equity ?? selected?.starting_balance ?? 0);
   const start = Number(selected?.starting_balance ?? 0);
   const profitPct = start ? ((equity - start) / start) * 100 : 0;
-  const peakEquity = snapshots.length > 0
-    ? Math.max(start, equity, ...snapshots.map((s) => Number(s.equity)))
-    : Math.max(start, equity);
+  const peakEquity = (() => {
+    const dbPeak = Number(selected?.peak_equity ?? 0);
+    if (dbPeak > 0) return Math.max(dbPeak, equity);
+    return snapshots.length > 0
+      ? Math.max(start, equity, ...snapshots.map((s) => Number(s.equity)))
+      : Math.max(start, equity);
+  })();
   const ddPct = peakEquity > 0 ? Math.max(0, ((peakEquity - equity) / peakEquity) * 100) : 0;
   const target = selected?.challenges?.profit_target_percent ?? 10;
   const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
