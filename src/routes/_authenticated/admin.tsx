@@ -14,6 +14,7 @@ import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { verifyKycServer } from "@/server/kyc.functions";
+import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { ArrowLeft, AlertTriangle, Plus, Archive, Box, Eye } from "lucide-react";
@@ -2158,16 +2159,19 @@ function AdminConsole() {
                   const { data: { publicUrl } } = supabase.storage
                     .from("social-proof")
                     .getPublicUrl(filePath);
-                  const { error: insertError } = await supabase
-                    .from("social_proof_items")
-                    .insert({
+                  const { data: { session: uploadSession } } = await supabase.auth.getSession();
+                  const accessToken = uploadSession?.access_token ?? "";
+                  const result = await addSocialProofServer({
+                    data: {
+                      accessToken,
                       label: uploadLabel.trim(),
                       image_url: publicUrl,
                       storage_path: filePath,
                       category: uploadCategory,
                       display_order: Number(uploadOrder),
-                    } as never);
-                  if (insertError) { toast.error(insertError.message); return; }
+                    },
+                  });
+                  if (!result.ok) { toast.error(result.error); return; }
                   toast.success("Image added to gallery");
                   setUploadFile(null);
                   setUploadPreview("");
@@ -2233,19 +2237,17 @@ function AdminConsole() {
                               min={0}
                               className="h-8 w-16 text-xs"
                               defaultValue={item.display_order}
-                              onBlur={(e) => {
+                              onBlur={async (e) => {
                                 const val = e.target.value;
                                 if (Number(val) !== item.display_order) {
                                   setSavingSocialOrder(item.id);
-                                  supabase
-                                    .from("social_proof_items")
-                                    .update({ display_order: Number(val) } as never)
-                                    .eq("id", item.id)
-                                    .then(({ error }) => {
-                                      setSavingSocialOrder(null);
-                                      if (error) return toast.error(error.message);
-                                      loadSocialItems();
-                                    });
+                                  const { data: { session: orderSess } } = await supabase.auth.getSession();
+                                  const result = await updateSocialProofServer({
+                                    data: { accessToken: orderSess?.access_token ?? "", id: item.id, display_order: Number(val) },
+                                  });
+                                  setSavingSocialOrder(null);
+                                  if (!result.ok) return toast.error(result.error);
+                                  loadSocialItems();
                                 }
                               }}
                             />
@@ -2255,11 +2257,11 @@ function AdminConsole() {
                               <Switch
                                 checked={!!item.is_visible}
                                 onCheckedChange={async () => {
-                                  const { error } = await supabase
-                                    .from("social_proof_items")
-                                    .update({ is_visible: !item.is_visible } as never)
-                                    .eq("id", item.id);
-                                  if (error) return toast.error(error.message);
+                                  const { data: { session: visSess } } = await supabase.auth.getSession();
+                                  const result = await updateSocialProofServer({
+                                    data: { accessToken: visSess?.access_token ?? "", id: item.id, is_visible: !item.is_visible },
+                                  });
+                                  if (!result.ok) return toast.error(result.error);
                                   toast.success(item.is_visible ? "Hidden" : "Visible");
                                   loadSocialItems();
                                 }}
@@ -2275,15 +2277,12 @@ function AdminConsole() {
                               onClick={async () => {
                                 if (!confirm(`Delete "${item.label}"?`)) return;
                                 setSocialDeleting(item.id);
-                                if (item.storage_path) {
-                                  await supabase.storage.from("social-proof").remove([item.storage_path]);
-                                }
-                                const { error } = await supabase
-                                  .from("social_proof_items")
-                                  .delete()
-                                  .eq("id", item.id);
+                                const { data: { session: delSess } } = await supabase.auth.getSession();
+                                const result = await deleteSocialProofServer({
+                                  data: { accessToken: delSess?.access_token ?? "", id: item.id, storage_path: item.storage_path ?? undefined },
+                                });
                                 setSocialDeleting(null);
-                                if (error) return toast.error(error.message);
+                                if (!result.ok) return toast.error(result.error);
                                 toast.success("Item deleted");
                                 loadSocialItems();
                               }}

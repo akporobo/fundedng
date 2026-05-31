@@ -1,10 +1,33 @@
--- Create storage bucket manually in Supabase Dashboard:
--- 1. Go to Storage → New Bucket
--- 2. Name: social-proof
--- 3. Public: true
--- 4. File size limit: 5MB
--- 5. Allowed types: image/jpeg, image/png, image/webp
--- 6. Add storage policies: Allow authenticated admins to INSERT/DELETE objects in the bucket
+-- Create storage bucket for social proof images
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('social-proof', 'social-proof', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS: allow authenticated admins to INSERT/DELETE objects
+CREATE POLICY "Admins can upload social proof images"
+  ON storage.objects
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'social-proof'
+    AND public.has_role(auth.uid(), 'admin')
+  );
+
+CREATE POLICY "Admins can delete social proof images"
+  ON storage.objects
+  FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'social-proof'
+    AND public.has_role(auth.uid(), 'admin')
+  );
+
+-- Public can view social proof images (bucket is public, but explicit policy is good practice)
+CREATE POLICY "Public can view social proof images"
+  ON storage.objects
+  FOR SELECT
+  TO anon, authenticated
+  USING (bucket_id = 'social-proof');
 
 CREATE TABLE public.social_proof_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

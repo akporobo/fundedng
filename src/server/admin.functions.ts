@@ -3,6 +3,41 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
 
+const AddSocialProofInput = z.object({
+  accessToken: z.string().min(1),
+  label: z.string().min(1),
+  image_url: z.string().url(),
+  storage_path: z.string().optional(),
+  category: z.string().min(1),
+  display_order: z.number().int().min(0),
+});
+
+export const addSocialProofServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => AddSocialProofInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      const { error: insertError } = await supabaseAdmin
+        .from("social_proof_items")
+        .insert({
+          label: data.label,
+          image_url: data.image_url,
+          storage_path: data.storage_path ?? null,
+          category: data.category,
+          display_order: data.display_order,
+        } as never);
+
+      if (insertError) return { ok: false as const, error: insertError.message };
+      return { ok: true as const };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Add failed";
+      console.error("[addSocialProofServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
 async function assertAdmin(token: string) {
   const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !authData?.user) return { ok: false as const, error: "Please sign in again" };
@@ -279,6 +314,76 @@ export const markBreachedServer = createServerFn({ method: "POST" })
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Breach failed";
       console.error("[markBreachedServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Social Proof — Update item
+// ---------------------------------------------------------------------------
+const UpdateSocialProofInput = z.object({
+  accessToken: z.string().min(1),
+  id: z.string().uuid(),
+  display_order: z.number().int().min(0).optional(),
+  is_visible: z.boolean().optional(),
+});
+
+export const updateSocialProofServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdateSocialProofInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      const updates: Record<string, unknown> = {};
+      if (data.display_order !== undefined) updates.display_order = data.display_order;
+      if (data.is_visible !== undefined) updates.is_visible = data.is_visible;
+      if (Object.keys(updates).length === 0) return { ok: false as const, error: "No fields to update" };
+
+      const { error } = await supabaseAdmin
+        .from("social_proof_items")
+        .update(updates as never)
+        .eq("id", data.id);
+
+      if (error) return { ok: false as const, error: error.message };
+      return { ok: true as const };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Update failed";
+      console.error("[updateSocialProofServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Social Proof — Delete item
+// ---------------------------------------------------------------------------
+const DeleteSocialProofInput = z.object({
+  accessToken: z.string().min(1),
+  id: z.string().uuid(),
+  storage_path: z.string().optional(),
+});
+
+export const deleteSocialProofServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => DeleteSocialProofInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      if (data.storage_path) {
+        await supabaseAdmin.storage.from("social-proof").remove([data.storage_path]);
+      }
+
+      const { error } = await supabaseAdmin
+        .from("social_proof_items")
+        .delete()
+        .eq("id", data.id);
+
+      if (error) return { ok: false as const, error: error.message };
+      return { ok: true as const };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Delete failed";
+      console.error("[deleteSocialProofServer] unexpected", msg);
       return { ok: false as const, error: msg };
     }
   });
