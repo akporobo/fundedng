@@ -1,5 +1,4 @@
-import { Link, Outlet } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users2, Clock, Banknote, Trophy,
   Tag, LifeBuoy, Gift, Handshake, Database, ImageIcon,
@@ -12,34 +11,23 @@ import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
-  { label: "Overview",     hash: "",           icon: LayoutDashboard },
-  { label: "Accounts",     hash: "accounts",   icon: Users2 },
-  { label: "Pending",      hash: "pending",    icon: Clock },
-  { label: "Payouts",      hash: "payouts",    icon: Banknote },
-  { label: "Challenges",   hash: "challenges", icon: Trophy },
-  { label: "Discounts",    hash: "discounts",  icon: Tag },
-  { label: "Tickets",      hash: "tickets",    icon: LifeBuoy },
-  { label: "Affiliate",    hash: "affiliate",  icon: Gift },
-  { label: "Partners",     hash: "partners",   icon: Handshake },
-  { label: "Account Pool", hash: "pool",       icon: Database },
-  { label: "Social Proof", hash: "social",     icon: ImageIcon },
+  { label: "Overview",     to: "/admin",           icon: LayoutDashboard },
+  { label: "Accounts",     to: "/admin/accounts",  icon: Users2 },
+  { label: "Pending",      to: "/admin/pending",   icon: Clock },
+  { label: "Payouts",      to: "/admin/payouts",   icon: Banknote },
+  { label: "Challenges",   to: "/admin/challenges",icon: Trophy },
+  { label: "Discounts",    to: "/admin/discounts", icon: Tag },
+  { label: "Tickets",      to: "/admin/tickets",   icon: LifeBuoy },
+  { label: "Affiliate",    to: "/admin/affiliate", icon: Gift },
+  { label: "Partners",     to: "/admin/partners",  icon: Handshake },
+  { label: "Account Pool", to: "/admin/pool",      icon: Database },
+  { label: "Social Proof", to: "/admin/social",    icon: ImageIcon },
 ] as const;
 
 function AdminSidebar() {
   const { user, profile, signOut } = useAuth();
-  const [currentHash, setCurrentHash] = useState(
-    typeof window !== "undefined"
-      ? window.location.hash.replace("#", "")
-      : ""
-  );
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentHash(window.location.hash.replace("#", ""));
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  const routerState = useRouterState();
+  const currentPath = routerState.location.pathname;
 
   const initials = (profile?.full_name || user?.email || "U")
     .split(" ")
@@ -55,13 +43,12 @@ function AdminSidebar() {
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {ADMIN_NAV.map((item) => {
-          const active = item.hash === currentHash || (item.hash === "" && currentHash === "");
+          const active = currentPath === item.to || (item.to === "/admin" && currentPath === "/admin");
           const Icon = item.icon;
           return (
             <Link
               key={item.label}
-              to="/admin"
-              hash={item.hash || undefined}
+              to={item.to}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active

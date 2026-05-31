@@ -34,10 +34,21 @@ import { Route as AuthenticatedCommunityRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAffiliateRouteImport } from './routes/_authenticated/affiliate'
 import { Route as AdminAdminRouteImport } from './routes/_admin/admin'
 import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authenticated/community.index'
+import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin.index'
 import { Route as ApiPublicPushEventRouteImport } from './routes/api.public.push-event'
 import { Route as ApiAdminPoolRouteImport } from './routes/api.admin.pool'
 import { Route as ApiAdminDeleteRequestRouteImport } from './routes/api.admin.delete-request'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
+import { Route as AdminAdminTicketsRouteImport } from './routes/_admin/admin.tickets'
+import { Route as AdminAdminSocialRouteImport } from './routes/_admin/admin.social'
+import { Route as AdminAdminPoolRouteImport } from './routes/_admin/admin.pool'
+import { Route as AdminAdminPendingRouteImport } from './routes/_admin/admin.pending'
+import { Route as AdminAdminPayoutsRouteImport } from './routes/_admin/admin.payouts'
+import { Route as AdminAdminPartnersRouteImport } from './routes/_admin/admin.partners'
+import { Route as AdminAdminDiscountsRouteImport } from './routes/_admin/admin.discounts'
+import { Route as AdminAdminChallengesRouteImport } from './routes/_admin/admin.challenges'
+import { Route as AdminAdminAffiliateRouteImport } from './routes/_admin/admin.affiliate'
+import { Route as AdminAdminAccountsRouteImport } from './routes/_admin/admin.accounts'
 import { Route as ApiPublicCronSyncEquityV2RouteImport } from './routes/api.public.cron.sync-equity-v2'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
 import { Route as ApiPublicCronHandleScalpingRouteImport } from './routes/api.public.cron.handle-scalping'
@@ -166,6 +177,11 @@ const AuthenticatedCommunityIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedCommunityRoute,
   } as any)
+const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
 const ApiPublicPushEventRoute = ApiPublicPushEventRouteImport.update({
   id: '/api/public/push-event',
   path: '/api/public/push-event',
@@ -187,6 +203,56 @@ const AuthenticatedCommunitySlugRoute =
     path: '/$slug',
     getParentRoute: () => AuthenticatedCommunityRoute,
   } as any)
+const AdminAdminTicketsRoute = AdminAdminTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminSocialRoute = AdminAdminSocialRouteImport.update({
+  id: '/social',
+  path: '/social',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminPoolRoute = AdminAdminPoolRouteImport.update({
+  id: '/pool',
+  path: '/pool',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminPendingRoute = AdminAdminPendingRouteImport.update({
+  id: '/pending',
+  path: '/pending',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminPayoutsRoute = AdminAdminPayoutsRouteImport.update({
+  id: '/payouts',
+  path: '/payouts',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminPartnersRoute = AdminAdminPartnersRouteImport.update({
+  id: '/partners',
+  path: '/partners',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminDiscountsRoute = AdminAdminDiscountsRouteImport.update({
+  id: '/discounts',
+  path: '/discounts',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminChallengesRoute = AdminAdminChallengesRouteImport.update({
+  id: '/challenges',
+  path: '/challenges',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminAffiliateRoute = AdminAdminAffiliateRouteImport.update({
+  id: '/affiliate',
+  path: '/affiliate',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminAccountsRoute = AdminAdminAccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
 const ApiPublicCronSyncEquityV2Route =
   ApiPublicCronSyncEquityV2RouteImport.update({
     id: '/api/public/cron/sync-equity-v2',
@@ -210,7 +276,7 @@ export interface FileRoutesByFullPath {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/rules': typeof RulesRoute
-  '/admin': typeof AdminAdminRoute
+  '/admin': typeof AdminAdminRouteWithChildren
   '/affiliate': typeof AuthenticatedAffiliateRoute
   '/community': typeof AuthenticatedCommunityRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -228,10 +294,21 @@ export interface FileRoutesByFullPath {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/payment/callback': typeof PaymentCallbackRoute
+  '/admin/accounts': typeof AdminAdminAccountsRoute
+  '/admin/affiliate': typeof AdminAdminAffiliateRoute
+  '/admin/challenges': typeof AdminAdminChallengesRoute
+  '/admin/discounts': typeof AdminAdminDiscountsRoute
+  '/admin/partners': typeof AdminAdminPartnersRoute
+  '/admin/payouts': typeof AdminAdminPayoutsRoute
+  '/admin/pending': typeof AdminAdminPendingRoute
+  '/admin/pool': typeof AdminAdminPoolRoute
+  '/admin/social': typeof AdminAdminSocialRoute
+  '/admin/tickets': typeof AdminAdminTicketsRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
+  '/admin/': typeof AdminAdminIndexRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
@@ -242,7 +319,6 @@ export interface FileRoutesByTo {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/rules': typeof RulesRoute
-  '/admin': typeof AdminAdminRoute
   '/affiliate': typeof AuthenticatedAffiliateRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/partner': typeof AuthenticatedPartnerRoute
@@ -259,10 +335,21 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/payment/callback': typeof PaymentCallbackRoute
+  '/admin/accounts': typeof AdminAdminAccountsRoute
+  '/admin/affiliate': typeof AdminAdminAffiliateRoute
+  '/admin/challenges': typeof AdminAdminChallengesRoute
+  '/admin/discounts': typeof AdminAdminDiscountsRoute
+  '/admin/partners': typeof AdminAdminPartnersRoute
+  '/admin/payouts': typeof AdminAdminPayoutsRoute
+  '/admin/pending': typeof AdminAdminPendingRoute
+  '/admin/pool': typeof AdminAdminPoolRoute
+  '/admin/social': typeof AdminAdminSocialRoute
+  '/admin/tickets': typeof AdminAdminTicketsRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
+  '/admin': typeof AdminAdminIndexRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
@@ -276,7 +363,7 @@ export interface FileRoutesById {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/rules': typeof RulesRoute
-  '/_admin/admin': typeof AdminAdminRoute
+  '/_admin/admin': typeof AdminAdminRouteWithChildren
   '/_authenticated/affiliate': typeof AuthenticatedAffiliateRoute
   '/_authenticated/community': typeof AuthenticatedCommunityRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -294,10 +381,21 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/payment/callback': typeof PaymentCallbackRoute
+  '/_admin/admin/accounts': typeof AdminAdminAccountsRoute
+  '/_admin/admin/affiliate': typeof AdminAdminAffiliateRoute
+  '/_admin/admin/challenges': typeof AdminAdminChallengesRoute
+  '/_admin/admin/discounts': typeof AdminAdminDiscountsRoute
+  '/_admin/admin/partners': typeof AdminAdminPartnersRoute
+  '/_admin/admin/payouts': typeof AdminAdminPayoutsRoute
+  '/_admin/admin/pending': typeof AdminAdminPendingRoute
+  '/_admin/admin/pool': typeof AdminAdminPoolRoute
+  '/_admin/admin/social': typeof AdminAdminSocialRoute
+  '/_admin/admin/tickets': typeof AdminAdminTicketsRoute
   '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
+  '/_admin/admin/': typeof AdminAdminIndexRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
@@ -328,10 +426,21 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/payment/callback'
+    | '/admin/accounts'
+    | '/admin/affiliate'
+    | '/admin/challenges'
+    | '/admin/discounts'
+    | '/admin/partners'
+    | '/admin/payouts'
+    | '/admin/pending'
+    | '/admin/pool'
+    | '/admin/social'
+    | '/admin/tickets'
     | '/community/$slug'
     | '/api/admin/delete-request'
     | '/api/admin/pool'
     | '/api/public/push-event'
+    | '/admin/'
     | '/community/'
     | '/api/public/cron/handle-scalping'
     | '/api/public/cron/sync-equity'
@@ -342,7 +451,6 @@ export interface FileRouteTypes {
     | '/agreement'
     | '/buy'
     | '/rules'
-    | '/admin'
     | '/affiliate'
     | '/dashboard'
     | '/partner'
@@ -359,10 +467,21 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/payment/callback'
+    | '/admin/accounts'
+    | '/admin/affiliate'
+    | '/admin/challenges'
+    | '/admin/discounts'
+    | '/admin/partners'
+    | '/admin/payouts'
+    | '/admin/pending'
+    | '/admin/pool'
+    | '/admin/social'
+    | '/admin/tickets'
     | '/community/$slug'
     | '/api/admin/delete-request'
     | '/api/admin/pool'
     | '/api/public/push-event'
+    | '/admin'
     | '/community'
     | '/api/public/cron/handle-scalping'
     | '/api/public/cron/sync-equity'
@@ -393,10 +512,21 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/auth/reset-password'
     | '/payment/callback'
+    | '/_admin/admin/accounts'
+    | '/_admin/admin/affiliate'
+    | '/_admin/admin/challenges'
+    | '/_admin/admin/discounts'
+    | '/_admin/admin/partners'
+    | '/_admin/admin/payouts'
+    | '/_admin/admin/pending'
+    | '/_admin/admin/pool'
+    | '/_admin/admin/social'
+    | '/_admin/admin/tickets'
     | '/_authenticated/community/$slug'
     | '/api/admin/delete-request'
     | '/api/admin/pool'
     | '/api/public/push-event'
+    | '/_admin/admin/'
     | '/_authenticated/community/'
     | '/api/public/cron/handle-scalping'
     | '/api/public/cron/sync-equity'
@@ -606,6 +736,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommunityIndexRouteImport
       parentRoute: typeof AuthenticatedCommunityRoute
     }
+    '/_admin/admin/': {
+      id: '/_admin/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminAdminIndexRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
     '/api/public/push-event': {
       id: '/api/public/push-event'
       path: '/api/public/push-event'
@@ -634,6 +771,76 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommunitySlugRouteImport
       parentRoute: typeof AuthenticatedCommunityRoute
     }
+    '/_admin/admin/tickets': {
+      id: '/_admin/admin/tickets'
+      path: '/tickets'
+      fullPath: '/admin/tickets'
+      preLoaderRoute: typeof AdminAdminTicketsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/social': {
+      id: '/_admin/admin/social'
+      path: '/social'
+      fullPath: '/admin/social'
+      preLoaderRoute: typeof AdminAdminSocialRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/pool': {
+      id: '/_admin/admin/pool'
+      path: '/pool'
+      fullPath: '/admin/pool'
+      preLoaderRoute: typeof AdminAdminPoolRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/pending': {
+      id: '/_admin/admin/pending'
+      path: '/pending'
+      fullPath: '/admin/pending'
+      preLoaderRoute: typeof AdminAdminPendingRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/payouts': {
+      id: '/_admin/admin/payouts'
+      path: '/payouts'
+      fullPath: '/admin/payouts'
+      preLoaderRoute: typeof AdminAdminPayoutsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/partners': {
+      id: '/_admin/admin/partners'
+      path: '/partners'
+      fullPath: '/admin/partners'
+      preLoaderRoute: typeof AdminAdminPartnersRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/discounts': {
+      id: '/_admin/admin/discounts'
+      path: '/discounts'
+      fullPath: '/admin/discounts'
+      preLoaderRoute: typeof AdminAdminDiscountsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/challenges': {
+      id: '/_admin/admin/challenges'
+      path: '/challenges'
+      fullPath: '/admin/challenges'
+      preLoaderRoute: typeof AdminAdminChallengesRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/affiliate': {
+      id: '/_admin/admin/affiliate'
+      path: '/affiliate'
+      fullPath: '/admin/affiliate'
+      preLoaderRoute: typeof AdminAdminAffiliateRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/accounts': {
+      id: '/_admin/admin/accounts'
+      path: '/accounts'
+      fullPath: '/admin/accounts'
+      preLoaderRoute: typeof AdminAdminAccountsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
     '/api/public/cron/sync-equity-v2': {
       id: '/api/public/cron/sync-equity-v2'
       path: '/api/public/cron/sync-equity-v2'
@@ -658,12 +865,44 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminAdminRouteChildren {
+  AdminAdminAccountsRoute: typeof AdminAdminAccountsRoute
+  AdminAdminAffiliateRoute: typeof AdminAdminAffiliateRoute
+  AdminAdminChallengesRoute: typeof AdminAdminChallengesRoute
+  AdminAdminDiscountsRoute: typeof AdminAdminDiscountsRoute
+  AdminAdminPartnersRoute: typeof AdminAdminPartnersRoute
+  AdminAdminPayoutsRoute: typeof AdminAdminPayoutsRoute
+  AdminAdminPendingRoute: typeof AdminAdminPendingRoute
+  AdminAdminPoolRoute: typeof AdminAdminPoolRoute
+  AdminAdminSocialRoute: typeof AdminAdminSocialRoute
+  AdminAdminTicketsRoute: typeof AdminAdminTicketsRoute
+  AdminAdminIndexRoute: typeof AdminAdminIndexRoute
+}
+
+const AdminAdminRouteChildren: AdminAdminRouteChildren = {
+  AdminAdminAccountsRoute: AdminAdminAccountsRoute,
+  AdminAdminAffiliateRoute: AdminAdminAffiliateRoute,
+  AdminAdminChallengesRoute: AdminAdminChallengesRoute,
+  AdminAdminDiscountsRoute: AdminAdminDiscountsRoute,
+  AdminAdminPartnersRoute: AdminAdminPartnersRoute,
+  AdminAdminPayoutsRoute: AdminAdminPayoutsRoute,
+  AdminAdminPendingRoute: AdminAdminPendingRoute,
+  AdminAdminPoolRoute: AdminAdminPoolRoute,
+  AdminAdminSocialRoute: AdminAdminSocialRoute,
+  AdminAdminTicketsRoute: AdminAdminTicketsRoute,
+  AdminAdminIndexRoute: AdminAdminIndexRoute,
+}
+
+const AdminAdminRouteWithChildren = AdminAdminRoute._addFileChildren(
+  AdminAdminRouteChildren,
+)
+
 interface AdminRouteChildren {
-  AdminAdminRoute: typeof AdminAdminRoute
+  AdminAdminRoute: typeof AdminAdminRouteWithChildren
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminAdminRoute: AdminAdminRoute,
+  AdminAdminRoute: AdminAdminRouteWithChildren,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
