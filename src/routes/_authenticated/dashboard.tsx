@@ -129,6 +129,7 @@ function DashboardPage() {
   const [verifyingKyc, setVerifyingKyc] = useState(false);
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
   const lastEquityRef = useRef<number | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
@@ -292,10 +293,20 @@ function DashboardPage() {
   }, [selected]);
 
   useEffect(() => {
-    if (!selected || !user || selected.status === 'breached') return;
+    if (!selected || !user || selected.status === 'breached') {
+      setLiveStatus('disconnected');
+      return;
+    }
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
     setLiveStatus('connecting');
+
     const channel = supabase
-      .channel(`account-live-${selected.id}`)
+      .channel(`account-live-${selected.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -338,12 +349,19 @@ function DashboardPage() {
           }
         },
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') setLiveStatus('live');
-        else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setLiveStatus('disconnected');
+        else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setLiveStatus('disconnected');
+          if (err) console.error('[realtime] subscription error:', err);
+        }
       });
+
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
       lastEquityRef.current = null;
     };
   }, [selected?.id, user?.id]);
