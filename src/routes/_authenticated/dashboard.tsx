@@ -131,6 +131,21 @@ function DashboardPage() {
   const lastEquityRef = useRef<number | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
+  // Create a single persistent channel for the component lifetime
+  if (!channelRef.current) {
+    channelRef.current = supabase.channel('dashboard-realtime');
+  }
+
+  // Clean up the persistent channel on unmount
+  useEffect(() => {
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
     setBankName(profile?.bank_name ?? "");
@@ -293,20 +308,20 @@ function DashboardPage() {
   }, [selected]);
 
   useEffect(() => {
+    const channel = channelRef.current;
+    if (!channel) return;
+
+    channel.unsubscribe();
+    (channel as any).bindings = [];
+
     if (!selected || !user || selected.status === 'breached') {
       setLiveStatus('disconnected');
       return;
     }
 
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
     setLiveStatus('connecting');
 
-    const channel = supabase
-      .channel(`account-live-${selected.id}-${Date.now()}`)
+    channel
       .on(
         'postgres_changes',
         {
@@ -356,14 +371,6 @@ function DashboardPage() {
           if (err) console.error('[realtime] subscription error:', err);
         }
       });
-
-    channelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-      lastEquityRef.current = null;
-    };
   }, [selected?.id, user?.id]);
 
   const requestPayout = async () => {
