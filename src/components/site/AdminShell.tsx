@@ -1,4 +1,5 @@
-import { Link, Outlet, useLocation } from "@tanstack/react-router";
+import { Link, Outlet } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard, Users2, Clock, Banknote, Trophy,
   Tag, LifeBuoy, Gift, Handshake, Database, ImageIcon,
@@ -26,6 +27,19 @@ const ADMIN_NAV = [
 
 function AdminSidebar() {
   const { user, profile, signOut } = useAuth();
+  const [currentHash, setCurrentHash] = useState(
+    typeof window !== "undefined"
+      ? window.location.hash.replace("#", "")
+      : ""
+  );
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash.replace("#", ""));
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   const initials = (profile?.full_name || user?.email || "U")
     .split(" ")
@@ -33,10 +47,6 @@ function AdminSidebar() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-
-  const currentHash = typeof window !== "undefined"
-    ? window.location.hash.replace("#", "")
-    : "";
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-background/60 md:flex md:fixed md:inset-y-0 md:left-0">

@@ -43,6 +43,33 @@ function AdminPage() {
 
 function AdminConsole() {
   const { session, user, profile } = useAuth();
+
+  const getTabFromHash = () => {
+    if (typeof window === "undefined") return "stats";
+    const hash = window.location.hash.replace("#", "");
+    const validTabs = [
+      "stats", "pending", "payouts", "accounts",
+      "challenges", "discounts", "tickets", "affiliate",
+      "partners", "pool", "social"
+    ];
+    return validTabs.includes(hash) ? hash : "stats";
+  };
+
+  const [activeTab, setActiveTab] = useState(getTabFromHash);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    window.location.hash = val === "stats" ? "" : val;
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveTab(getTabFromHash());
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
   const [stats, setStats] = useState({
     traders: 0,
     accounts: 0,
@@ -1198,7 +1225,7 @@ function AdminConsole() {
           <h1 className="font-display text-3xl font-bold">Admin Console</h1>
           <RefreshButton onRefresh={async () => { await load(); await loadPool(); toast.success("Admin data updated"); }} />
         </div>
-        <Tabs defaultValue="stats" className="mt-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-6">
           <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
             <TabsList className="w-max min-w-full">
               <TabsTrigger value="stats">Stats</TabsTrigger>
