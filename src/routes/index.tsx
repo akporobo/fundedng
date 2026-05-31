@@ -6,6 +6,7 @@ import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatNaira, formatUSD, formatCompactSize } from "@/lib/utils";
+import SocialProofGallery from "@/components/site/SocialProofGallery";
 import { Zap, ShieldCheck, Trophy, ArrowRight, Clock, Ban } from "lucide-react";
 import tradingChartHero from "@/assets/trading-chart-hero.jpg";
 import tradingChartHeroDark from "@/assets/trading-chart-hero-dark.jpg";
@@ -100,6 +101,9 @@ function Index() {
           </div>
         </div>
       </section>
+
+      {/* Social Proof Gallery */}
+      <SocialProofGallery />
 
       {/* Challenge Configurator */}
       <section className="border-b border-border bg-surface">

@@ -136,6 +136,17 @@ function AdminConsole() {
     mt5_server: "Exness-MT5Trial9", account_size_ngn: "", notes: "",
   });
 
+  // ---- Social Proof management ----
+  const [socialItems, setSocialItems] = useState<any[]>([]);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState("");
+  const [uploadLabel, setUploadLabel] = useState("");
+  const [uploadCategory, setUploadCategory] = useState("payout");
+  const [uploadOrder, setUploadOrder] = useState("0");
+  const [uploading, setUploading] = useState(false);
+  const [savingSocialOrder, setSavingSocialOrder] = useState<string | null>(null);
+  const [socialDeleting, setSocialDeleting] = useState<string | null>(null);
+
   // ---- Challenges management ----
   const [challengeList, setChallengeList] = useState<any[]>([]);
   const [challengeEditOpen, setChallengeEditOpen] = useState(false);
@@ -738,6 +749,15 @@ function AdminConsole() {
   };
 
   // ---- Telegram settings ----
+  const loadSocialItems = async () => {
+    const { data } = await supabase
+      .from("social_proof_items")
+      .select("*")
+      .order("display_order", { ascending: true });
+    setSocialItems((data ?? []) as any[]);
+  };
+  useEffect(() => { loadSocialItems(); }, []);
+
   const loadTelegramConfig = async () => {
     const { data } = await supabase
       .from("app_config")
@@ -1219,6 +1239,7 @@ function AdminConsole() {
                   <span className="ml-1 rounded-full bg-destructive/20 px-1.5 text-[10px] text-destructive">0</span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="social">Social Proof</TabsTrigger>
             </TabsList>
           </div>
 
@@ -2066,6 +2087,219 @@ function AdminConsole() {
           </TabsContent>
 
           {/** Account Pool */}
+          <TabsContent value="social" className="mt-6 space-y-6">
+            {/* Upload Form */}
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="font-display text-base font-bold">Add New Image</div>
+              <p className="mt-1 text-xs text-muted-foreground">Upload social proof images for the homepage gallery.</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="sp-image">Image (JPG, PNG, WebP — max 5MB)</Label>
+                  <Input
+                    id="sp-image"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error("File too large — max 5MB");
+                          e.target.value = "";
+                          return;
+                        }
+                        setUploadFile(file);
+                        setUploadPreview(URL.createObjectURL(file));
+                      }
+                    }}
+                    className="h-auto py-1.5 file:mr-3 file:h-7 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:text-xs file:font-medium file:text-primary"
+                  />
+                  {uploadPreview && (
+                    <div className="mt-1 h-32 w-48 overflow-hidden rounded-lg border border-border">
+                      <img src={uploadPreview} alt="Preview" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="sp-label">Label</Label>
+                    <Input id="sp-label" value={uploadLabel} onChange={(e) => setUploadLabel(e.target.value)} placeholder="e.g. ₦42,000 Payout — Michael O." />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="sp-category">Category</Label>
+                    <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                      <SelectTrigger id="sp-category">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="payout">Payout</SelectItem>
+                        <SelectItem value="certificate">Certificate</SelectItem>
+                        <SelectItem value="dashboard">Dashboard</SelectItem>
+                        <SelectItem value="funded">Funded</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="sp-order">Display Order</Label>
+                    <Input id="sp-order" type="number" min={0} value={uploadOrder} onChange={(e) => setUploadOrder(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+              <Button className="mt-4" onClick={async () => {
+                if (!uploadFile) return toast.error("Select an image");
+                if (!uploadLabel.trim()) return toast.error("Enter a label");
+                setUploading(true);
+                try {
+                  const ext = uploadFile.name.split(".").pop();
+                  const filePath = `${crypto.randomUUID()}-${uploadFile.name}`;
+                  const { error: uploadError } = await supabase.storage
+                    .from("social-proof")
+                    .upload(filePath, uploadFile, { contentType: uploadFile.type, upsert: false });
+                  if (uploadError) { toast.error(uploadError.message); return; }
+                  const { data: { publicUrl } } = supabase.storage
+                    .from("social-proof")
+                    .getPublicUrl(filePath);
+                  const { error: insertError } = await supabase
+                    .from("social_proof_items")
+                    .insert({
+                      label: uploadLabel.trim(),
+                      image_url: publicUrl,
+                      storage_path: filePath,
+                      category: uploadCategory,
+                      display_order: Number(uploadOrder),
+                    } as never);
+                  if (insertError) { toast.error(insertError.message); return; }
+                  toast.success("Image added to gallery");
+                  setUploadFile(null);
+                  setUploadPreview("");
+                  setUploadLabel("");
+                  setUploadCategory("payout");
+                  setUploadOrder("0");
+                  loadSocialItems();
+                } catch (e: any) {
+                  toast.error(e?.message ?? "Upload failed");
+                } finally {
+                  setUploading(false);
+                }
+              }} disabled={uploading}>
+                {uploading ? "Uploading…" : "Upload & Add to Gallery"}
+              </Button>
+            </div>
+
+            {/* Management Table */}
+            <div>
+              <h3 className="font-display text-lg font-bold">Gallery Items</h3>
+              <div className="mt-3 overflow-x-auto rounded-xl border border-border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-24">Preview</TableHead>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead className="w-20">Order</TableHead>
+                      <TableHead className="w-20">Visible</TableHead>
+                      <TableHead className="w-20">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {socialItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                          No items yet. Upload your first image above.
+                        </TableCell>
+                      </TableRow>
+                    ) : socialItems.map((item) => {
+                      const catConfig = {
+                        payout: "bg-green-500/20 text-green-500 border-green-500/40",
+                        certificate: "bg-blue-500/20 text-blue-500 border-blue-500/40",
+                        dashboard: "bg-purple-500/20 text-purple-500 border-purple-500/40",
+                        funded: "bg-amber-500/20 text-amber-500 border-amber-500/40",
+                      } as Record<string, string>;
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div className="h-12 w-20 overflow-hidden rounded-md border border-border">
+                              <img src={item.image_url} alt={item.label} className="h-full w-full object-cover" loading="lazy" />
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[240px] truncate font-medium">{item.label}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`font-display ${catConfig[item.category] ?? ""}`}>
+                              {item.category?.toUpperCase() ?? "—"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              className="h-8 w-16 text-xs"
+                              defaultValue={item.display_order}
+                              onBlur={(e) => {
+                                const val = e.target.value;
+                                if (Number(val) !== item.display_order) {
+                                  setSavingSocialOrder(item.id);
+                                  supabase
+                                    .from("social_proof_items")
+                                    .update({ display_order: Number(val) } as never)
+                                    .eq("id", item.id)
+                                    .then(({ error }) => {
+                                      setSavingSocialOrder(null);
+                                      if (error) return toast.error(error.message);
+                                      loadSocialItems();
+                                    });
+                                }
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={!!item.is_visible}
+                                onCheckedChange={async () => {
+                                  const { error } = await supabase
+                                    .from("social_proof_items")
+                                    .update({ is_visible: !item.is_visible } as never)
+                                    .eq("id", item.id);
+                                  if (error) return toast.error(error.message);
+                                  toast.success(item.is_visible ? "Hidden" : "Visible");
+                                  loadSocialItems();
+                                }}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                              disabled={socialDeleting === item.id}
+                              onClick={async () => {
+                                if (!confirm(`Delete "${item.label}"?`)) return;
+                                setSocialDeleting(item.id);
+                                if (item.storage_path) {
+                                  await supabase.storage.from("social-proof").remove([item.storage_path]);
+                                }
+                                const { error } = await supabase
+                                  .from("social_proof_items")
+                                  .delete()
+                                  .eq("id", item.id);
+                                setSocialDeleting(null);
+                                if (error) return toast.error(error.message);
+                                toast.success("Item deleted");
+                                loadSocialItems();
+                              }}
+                            >
+                              {socialDeleting === item.id ? "…" : "Delete"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </TabsContent>
+
           <TabsContent value="pool" className="mt-6 space-y-4">
             {/* Low stock warning */}
             {(() => {
