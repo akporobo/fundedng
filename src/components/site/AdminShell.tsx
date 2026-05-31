@@ -142,10 +142,7 @@ export function AdminShell() {
           </button>
           <Brand />
         </div>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <NotificationBell />
-        </div>
+        <ThemeToggle />
       </header>
 
       {/* Mobile slide-in sidebar overlay */}
