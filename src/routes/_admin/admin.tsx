@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
+export const Route = createFileRoute("/_admin/admin")({ component: AdminPage });
 
 function AdminPage() {
   const { isAdmin, isLoading } = useAuth();
