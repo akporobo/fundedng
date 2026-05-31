@@ -129,22 +129,11 @@ function DashboardPage() {
   const [verifyingKyc, setVerifyingKyc] = useState(false);
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
   const lastEquityRef = useRef<number | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const selectedRef = useRef(selected);
 
-  // Create a single persistent channel for the component lifetime
-  if (!channelRef.current) {
-    channelRef.current = supabase.channel('dashboard-realtime');
-  }
-
-  // Clean up the persistent channel on unmount
   useEffect(() => {
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, []);
+    selectedRef.current = selected;
+  }, [selected]);
 
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
@@ -308,32 +297,31 @@ function DashboardPage() {
   }, [selected]);
 
   useEffect(() => {
-    const channel = channelRef.current;
-    if (!channel) return;
-
-    channel.unsubscribe();
-    (channel as any).bindings = [];
-
-    if (!selected || !user || selected.status === 'breached') {
-      setLiveStatus('disconnected');
-      return;
-    }
+    if (!user) return;
 
     setLiveStatus('connecting');
 
-    channel
+    const channel = supabase
+      .channel(`user-live-${user.id}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'account_snapshots',
-          filter: `trader_account_id=eq.${selected.id}`,
         },
         (payload) => {
+          if (
+            payload.new.trader_account_id !==
+            selectedRef.current?.id
+          ) return;
+
           const newEquity = Number(payload.new.equity);
-          if (lastEquityRef.current !== null && lastEquityRef.current !== newEquity) {
-            toast("📊 Equity updated", { duration: 2000 });
+          if (
+            lastEquityRef.current !== null &&
+            lastEquityRef.current !== newEquity
+          ) {
+            toast('📊 Equity updated', { duration: 2000 });
           }
           lastEquityRef.current = newEquity;
           setSnapshots((prev) => [
@@ -352,26 +340,52 @@ function DashboardPage() {
           event: 'UPDATE',
           schema: 'public',
           table: 'trader_accounts',
-          filter: `id=eq.${selected.id}`,
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          setSelected((prev) => (prev ? { ...prev, ...payload.new } : prev));
-          setAccounts((prev) =>
-            prev.map((a) => (a.id === payload.new.id ? { ...a, ...payload.new } : a)),
+          setSelected((prev) =>
+            prev ? { ...prev, ...payload.new } : prev,
           );
-          if (payload.new.status === 'breached' && payload.old?.status !== 'breached') {
-            toast.error(`⚠️ Account Breached — ${payload.new.breach_reason}`);
+          setAccounts((prev) =>
+            prev.map((a) =>
+              a.id === payload.new.id
+                ? { ...a, ...payload.new }
+                : a,
+            ),
+          );
+          if (
+            payload.new.status === 'breached' &&
+            payload.old?.status !== 'breached'
+          ) {
+            toast.error(
+              `⚠️ Account Breached — ${payload.new.breach_reason}`,
+            );
           }
         },
       )
       .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') setLiveStatus('live');
-        else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        if (status === 'SUBSCRIBED') {
+          setLiveStatus('live');
+        } else if (
+          status === 'CLOSED' ||
+          status === 'CHANNEL_ERROR'
+        ) {
           setLiveStatus('disconnected');
-          if (err) console.error('[realtime] subscription error:', err);
+          if (err) {
+            console.error(
+              '[realtime] subscription error:',
+              err,
+            );
+          }
         }
       });
-  }, [selected?.id, user?.id]);
+
+    return () => {
+      supabase.removeChannel(channel);
+      lastEquityRef.current = null;
+      setLiveStatus('disconnected');
+    };
+  }, [user?.id]);
 
   const requestPayout = async () => {
     if (!selected) return;
