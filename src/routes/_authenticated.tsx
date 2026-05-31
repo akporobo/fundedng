@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useLocation } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -7,14 +7,18 @@ import { AppShell } from "@/components/site/AppShell";
 export const Route = createFileRoute("/_authenticated")({ component: AuthLayout });
 
 function AuthLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate({ to: "/auth/register", replace: true });
     }
-  }, [isLoading, isAuthenticated, navigate]);
+    if (!isLoading && isAuthenticated && isAdmin && pathname === "/dashboard") {
+      navigate({ to: "/admin", replace: true });
+    }
+  }, [isLoading, isAuthenticated, isAdmin, navigate, pathname]);
 
   // Full-screen spinner while session resolves — never flash protected content.
   if (isLoading || !isAuthenticated) {

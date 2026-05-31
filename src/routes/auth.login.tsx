@@ -12,10 +12,12 @@ export const Route = createFileRoute("/auth/login")({ component: LoginPage });
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isAdmin } = useAuth();
   useEffect(() => {
-    if (!isLoading && isAuthenticated) navigate({ to: "/dashboard", replace: true });
-  }, [isAuthenticated, isLoading, navigate]);
+    if (!isLoading && isAuthenticated) {
+      navigate({ to: isAdmin ? "/admin" : "/dashboard", replace: true });
+    }
+  }, [isAuthenticated, isLoading, isAdmin, navigate]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -24,10 +26,15 @@ function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return setError(error.message);
-    navigate({ to: "/dashboard" });
+    const uid = signInData.user?.id;
+    const { data: roles } = uid
+      ? await supabase.from("user_roles").select("role").eq("user_id", uid)
+      : { data: null };
+    const isAdminUser = roles?.some((r) => r.role === "admin");
+    navigate({ to: isAdminUser ? "/admin" : "/dashboard", replace: true });
   };
 
   return (
