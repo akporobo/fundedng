@@ -55,7 +55,7 @@ async function syncEquityV2(request: Request) {
 
   const { data: account, error: acctErr } = await supabaseAdmin
     .from("trader_accounts")
-    .select("id, status, starting_balance, peak_equity")
+    .select("id, status, starting_balance, peak_equity, last_synced_at, trading_days")
     .eq("id", account_id)
     .in("status", ["active", "funded"])
     .single();
@@ -74,6 +74,12 @@ async function syncEquityV2(request: Request) {
     equity < newPeak
       ? Number((((newPeak - equity) / newPeak) * 100).toFixed(2))
       : 0;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const lastSyncDay = account.last_synced_at
+    ? account.last_synced_at.slice(0, 10)
+    : null;
+  const isNewDay = lastSyncDay !== today;
 
   const { error: snapErr } = await supabaseAdmin
     .from("account_snapshots")
@@ -94,6 +100,9 @@ async function syncEquityV2(request: Request) {
     .update({
       last_synced_at: new Date().toISOString(),
       peak_equity: newPeak,
+      trading_days: isNewDay
+        ? (account.trading_days ?? 0) + 1
+        : account.trading_days ?? 0,
     })
     .eq("id", account_id)
     .select("status, breach_reason")

@@ -31,6 +31,7 @@ interface TradingAnalyticsProps {
   minTradingDays: number;
   currentPhase: number;
   status: "active" | "breached" | "passed" | "funded";
+  tradingDays: number;
 }
 
 function getDailyPL(snapshots: Snapshot[]) {
@@ -185,10 +186,11 @@ export function TradingAnalytics({
   minTradingDays = 3,
   currentPhase,
   status,
+  tradingDays,
 }: TradingAnalyticsProps) {
   const chartData = getEquityChartData(snapshots, startingBalance);
   const dailyPL = getDailyPL(snapshots);
-  const daysTraded = getDaysTraded(snapshots);
+  const daysTraded = Math.max(tradingDays, getDaysTraded(snapshots));
   const peakDD = getPeakDrawdown(snapshots, startingBalance);
   const profitPct = startingBalance > 0 ? ((currentEquity - startingBalance) / startingBalance) * 100 : 0;
   const totalPL = currentEquity - startingBalance;

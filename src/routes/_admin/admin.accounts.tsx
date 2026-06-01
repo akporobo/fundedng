@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +23,10 @@ function AccountsPage() {
     breachTarget, breachReason, breaching, setBreachTarget, setBreachReason, openBreachDialog, submitBreach,
     warnTarget, warnReason, warning, setWarnTarget, setWarnReason, openWarningDialog, submitWarning,
     rejectTarget, rejectReason, rejecting, rejectType, setRejectTarget, setRejectReason, setRejectType,
-    openRejectDialog, submitRejectPhase, approvePhase2, approveFunded, viewCredsFor, setViewCredsFor,
+    openRejectDialog, submitRejectPhase, approvePhase2, approveFunded, viewCredsFor, setViewCredsFor, updateAccount,
   } = useAdminData();
+  const [credDraft, setCredDraft] = useState<Record<string, Record<string, string>>>({});
+  const [credSaving, setCredSaving] = useState<string | null>(null);
 
   return (
     <div className="mt-6 space-y-2">
@@ -80,7 +83,7 @@ function AccountsPage() {
               })()}
               <Button size="sm" variant="outline" onClick={() => openWarningDialog(a)}>Warning</Button>
               <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
-              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => setViewCredsFor(a)}>
+              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => { setViewCredsFor(a); setCredDraft((d) => ({ ...d, [a.id]: { mt5_server: a.mt5_server ?? "", mt5_password: a.mt5_password ?? "", investor_password: a.investor_password ?? "" } })); }}>
                 <Eye className="mr-1 h-3.5 w-3.5" />Credentials
               </Button>
             </div>
@@ -106,8 +109,8 @@ function AccountsPage() {
         </div>
       ))}
 
-      {/* View credentials dialog */}
-      <Dialog open={!!viewCredsFor} onOpenChange={(o) => !o && setViewCredsFor(null)}>
+      {/* Edit credentials dialog */}
+      <Dialog open={!!viewCredsFor} onOpenChange={(o) => { if (!o) { setViewCredsFor(null); setCredDraft({}); } }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>MT5 Credentials</DialogTitle>
@@ -117,19 +120,31 @@ function AccountsPage() {
             <div className="grid gap-3">
               <div className="grid gap-1">
                 <Label className="text-xs text-muted-foreground">Server</Label>
-                <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">{viewCredsFor.mt5_server}</div>
+                <Input value={credDraft[viewCredsFor.id]?.mt5_server ?? ""} onChange={(e) => setCredDraft((d) => ({ ...d, [viewCredsFor.id]: { ...d[viewCredsFor.id], mt5_server: e.target.value } }))} className="h-9 font-mono text-sm" />
               </div>
               <div className="grid gap-1">
                 <Label className="text-xs text-muted-foreground">Master Password</Label>
-                <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">{viewCredsFor.mt5_password}</div>
+                <Input value={credDraft[viewCredsFor.id]?.mt5_password ?? ""} onChange={(e) => setCredDraft((d) => ({ ...d, [viewCredsFor.id]: { ...d[viewCredsFor.id], mt5_password: e.target.value } }))} className="h-9 font-mono text-sm" />
               </div>
               <div className="grid gap-1">
                 <Label className="text-xs text-muted-foreground">Investor Password</Label>
-                <div className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm">{viewCredsFor.investor_password}</div>
+                <Input value={credDraft[viewCredsFor.id]?.investor_password ?? ""} onChange={(e) => setCredDraft((d) => ({ ...d, [viewCredsFor.id]: { ...d[viewCredsFor.id], investor_password: e.target.value } }))} className="h-9 font-mono text-sm" />
               </div>
             </div>
           )}
-          <DialogFooter><Button variant="outline" onClick={() => setViewCredsFor(null)}>Close</Button></DialogFooter>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setViewCredsFor(null); setCredDraft({}); }}>Cancel</Button>
+            <Button onClick={async () => {
+              if (!viewCredsFor) return;
+              const draft = credDraft[viewCredsFor.id];
+              if (!draft) return;
+              setCredSaving(viewCredsFor.id);
+              await updateAccount(viewCredsFor.id, { mt5_server: draft.mt5_server, mt5_password: draft.mt5_password, investor_password: draft.investor_password || null });
+              setCredSaving(null);
+              setViewCredsFor(null);
+              setCredDraft({});
+            }} disabled={credSaving === viewCredsFor?.id}>{credSaving === viewCredsFor?.id ? "Saving…" : "Save"}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

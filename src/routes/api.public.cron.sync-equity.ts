@@ -25,7 +25,7 @@ async function syncEquity() {
   const startedAt = Date.now();
   const { data: accounts, error } = await supabaseAdmin
     .from("trader_accounts")
-    .select("id, mt5_login, provider, starting_balance, peak_equity, status")
+    .select("id, mt5_login, provider, starting_balance, peak_equity, status, last_synced_at, trading_days")
     .in("status", ["active", "funded"])
     .eq("provider", "exness-bot");
 
@@ -71,9 +71,20 @@ async function syncEquity() {
         continue;
       }
 
+      const today = new Date().toISOString().slice(0, 10);
+      const lastSyncDay = acct.last_synced_at
+        ? acct.last_synced_at.slice(0, 10)
+        : null;
+      const isNewDay = lastSyncDay !== today;
+
       await supabaseAdmin
         .from("trader_accounts")
-        .update({ last_synced_at: new Date().toISOString() })
+        .update({
+          last_synced_at: new Date().toISOString(),
+          trading_days: isNewDay
+            ? (acct.trading_days ?? 0) + 1
+            : acct.trading_days ?? 0,
+        })
         .eq("id", acct.id);
       synced++;
     } catch (e) {

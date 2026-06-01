@@ -1126,6 +1126,7 @@ export type Database = {
            provider: string
           starting_balance: number
           status: Database["public"]["Enums"]["account_status"]
+          trading_days: number
           updated_at: string
           user_id: string
         }
@@ -1154,6 +1155,7 @@ export type Database = {
           provider?: string
           starting_balance: number
           status?: Database["public"]["Enums"]["account_status"]
+          trading_days?: number
           updated_at?: string
           user_id: string
         }
@@ -1182,6 +1184,7 @@ export type Database = {
           provider?: string
           starting_balance?: number
           status?: Database["public"]["Enums"]["account_status"]
+          trading_days?: number
           updated_at?: string
           user_id?: string
         }

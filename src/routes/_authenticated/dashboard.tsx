@@ -42,6 +42,7 @@ interface Account {
   phase_rejected_reason?: string | null;
   phase_rejected_at?: string | null;
   deleted_at?: string | null;
+  trading_days?: number;
   challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
 
@@ -842,6 +843,7 @@ function DashboardPage() {
                       minTradingDays={3}
                       currentPhase={selected.current_phase}
                       status={selected.status}
+                      tradingDays={selected.trading_days ?? 0}
                     />
                   )}
 
