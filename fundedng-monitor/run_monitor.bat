@@ -1,2 +1,2 @@
 @echo off
-"C:\Users\GRAYEM~1\AppData\Local\Programs\Python\Python314\pythonw.exe" "C:\Users\GRAYEM~1\fundedng\FUNDED~1\equity_monitor.py"
+"C:\Users\Gray Empire\AppData\Local\Programs\Python\Python314\pythonw.exe" "C:\Users\Gray Empire\fundedng\fundedng-monitor\equity_monitor.py"

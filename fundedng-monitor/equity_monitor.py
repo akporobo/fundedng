@@ -5,10 +5,13 @@ import logging
 import argparse
 import signal
 import atexit
+import threading
+import random
 from datetime import datetime, timezone, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from threading import Event
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from dotenv import load_dotenv
@@ -39,6 +42,8 @@ console = logging.StreamHandler()
 console.setFormatter(formatter)
 logger.addHandler(console)
 
+mt5_lock = threading.Lock()
+
 _shutdown = Event()
 
 def _handle_signal(signum, frame):
@@ -53,51 +58,15 @@ if hasattr(signal, "SIGBREAK"):
     signal.signal(signal.SIGBREAK, _handle_signal)
 
 
+def _safe_shutdown():
+    try:
+        mt5.shutdown()
+    except Exception:
+        pass
+
+
 def connect_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
-
-def mt5_init() -> bool:
-    mt5.shutdown()
-    kwargs = {"timeout": 15000}
-    if MT5_PATH:
-        kwargs["path"] = MT5_PATH
-    for attempt in range(3):
-        if _shutdown.is_set():
-            return False
-        if mt5.initialize(**kwargs):
-            logger.info("MT5 initialized")
-            return True
-        err = mt5.last_error()
-        code, desc = err if isinstance(err, tuple) else (0, str(err))
-        logger.warning(f"MT5 init attempt {attempt+1}/3 failed (code={code}): {desc}")
-        if attempt < 2:
-            time.sleep(3)
-    return False
-
-
-def mt5_ensure_alive() -> bool:
-    if mt5.terminal_info() is None:
-        logger.warning("MT5 terminal disconnected, reinitializing...")
-        mt5.shutdown()
-        return mt5_init()
-    return True
-
-
-def mt5_switch_account(login: str, password: str, server: str) -> bool:
-    if not mt5_ensure_alive():
-        return False
-    result = mt5.login(login=int(login), password=password, server=server)
-    if not result:
-        err = mt5.last_error()
-        code, desc = err if isinstance(err, tuple) else (0, str(err))
-        logger.error(f"Login to {login} failed (code={code}): {desc}")
-        return False
-    info = mt5.account_info()
-    if info is None or str(info.login) != str(login):
-        logger.error(f"Login mismatch after switch: expected {login}, got {getattr(info, 'login', None)}")
-        return False
-    return True
 
 
 def fetch_accounts(supabase: Client) -> list[dict]:
@@ -115,11 +84,27 @@ def fetch_accounts(supabase: Client) -> list[dict]:
     return result.data or []
 
 
-def read_account(login: str) -> dict | None:
+def read_mt5_account(login: str, password: str, server: str, starting_balance: float = 0) -> dict:
+    mt5.shutdown()
+
+    initialized = mt5.initialize(timeout=15000)
+    if not initialized and MT5_PATH:
+        initialized = mt5.initialize(path=MT5_PATH, timeout=60000)
+    if not initialized:
+        err = mt5.last_error()
+        code, desc = err if isinstance(err, tuple) else (0, str(err))
+        raise RuntimeError(f"MT5 initialize failed (code={code}): {desc}")
+
+    connected = mt5.account_info()
+    if connected is None or str(connected.login) != str(login):
+        if not mt5.login(login=int(login), password=password, server=server):
+            err = mt5.last_error()
+            code, desc = err if isinstance(err, tuple) else (0, str(err))
+            raise RuntimeError(f"Login to {login} failed (code={code}): {desc}")
+
     info = mt5.account_info()
     if info is None:
-        logger.error(f"account_info() returned None for {login}")
-        return None
+        raise RuntimeError(f"account_info() returned None for {login}")
 
     now = datetime.utcnow()
     since = now - timedelta(hours=24)
@@ -130,10 +115,10 @@ def read_account(login: str) -> dict | None:
         opens = {}
         for d in deals:
             if d.entry == 0:
-                opens[d.order] = d.time
+                opens[d.position_id] = d.time
         for d in deals:
             if d.entry == 1:
-                ot = opens.get(d.order)
+                ot = opens.get(d.position_id)
                 if ot is not None:
                     secs = int(d.time - ot)
                     if 0 < secs < 180:
@@ -153,6 +138,69 @@ def read_account(login: str) -> dict | None:
         "profit": round(info.profit, 2),
         "scalping_violations": scalping,
     }
+
+
+def process_account(acct: dict) -> dict:
+    mt5_login = str(acct.get("mt5_login", ""))
+    account_id = acct.get("id", "")
+    investor_password = acct.get("investor_password") or acct.get("mt5_password", "")
+    server = acct.get("mt5_server", "")
+    starting_balance = float(acct.get("starting_balance") or 0)
+
+    result = {
+        "login": mt5_login,
+        "success": False,
+        "error": None,
+    }
+
+    time.sleep(random.uniform(0, 0.3))
+
+    try:
+        with mt5_lock:
+            data = read_mt5_account(
+                mt5_login,
+                investor_password,
+                server,
+                starting_balance=starting_balance,
+            )
+            _safe_shutdown()
+    except Exception as e:
+        logger.error(f"[{mt5_login}] MT5 read error: {e}")
+        _safe_shutdown()
+        result["error"] = str(e)
+        return result
+
+    violations = data.get("scalping_violations", [])
+    try:
+        post_snapshot(
+            account_id=account_id,
+            mt5_login=mt5_login,
+            equity=data["equity"],
+            balance=data["balance"],
+            profit=data["profit"],
+            violations=violations,
+        )
+        if violations:
+            logger.warning(
+                f"[{mt5_login}] SCALPING DETECTED — "
+                f"{len(violations)} violation(s): "
+                + ", ".join([
+                    f"{v['symbol']} {v['duration_seconds']}s"
+                    for v in violations
+                ])
+            )
+        logger.info(
+            f"[{mt5_login}] OK  "
+            f"e={data['equity']} "
+            f"b={data['balance']} "
+            f"p={data['profit']}"
+        )
+        result["success"] = True
+    except Exception as e:
+        logger.error(f"[{mt5_login}] API post error: {e}")
+        result["error"] = str(e)
+
+    return result
 
 
 def post_snapshot(
@@ -199,7 +247,7 @@ def is_market_hours() -> bool:
     return True
 
 
-def process_all(supabase: Client, http: requests.Session) -> tuple[int, int]:
+def process_all(supabase: Client) -> tuple[int, int]:
     accounts = fetch_accounts(supabase)
     count = len(accounts)
     logger.info(f"Fetched {count} account(s)")
@@ -207,46 +255,35 @@ def process_all(supabase: Client, http: requests.Session) -> tuple[int, int]:
     if count == 0:
         return 0, 0
 
-    ok = 0
-    fail = 0
+    succeeded = 0
+    failed = 0
 
-    for i, acct in enumerate(accounts):
-        if _shutdown.is_set():
-            break
+    max_workers = min(len(accounts), 4)
 
-        login = str(acct.get("mt5_login", ""))
-        aid = acct.get("id", "")
-        pw = acct.get("investor_password") or acct.get("mt5_password", "")
-        srv = acct.get("mt5_server", "")
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_account, acct): acct
+            for acct in accounts
+        }
+        for future in as_completed(futures):
+            acct = futures[future]
+            try:
+                result = future.result(timeout=55)
+                if result["success"]:
+                    succeeded += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                logger.error(
+                    f"[{acct.get('mt5_login')}] "
+                    f"Thread error: {e}"
+                )
+                failed += 1
 
-        if not mt5_switch_account(login, pw, srv):
-            fail += 1
-            continue
-
-        data = read_account(login)
-        if data is None:
-            fail += 1
-            continue
-
-        ok_flag = post_snapshot(aid, login, data["equity"], data["balance"],
-                                data["profit"], data.get("scalping_violations"), http)
-        if ok_flag:
-            if data["scalping_violations"]:
-                det = ", ".join(f"{v['symbol']} {v['duration_seconds']}s"
-                                for v in data["scalping_violations"])
-                logger.warning(f"[{login}] SCALPING ({len(data['scalping_violations'])}): {det}")
-            logger.info(f"[{login}] OK  e={data['equity']} b={data['balance']} p={data['profit']}")
-            ok += 1
-        else:
-            fail += 1
-
-        if i < count - 1 and not _shutdown.is_set():
-            time.sleep(2)
-
-    return ok, fail
+    return succeeded, failed
 
 
-def run_daemon(supabase: Client, http: requests.Session, interval: int, skip_market: bool = False):
+def run_daemon(supabase: Client, interval: int, skip_market: bool = False):
     logger.info(f"Daemon mode active (poll every {interval}s)")
     consec_fail = 0
 
@@ -257,7 +294,7 @@ def run_daemon(supabase: Client, http: requests.Session, interval: int, skip_mar
             continue
 
         try:
-            ok, fail = process_all(supabase, http)
+            ok, fail = process_all(supabase)
             if fail:
                 consec_fail += fail
                 if consec_fail >= 10:
@@ -289,34 +326,23 @@ def main():
         logger.info("Market closed, exiting")
         return
 
-    atexit.register(mt5.shutdown)
-
-    if not mt5_init():
-        logger.error("Failed to initialize MT5, aborting")
-        sys.exit(1)
-
-    http = requests.Session()
-    http.headers.update({"Content-Type": "application/json"})
-
     try:
         supabase = connect_supabase()
     except Exception as e:
         logger.error(f"Supabase connection failed: {e}")
-        mt5.shutdown()
         sys.exit(1)
 
     try:
         if args.daemon:
-            run_daemon(supabase, http, args.interval, args.skip_market)
+            run_daemon(supabase, args.interval, args.skip_market)
         else:
-            ok, fail = process_all(supabase, http)
+            ok, fail = process_all(supabase)
             elapsed = int((time.time() - start) * 1000)
             logger.info(f"Done — {ok} ok, {fail} failed, {elapsed}ms")
             if fail > 0:
                 sys.exit(1)
     finally:
-        mt5.shutdown()
-        http.close()
+        _safe_shutdown()
 
 
 if __name__ == "__main__":
