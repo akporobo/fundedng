@@ -613,7 +613,7 @@ function useAdminDataHook() {
     rejectTarget, rejectReason, rejecting, rejectType, setRejectTarget, setRejectReason, setRejectType,
     openRejectDialog, submitRejectPhase,
     poolAccounts, poolInventory, poolLoading, poolFormOpen, poolSaving, poolForm, viewCredsFor,
-    setPoolFormOpen, setPoolForm, setViewCredsFor, loadPool,
+    setPoolFormOpen, setPoolForm, setPoolSaving, setViewCredsFor, loadPool,
     socialItems, uploadFile, uploadPreview, uploadLabel, uploadCategory, uploadOrder, uploading,
     savingSocialOrder, socialDeleting, setUploadFile, setUploadPreview, setUploadLabel,
     setUploadCategory, setUploadOrder, setUploading, loadSocialItems,

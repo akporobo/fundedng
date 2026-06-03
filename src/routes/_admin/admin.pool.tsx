@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_admin/admin/pool")({
 function PoolPage() {
   const {
     poolAccounts, poolInventory, poolLoading, poolFormOpen, poolSaving, poolForm, viewCredsFor, challengeList,
-    setPoolFormOpen, setPoolForm, setViewCredsFor, loadPool,
+    setPoolFormOpen, setPoolForm, setPoolSaving, setViewCredsFor, loadPool,
   } = useAdminData();
 
   return (

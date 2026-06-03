@@ -49,7 +49,8 @@ from supabase import create_client, Client
 #  CONFIG - loaded from .env in the same folder
 # ---------------------------------------------------------------------------
 
-
+SCRIPT_DIR = Path(__file__).parent.resolve()
+load_dotenv(dotenv_path=SCRIPT_DIR / ".env")
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -73,11 +74,7 @@ MT5_INIT_TIMEOUT_MS = 30000
 #  LOGGING
 # ---------------------------------------------------------------------------
 
-SCRIPT_DIR = Path(__file__).parent.resolve()
 LOG_FILE   = SCRIPT_DIR / "equity_monitor.log"
-
-# Ensure .env is loaded from the script's directory regardless of CWD
-load_dotenv(dotenv_path=SCRIPT_DIR / ".env")
 
 logger = logging.getLogger("fundedng_monitor")
 logger.setLevel(logging.INFO)
@@ -151,7 +148,12 @@ def is_market_open() -> bool:
 # ---------------------------------------------------------------------------
 
 def get_supabase() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    from supabase._sync.client import ClientOptions
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY,
+        options=ClientOptions(postgrest_client_timeout=30),
+    )
 
 
 def fetch_accounts(supabase: Client) -> list[dict]:
@@ -445,7 +447,12 @@ def main() -> None:
         logger.error(f"Supabase failed: {exc}")
         sys.exit(1)
 
-    accounts = fetch_accounts(supabase)
+    try:
+        accounts = fetch_accounts(supabase)
+    except Exception as exc:
+        logger.error(f"Fetch accounts failed: {exc}")
+        sys.exit(1)
+
     total    = len(accounts)
     logger.info(f"Fetched {total} account(s)")
 

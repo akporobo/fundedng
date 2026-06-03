@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as DiscordRouteImport } from './routes/discord'
 import { Route as BuyRouteImport } from './routes/buy'
 import { Route as AgreementRouteImport } from './routes/agreement'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -56,6 +57,11 @@ import { Route as ApiPublicCronHandleScalpingRouteImport } from './routes/api.pu
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscordRoute = DiscordRouteImport.update({
+  id: '/discord',
+  path: '/discord',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BuyRoute = BuyRouteImport.update({
@@ -275,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
+  '/discord': typeof DiscordRoute
   '/rules': typeof RulesRoute
   '/admin': typeof AdminAdminRouteWithChildren
   '/affiliate': typeof AuthenticatedAffiliateRoute
@@ -318,6 +325,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
+  '/discord': typeof DiscordRoute
   '/rules': typeof RulesRoute
   '/affiliate': typeof AuthenticatedAffiliateRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -362,6 +370,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
+  '/discord': typeof DiscordRoute
   '/rules': typeof RulesRoute
   '/_admin/admin': typeof AdminAdminRouteWithChildren
   '/_authenticated/affiliate': typeof AuthenticatedAffiliateRoute
@@ -407,6 +416,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agreement'
     | '/buy'
+    | '/discord'
     | '/rules'
     | '/admin'
     | '/affiliate'
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agreement'
     | '/buy'
+    | '/discord'
     | '/rules'
     | '/affiliate'
     | '/dashboard'
@@ -493,6 +504,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/agreement'
     | '/buy'
+    | '/discord'
     | '/rules'
     | '/_admin/admin'
     | '/_authenticated/affiliate'
@@ -539,6 +551,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AgreementRoute: typeof AgreementRoute
   BuyRoute: typeof BuyRoute
+  DiscordRoute: typeof DiscordRoute
   RulesRoute: typeof RulesRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
   ApiInitializePaymentRoute: typeof ApiInitializePaymentRoute
@@ -566,6 +579,13 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/rules'
       preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discord': {
+      id: '/discord'
+      path: '/discord'
+      fullPath: '/discord'
+      preLoaderRoute: typeof DiscordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/buy': {
@@ -951,6 +971,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AgreementRoute: AgreementRoute,
   BuyRoute: BuyRoute,
+  DiscordRoute: DiscordRoute,
   RulesRoute: RulesRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
   ApiInitializePaymentRoute: ApiInitializePaymentRoute,
