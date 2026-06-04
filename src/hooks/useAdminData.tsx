@@ -146,26 +146,17 @@ function useAdminDataHook() {
     const challengeIds = Array.from(new Set([...accRows.map((a) => a.challenge_id), ...reqRows.map((r) => r.challenge_id), ...((ord.data ?? []) as any[]).map((o) => o.challenge_id)]));
     const orderIds = Array.from(new Set(reqRows.map((r) => r.order_id)));
     const accountIds = poRows.map((p) => p.trader_account_id).filter(Boolean);
-    const accIdList = Array.from(new Set(accRows.map((a: any) => a.id)));
-    const [profRes, chRes, ordRes, taRes, snapRes] = await Promise.all([
+    const [profRes, chRes, ordRes, taRes] = await Promise.all([
       userIds.length ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
       challengeIds.length ? supabase.from("challenges").select("id, name, account_size, profit_target_percent, max_drawdown_percent, phases").in("id", challengeIds) : Promise.resolve({ data: [] as any[] }),
       orderIds.length ? supabase.from("orders").select("id, status").in("id", orderIds) : Promise.resolve({ data: [] as any[] }),
       accountIds.length ? supabase.from("trader_accounts").select("id, mt5_login").in("id", accountIds) : Promise.resolve({ data: [] as any[] }),
-      accIdList.length ? supabase.from("account_snapshots").select("trader_account_id, snapshot_time").in("trader_account_id", accIdList) : Promise.resolve({ data: [] as any[] }),
     ]);
     const profMap = new Map((profRes.data ?? []).map((p: any) => [p.id, p]));
     const chMap = new Map((chRes.data ?? []).map((c: any) => [c.id, c]));
     const ordMap = new Map((ordRes.data ?? []).map((o: any) => [o.id, o]));
     const taMap = new Map((taRes.data ?? []).map((t: any) => [t.id, t]));
-    const tradingDaysMap = new Map<string, number>();
-    const snapRows = (snapRes.data ?? []) as any[];
-    if (snapRows.length > 0) {
-      const firstLast = new Map<string, { first: number; last: number }>();
-      for (const s of snapRows) { const t = new Date(s.snapshot_time).getTime(); const cur = firstLast.get(s.trader_account_id); if (!cur) firstLast.set(s.trader_account_id, { first: t, last: t }); else { if (t < cur.first) cur.first = t; if (t > cur.last) cur.last = t; } }
-      for (const [id, { first, last }] of firstLast) tradingDaysMap.set(id, Math.floor((last - first) / (24 * 60 * 60 * 1000)) + 1);
-    }
-    const accList = accRows.map((a: any) => ({ ...a, profiles: profMap.get(a.user_id) ?? null, challenges: chMap.get(a.challenge_id) ?? null, _trading_days: tradingDaysMap.get(a.id) ?? 0 }));
+    const accList = accRows.map((a: any) => ({ ...a, profiles: profMap.get(a.user_id) ?? null, challenges: chMap.get(a.challenge_id) ?? null, _trading_days: a.trading_days ?? 0 }));
     const poList = poRows.map((p: any) => ({ ...p, profiles: profMap.get(p.user_id) ?? null, trader_accounts: taMap.get(p.trader_account_id) ?? null }));
     const hydrated = reqRows.map((r: any) => ({ ...r, profiles: profMap.get(r.user_id) ?? null, challenges: chMap.get(r.challenge_id) ?? null, orders: ordMap.get(r.order_id) ?? null }));
     accList.sort((a: any, b: any) => { const score = (x: any) => { if (x.status !== "active") return 0; if (x.current_phase < 2 && x.phase2_requested_at) return 2; if (x.current_phase >= 2 && x.funded_requested_at) return 2; return 0; }; return score(b) - score(a); });
@@ -284,7 +275,16 @@ function useAdminDataHook() {
     if (error) return toast.error(error.message);
     toast.success(`Payout ${status}`);
     if (status === "approved") notifyEmail({ type: "payout_approved", payoutId: p.id });
-    if (status === "paid") { notifyEmail({ type: "payout_paid", payoutId: p.id }); generatePayoutCertificate({ traderName: p.profiles?.full_name ?? "Trader", amount: p.amount_naira, date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), method: p.payment_method === "usdt" ? "USDT" : "Bank Transfer", payoutId: p.id }); }
+    if (status === "paid") {
+      notifyEmail({ type: "payout_paid", payoutId: p.id });
+      generatePayoutCertificate({ traderName: p.profiles?.full_name ?? "Trader", amount: p.amount_naira, date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), method: p.payment_method === "usdt" ? "USDT" : "Bank Transfer", payoutId: p.id });
+      const { data: account } = await supabase.from("trader_accounts").select("id, starting_balance").eq("id", p.trader_account_id).maybeSingle();
+      if (account) {
+        await supabase.from("trader_accounts").update({ current_equity: account.starting_balance, peak_equity: account.starting_balance, trading_days: 0 } as never).eq("id", account.id);
+        await supabase.from("account_snapshots").insert({ trader_account_id: account.id, equity: account.starting_balance, balance: account.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: new Date().toISOString() } as never);
+        toast.success("Account metrics reset");
+      }
+    }
     if (status === "rejected") notifyEmail({ type: "payout_rejected", payoutId: p.id, reason: "Rejected by admin." });
     load();
   };
@@ -299,7 +299,7 @@ function useAdminDataHook() {
     if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
     const phasePassedAt = new Date(Date.now() - 1000).toISOString();
     const resetSnapshotAt = new Date().toISOString();
-    const { error } = await supabase.from("trader_accounts").update({ current_phase: 2, current_equity: a.starting_balance, peak_equity: a.starting_balance, phase1_passed_at: phasePassedAt, phase2_requested_at: null, phase_rejected_reason: null, phase_rejected_at: null, status: "active" } as never).eq("id", a.id);
+    const { error } = await supabase.from("trader_accounts").update({ current_phase: 2, current_equity: a.starting_balance, peak_equity: a.starting_balance, phase1_passed_at: phasePassedAt, phase2_requested_at: null, phase_rejected_reason: null, phase_rejected_at: null, status: "active", trading_days: 0 } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
     await supabase.from("account_snapshots").insert({ trader_account_id: a.id, equity: a.starting_balance, balance: a.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: resetSnapshotAt } as never);
     await supabase.from("notifications").insert({ user_id: a.user_id, title: "🎯 Phase 1 Passed", message: "Congratulations — you're now in Phase 2.", type: "success" } as never);
@@ -311,7 +311,7 @@ function useAdminDataHook() {
     if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
     const phasePassedAt = new Date(Date.now() - 1000).toISOString();
     const resetSnapshotAt = new Date().toISOString();
-    const { error } = await supabase.from("trader_accounts").update({ status: "funded", current_equity: a.starting_balance, peak_equity: a.starting_balance, phase2_passed_at: phasePassedAt, funded_at: phasePassedAt, funded_requested_at: null, phase_rejected_reason: null, phase_rejected_at: null } as never).eq("id", a.id);
+    const { error } = await supabase.from("trader_accounts").update({ status: "funded", current_equity: a.starting_balance, peak_equity: a.starting_balance, phase2_passed_at: phasePassedAt, funded_at: phasePassedAt, funded_requested_at: null, phase_rejected_reason: null, phase_rejected_at: null, trading_days: 0 } as never).eq("id", a.id);
     if (error) return toast.error(error.message);
     await supabase.from("account_snapshots").insert({ trader_account_id: a.id, equity: a.starting_balance, balance: a.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: resetSnapshotAt } as never);
     await supabase.from("notifications").insert({ user_id: a.user_id, title: "🏆 You're Funded!", message: "Congratulations — your account is now funded.", type: "success" } as never);

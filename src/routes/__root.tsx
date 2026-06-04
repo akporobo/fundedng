@@ -75,6 +75,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{var inIframe=window.self!==window.top;var host=window.location.hostname;var isPreview=host.includes('id-preview--')||host.includes('lovableproject.com')||host.includes('lovable.dev');if((inIframe||isPreview)&&'serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});});}}catch(e){}})();`,
           }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker'in navigator){navigator.serviceWorker.addEventListener('controllerchange',function(){window.location.reload()})}`,
+          }}
+        />
         <Scripts />
       </body>
     </html>

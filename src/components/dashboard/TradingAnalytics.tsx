@@ -144,12 +144,6 @@ function RuleChecklist({ status, profitPct, target, ddPct, maxDD, daysTraded, mi
       warn: daysTraded > 0 && daysTraded < minDays,
     },
     {
-      label: "No overnight/weekend holds",
-      description: "Enforced by MT5 server rules",
-      passed: status !== "breached",
-      warn: false,
-    },
-    {
       label: `Profit target: ${target}%`,
       description: `${profitPct.toFixed(2)}% / ${target}% reached`,
       passed: profitPct >= target,

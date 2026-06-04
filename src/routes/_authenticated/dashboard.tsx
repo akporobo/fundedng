@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatNaira, formatPercent } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock, Trash2 } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock, Trash2, XCircle, AlertTriangle } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import { subscribeToPush } from "@/lib/push";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
@@ -43,7 +44,7 @@ interface Account {
   phase_rejected_at?: string | null;
   deleted_at?: string | null;
   trading_days?: number;
-  challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number };
+  challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number; min_trading_days?: number };
 }
 
 interface PartnerFreeAccount {
@@ -129,6 +130,9 @@ function DashboardPage() {
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
   const [verifyingKyc, setVerifyingKyc] = useState(false);
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
+  const [blockedOpen, setBlockedOpen] = useState(false);
+  const [blockedReasons, setBlockedReasons] = useState<{ reason: string; current: string; required: string }[]>([]);
+  const [blockedType, setBlockedType] = useState<"phase2" | "funded">("phase2");
   const lastEquityRef = useRef<number | null>(null);
   const selectedRef = useRef(selected);
 
@@ -194,7 +198,7 @@ function DashboardPage() {
   const load = async (): Promise<Account[]> => {
     if (!user) return [];
     const [a, p, n, c, pf] = await Promise.all([
-      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases)").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases,min_trading_days)").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("certificates").select("*").eq("user_id", user.id).order("issued_at", { ascending: false }),
@@ -233,7 +237,7 @@ function DashboardPage() {
           if (challengeId) {
             const { data } = await supabase
               .from("challenges")
-              .select("name, profit_target_percent, max_drawdown_percent, phases")
+              .select("name, profit_target_percent, max_drawdown_percent, phases, min_trading_days")
               .eq("id", challengeId)
               .maybeSingle();
             chData = data;
@@ -250,7 +254,7 @@ function DashboardPage() {
             challenge_id: challengeId || "",
             phase2_requested_at: null,
             funded_requested_at: null,
-            challenges: chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2 },
+            challenges: chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2, min_trading_days: 3 },
           };
           list.push(freeAccount);
           setAccounts([...list]);
@@ -461,6 +465,8 @@ function DashboardPage() {
     : start * (1 + target / 100);
   const currentBalance = equity;
 
+  const minDays = selected?.challenges?.min_trading_days ?? 3;
+
   const canRequestPhase2 =
     !!selected &&
     selected.status === "active" &&
@@ -475,8 +481,27 @@ function DashboardPage() {
     profitPct >= target;
   const fundedRequested = !!selected?.funded_requested_at;
 
+  const getBlockedReasons = (type: "phase2" | "funded") => {
+    const reasons: { reason: string; current: string; required: string }[] = [];
+    const daysTraded = selected?.trading_days ?? 0;
+    if (daysTraded < minDays) {
+      reasons.push({ reason: "Minimum trading days not reached", current: `Current trading days: ${daysTraded}/${minDays}`, required: `${minDays} trading days` });
+    }
+    if (ddPct >= maxDD) {
+      reasons.push({ reason: "Drawdown limit exceeded", current: `Current drawdown: ${ddPct.toFixed(2)}%/${maxDD}%`, required: `Drawdown below ${maxDD}%` });
+    }
+    return reasons;
+  };
+
   const requestPhase2 = async () => {
     if (!selected) return;
+    const reasons = getBlockedReasons("phase2");
+    if (reasons.length > 0) {
+      setBlockedReasons(reasons);
+      setBlockedType("phase2");
+      setBlockedOpen(true);
+      return;
+    }
     const { error } = await supabase.rpc("request_phase2", { _account_id: selected.id });
     if (error) return toast.error(error.message);
     await supabase.from("trader_accounts").update({ phase_rejected_reason: null, phase_rejected_at: null } as never).eq("id", selected.id);
@@ -486,6 +511,13 @@ function DashboardPage() {
 
   const requestFunded = async () => {
     if (!selected) return;
+    const reasons = getBlockedReasons("funded");
+    if (reasons.length > 0) {
+      setBlockedReasons(reasons);
+      setBlockedType("funded");
+      setBlockedOpen(true);
+      return;
+    }
     const { error } = await supabase.rpc("request_funded", { _account_id: selected.id });
     if (error) return toast.error(error.message);
     await supabase.from("trader_accounts").update({ phase_rejected_reason: null, phase_rejected_at: null } as never).eq("id", selected.id);
@@ -840,7 +872,7 @@ function DashboardPage() {
                       currentEquity={equity}
                       maxDrawdownPercent={maxDD}
                       profitTargetPercent={target}
-                      minTradingDays={3}
+                      minTradingDays={selected.challenges?.min_trading_days ?? 3}
                       currentPhase={selected.current_phase}
                       status={selected.status}
                       tradingDays={selected.trading_days ?? 0}
@@ -1037,6 +1069,35 @@ function DashboardPage() {
         )}
       </div>
       <NewUserInstallPrompt />
+
+      <Dialog open={blockedOpen} onOpenChange={setBlockedOpen}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2 text-xl">
+              <XCircle className="h-5 w-5 text-destructive" />
+              Cannot request {blockedType === "phase2" ? "Phase 2" : "Funded"} approval
+            </DialogTitle>
+            <DialogDescription>
+              <div className="mt-3 space-y-3">
+                {blockedReasons.map((r, i) => (
+                  <div key={i} className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      <div>
+                        <div className="font-display text-sm font-semibold text-destructive">{r.reason}</div>
+                        <p className="mt-1 text-xs text-muted-foreground">{r.current}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Complete all requirements above before requesting.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

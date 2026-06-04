@@ -134,6 +134,27 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
           console.error("[updatePayoutServer] payout_approved email failed", e),
         );
       } else if (data.status === "paid") {
+        const { data: payout } = await supabaseAdmin
+          .from("payouts")
+          .select("trader_account_id")
+          .eq("id", data.payoutId)
+          .maybeSingle();
+        if (payout?.trader_account_id) {
+          const { data: account } = await supabaseAdmin
+            .from("trader_accounts")
+            .select("id, starting_balance")
+            .eq("id", payout.trader_account_id)
+            .maybeSingle();
+          if (account) {
+            await supabaseAdmin
+              .from("trader_accounts")
+              .update({ current_equity: account.starting_balance, peak_equity: account.starting_balance, trading_days: 0 } as never)
+              .eq("id", account.id);
+            await supabaseAdmin
+              .from("account_snapshots")
+              .insert({ trader_account_id: account.id, equity: account.starting_balance, balance: account.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: new Date().toISOString() } as never);
+          }
+        }
         await sendEventEmail({ type: "payout_paid", payoutId: data.payoutId }).catch((e) =>
           console.error("[updatePayoutServer] payout_paid email failed", e),
         );
@@ -185,6 +206,7 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
           phase1_passed_at: new Date().toISOString(),
           phase2_requested_at: null,
           status: "active",
+          trading_days: 0,
         } as never)
         .eq("id", data.accountId);
       if (updateErr) return { ok: false as const, error: updateErr.message };
@@ -250,6 +272,7 @@ export const approveFundedServer = createServerFn({ method: "POST" })
           phase2_passed_at: new Date().toISOString(),
           funded_at: new Date().toISOString(),
           funded_requested_at: null,
+          trading_days: 0,
         } as never)
         .eq("id", data.accountId);
       if (updateErr) return { ok: false as const, error: updateErr.message };

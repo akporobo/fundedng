@@ -43,16 +43,10 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Avoid intercepting internal/preview/auth routes.
-        navigateFallbackDenylist: [/^\/api/, /^\/~oauth/],
-        globPatterns: ["**/*.{js,css,html,ico,png,jpg,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: "NetworkFirst",
-            options: { cacheName: "supabase-cache", networkTimeoutSeconds: 10 },
-          },
-        ],
+        runtimeCaching: [],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],

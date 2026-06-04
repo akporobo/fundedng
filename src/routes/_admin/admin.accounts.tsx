@@ -58,7 +58,7 @@ function AccountsPage() {
                   <span className="text-muted-foreground">Drawdown: <span className={`font-display ${ddColor}`}>{ddPct.toFixed(2)}%</span><span className="text-muted-foreground/60"> / {maxDD}%</span></span>
                   <span className="text-muted-foreground">Peak: <span className="font-display">{formatNaira(pk)}</span></span>
                   <span className="text-muted-foreground">DD Limit: <span className="font-display text-red-500">{formatNaira(Math.floor(pk * (1 - maxDD / 100)))}</span></span>
-                  <span className="text-muted-foreground">Days traded: <span className="font-display">{a._trading_days ?? 0}</span></span>
+                  <span className="text-muted-foreground">Days traded: <span className="font-display">{a.trading_days ?? 0}</span></span>
                   {a.last_synced_at && <span className="text-muted-foreground/60">Synced: {new Date(a.last_synced_at).toLocaleString()}</span>}
                 </div>
               );
