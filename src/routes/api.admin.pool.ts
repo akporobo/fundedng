@@ -88,6 +88,18 @@ export const Route = createFileRoute("/api/admin/pool")({
             return Response.json({ ok: true });
           }
 
+          if (body.action === "delete") {
+            if (!body.id) return Response.json({ error: "id required" }, { status: 400 });
+
+            const { error } = await supabaseAdmin
+              .from("account_pool")
+              .delete()
+              .eq("id", body.id);
+
+            if (error) return Response.json({ error: error.message }, { status: 500 });
+            return Response.json({ ok: true });
+          }
+
           return Response.json({ error: "Unknown action" }, { status: 400 });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "fail";

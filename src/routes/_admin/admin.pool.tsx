@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/utils";
-import { Plus, AlertTriangle, Eye, Archive } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Archive, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,11 +18,50 @@ export const Route = createFileRoute("/_admin/admin/pool")({
   component: PoolPage,
 });
 
+function CountdownCell({ created_at, status }: { created_at: string; status: string }) {
+  const [display, setDisplay] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      if (status !== "available") { setDisplay(""); return; }
+      const created = new Date(created_at).getTime();
+      const expiry = created + 5 * 24 * 60 * 60 * 1000;
+      const diff = expiry - Date.now();
+      if (diff <= 0) { setDisplay("EXPIRED"); return; }
+      const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+      const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+      const mins = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+      setDisplay(`${days}d ${hours}h ${mins}m`);
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [created_at, status]);
+
+  if (!display) return null;
+  return <div className={`text-[11px] ${display === "EXPIRED" ? "font-semibold text-red-500" : "text-muted-foreground"}`}>{display}</div>;
+}
+
 function PoolPage() {
   const {
     poolAccounts, poolInventory, poolLoading, poolFormOpen, poolSaving, poolForm, viewCredsFor, challengeList,
     setPoolFormOpen, setPoolForm, setPoolSaving, setViewCredsFor, loadPool,
   } = useAdminData();
+
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => forceTick((n) => n + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleDeletePool = async (id: string) => {
+    if (!confirm("Delete this account from the pool? This cannot be undone.")) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/admin/pool", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ action: "delete", id }) });
+    const json = await res.json();
+    if (json.ok) { toast.success("Account deleted"); loadPool(); } else { toast.error(json.error ?? "Failed to delete"); }
+  };
 
   return (
     <div className="mt-6 space-y-4">
@@ -83,22 +123,31 @@ function PoolPage() {
                     <TableCell>{formatNaira(a.account_size_ngn)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{a.mt5_server}</TableCell>
                     <TableCell><Badge variant="outline" className={`font-display ${statusColor[a.status] ?? ""}`}>{a.status.toUpperCase()}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div>{new Date(a.created_at).toLocaleDateString()}</div>
+                      <CountdownCell created_at={a.created_at} status={a.status} />
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{a.assigned_at ? new Date(a.assigned_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{a.assigned_order_id ? a.assigned_order_id.slice(0, 8) + "…" : "—"}</TableCell>
                     <TableCell className="max-w-[120px] truncate text-xs text-muted-foreground" title={a.notes ?? ""}>{a.notes ?? "—"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={() => setViewCredsFor(a)}><Eye className="h-3.5 w-3.5" /></Button>
-                        {a.status === "available" && (
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-destructive" onClick={async () => {
-                            const { data: { session } } = await supabase.auth.getSession();
-                            if (!session?.access_token) return;
-                            const res = await fetch("/api/admin/pool", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ action: "archive", id: a.id }) });
-                            const json = await res.json();
-                            if (json.ok) { toast.success("Account archived"); loadPool(); } else { toast.error(json.error ?? "Failed to archive"); }
-                          }}><Archive className="h-3.5 w-3.5" /></Button>
-                        )}
+                        {a.status === "available" && (() => {
+                          const created = new Date(a.created_at).getTime();
+                          const expired = Date.now() >= created + 5 * 24 * 60 * 60 * 1000;
+                          return expired ? (
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:text-destructive" onClick={() => handleDeletePool(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-destructive" onClick={async () => {
+                              const { data: { session } } = await supabase.auth.getSession();
+                              if (!session?.access_token) return;
+                              const res = await fetch("/api/admin/pool", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ action: "archive", id: a.id }) });
+                              const json = await res.json();
+                              if (json.ok) { toast.success("Account archived"); loadPool(); } else { toast.error(json.error ?? "Failed to archive"); }
+                            }}><Archive className="h-3.5 w-3.5" /></Button>
+                          );
+                        })()}
                       </div>
                     </TableCell>
                   </TableRow>

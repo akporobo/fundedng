@@ -67,7 +67,7 @@ MAX_WORKERS = 4
 
 # MT5 initialize timeout in milliseconds.
 # 30 seconds is enough - if MT5 isn't responding in 30s it won't in 120s.
-MT5_INIT_TIMEOUT_MS = 30000
+MT5_INIT_TIMEOUT_MS = 60000
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +208,19 @@ def _init_mt5() -> bool:
     return ok
 
 
+def _kill_mt5_process() -> None:
+    """Force-kill any lingering MT5 terminal process."""
+    try:
+        import subprocess
+        subprocess.run(
+            ["taskkill", "/f", "/im", "terminal64.exe"],
+            capture_output=True, timeout=5,
+        )
+        time.sleep(2)
+    except Exception:
+        pass
+
+
 def _recover_mt5() -> bool:
     """
     Called after a failed account read.
@@ -215,7 +228,13 @@ def _recover_mt5() -> bool:
     Returns True if recovery succeeded.
     """
     _safe_mt5_shutdown()
-    time.sleep(1)  # Brief pause before re-init
+    time.sleep(1)
+    ok = _init_mt5()
+    if ok:
+        return True
+    # Graceful shutdown failed — force-kill the process and retry
+    logger.warning("[MT5] Graceful shutdown failed, force-killing terminal64.exe")
+    _kill_mt5_process()
     return _init_mt5()
 
 
@@ -256,12 +275,37 @@ def read_account(
         raise RuntimeError(f"account_info() returned None for {login}")
 
     # -- Safety 1: verify we're actually on the right account ----------
+    # If login() claims success but didn't switch, retry once with a
+    # fresh terminal shutdown + re-init to clear the stale session.
     if str(info.login) != str(login):
-        raise RuntimeError(
-            f"Login mismatch: requested {login} "
-            f"but MT5 returned {info.login} - "
-            f"skipping to prevent data corruption"
+        logger.warning(
+            f"Login mismatch: requested {login} but MT5 returned "
+            f"{info.login} - reinitializing and retrying once"
         )
+        _safe_mt5_shutdown()
+        time.sleep(0.5)
+        _kill_mt5_process()
+        if not _init_mt5():
+            raise RuntimeError(
+                f"Login mismatch recovery failed for {login}"
+            )
+        retry_ok = mt5.login(
+            login=int(login), password=investor_pw, server=server,
+        )
+        if not retry_ok:
+            err = mt5.last_error()
+            code = err[0] if isinstance(err, tuple) else 0
+            desc = err[1] if isinstance(err, tuple) else str(err)
+            raise RuntimeError(
+                f"Login to {login} failed on retry ({code}): {desc}"
+            )
+        info = mt5.account_info()
+        if info is None or str(info.login) != str(login):
+            raise RuntimeError(
+                f"Login mismatch persisted after retry: "
+                f"requested {login} but got {info.login if info else None}"
+            )
+        logger.info(f"[{login}] Login retry succeeded")
 
     # -- Safety 2: reject zero or negative equity ----------------------
     if info.equity <= 0:

@@ -83,7 +83,7 @@ function AccountsPage() {
               })()}
               <Button size="sm" variant="outline" onClick={() => openWarningDialog(a)}>Warning</Button>
               <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
-              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => { setViewCredsFor(a); setCredDraft((d) => ({ ...d, [a.id]: { mt5_server: a.mt5_server ?? "", mt5_password: a.mt5_password ?? "", investor_password: a.investor_password ?? "" } })); }}>
+              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => { setViewCredsFor(a); setCredDraft((d) => ({ ...d, [a.id]: { mt5_login: a.mt5_login ?? "", mt5_server: a.mt5_server ?? "", mt5_password: a.mt5_password ?? "", investor_password: a.investor_password ?? "" } })); }}>
                 <Eye className="mr-1 h-3.5 w-3.5" />Credentials
               </Button>
             </div>
@@ -114,10 +114,14 @@ function AccountsPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>MT5 Credentials</DialogTitle>
-            <DialogDescription>Login: <span className="font-mono font-medium text-foreground">{viewCredsFor?.mt5_login}</span></DialogDescription>
+            <DialogDescription>Edit the MT5 login, server, and passwords below.</DialogDescription>
           </DialogHeader>
           {viewCredsFor && (
             <div className="grid gap-3">
+              <div className="grid gap-1">
+                <Label className="text-xs text-muted-foreground">Login</Label>
+                <Input value={credDraft[viewCredsFor.id]?.mt5_login ?? ""} onChange={(e) => setCredDraft((d) => ({ ...d, [viewCredsFor.id]: { ...d[viewCredsFor.id], mt5_login: e.target.value } }))} className="h-9 font-mono text-sm" />
+              </div>
               <div className="grid gap-1">
                 <Label className="text-xs text-muted-foreground">Server</Label>
                 <Input value={credDraft[viewCredsFor.id]?.mt5_server ?? ""} onChange={(e) => setCredDraft((d) => ({ ...d, [viewCredsFor.id]: { ...d[viewCredsFor.id], mt5_server: e.target.value } }))} className="h-9 font-mono text-sm" />
@@ -139,7 +143,7 @@ function AccountsPage() {
               const draft = credDraft[viewCredsFor.id];
               if (!draft) return;
               setCredSaving(viewCredsFor.id);
-              await updateAccount(viewCredsFor.id, { mt5_server: draft.mt5_server, mt5_password: draft.mt5_password, investor_password: draft.investor_password || null });
+              await updateAccount(viewCredsFor.id, { mt5_login: draft.mt5_login, mt5_server: draft.mt5_server, mt5_password: draft.mt5_password, investor_password: draft.investor_password || null });
               setCredSaving(null);
               setViewCredsFor(null);
               setCredDraft({});
