@@ -127,19 +127,7 @@ def get_http_session() -> requests.Session:
 # ---------------------------------------------------------------------------
 
 def is_market_open() -> bool:
-    """
-    Returns False on weekends when Exness demo servers are idle.
-    Uses UTC time:
-      Saturday all day           -> closed
-      Sunday before 22:00 UTC   -> closed
-      Monday - Friday            -> open
-    """
-    now = datetime.now(timezone.utc)
-    wd  = now.weekday()  # 0=Mon ... 6=Sun
-    if wd == 5:
-        return False
-    if wd == 6 and now.hour < 22:
-        return False
+    """Always returns True — some traders trade BTC on weekends."""
     return True
 
 
@@ -479,9 +467,8 @@ def main() -> None:
     logger.info("=" * 50)
     logger.info("Equity Monitor started")
 
-    # Skip runs on weekends - Exness demo servers are idle
+    # Run every day — some traders trade BTC on weekends
     if not is_market_open():
-        logger.info("Market closed (weekend) - skipping")
         return
 
     # Connect to Supabase and fetch accounts
