@@ -80,7 +80,7 @@ export const Route = createFileRoute("/api/verify-payment")({
             );
           }
           const squadRes = await fetch(
-            `https://api-d.squadco.com/transaction/verify/${encodeURIComponent(reference)}`,
+            `https://api.squadco.com/transaction/verify/${encodeURIComponent(reference)}`,
             { headers: { Authorization: `Bearer ${squadSecret}` } },
           );
           const squadJson = (await squadRes.json().catch(() => ({}))) as {

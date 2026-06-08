@@ -200,7 +200,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
           if (discountCode) callbackParams.set("dc", discountCode);
           if (partnerPromoCode) callbackParams.set("pp", partnerPromoCode);
 
-          const initRes = await fetch("https://api-d.squadco.com/transaction/init", {
+          const initRes = await fetch("https://api.squadco.com/transaction/init", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${squadSecret}`,
