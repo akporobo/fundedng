@@ -186,7 +186,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
             return Response.json({ ok: true, free: true, order_id: order.id, reference, auto_delivered: poolResult?.ok ?? false });
           }
 
-          const squadSecret = process.env.SQUAD_SECRET_KEY;
+          const squadSecret = process.env.SQUAD_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
           if (!squadSecret) {
             console.error("[initialize-payment] SQUAD_SECRET_KEY missing");
             return Response.json({ error: "Payment is not configured" }, { status: 500 });
@@ -200,7 +200,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
           if (discountCode) callbackParams.set("dc", discountCode);
           if (partnerPromoCode) callbackParams.set("pp", partnerPromoCode);
 
-          const initRes = await fetch("https://api.squadco.com/transaction/init", {
+          const initRes = await fetch("https://api.squadco.com/transaction/initiate", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${squadSecret}`,
@@ -209,7 +209,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
             body: JSON.stringify({
               amount: amountKobo,
               email: user.email,
-              currency_id: "NGN",
+              currency: "NGN",
               transaction_ref: reference,
               callback_url: `${origin}/payment/callback?${callbackParams.toString()}`,
             }),

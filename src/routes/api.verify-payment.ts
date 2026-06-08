@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/verify-payment")({
           }
 
           // ---- 4. Verify with Squad ----
-          const squadSecret = process.env.SQUAD_SECRET_KEY;
+          const squadSecret = process.env.SQUAD_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
           if (!squadSecret) {
             console.error("[verify-payment] SQUAD_SECRET_KEY missing");
             return Response.json(
