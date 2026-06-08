@@ -91,18 +91,18 @@ export async function runListNigerianBanks() {
     if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
     const res = await fetch(
-      "https://api.paystack.co/bank?country=nigeria&perPage=100",
+      "https://api-d.squadco.com/transaction/mandate/banklists",
       { headers: { Authorization: `Bearer ${secret}` } },
     );
     const json = (await res.json().catch(() => ({}))) as {
-      status?: boolean;
-      data?: Array<{ name: string; code: string; slug: string }>;
+      success?: boolean;
+      data?: Array<{ bank_name: string; bank_code: string }>;
     };
-    if (!res.ok || !json.status || !Array.isArray(json.data)) {
+    if (!res.ok || !json.success || !Array.isArray(json.data)) {
       return { ok: false as const, error: "Could not load bank list" };
     }
     const banks: Bank[] = json.data
-      .map((b) => ({ name: b.name, code: b.code, slug: b.slug }))
+      .map((b) => ({ name: b.bank_name, code: b.bank_code, slug: b.bank_code }))
       .sort((a, b) => a.name.localeCompare(b.name));
     _bankCache = { at: Date.now(), banks };
     return { ok: true as const, banks };
@@ -157,16 +157,23 @@ export async function runVerifyKycPaystack(input: {
       return { ok: false as const, error: "Add your full name to your profile first" };
     }
 
-    const url = `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(
-      input.accountNumber,
-    )}&bank_code=${encodeURIComponent(input.bankCode)}`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${secret}` } });
+    const res = await fetch("https://api-d.squadco.com/payout/account/lookup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${secret}`,
+      },
+      body: JSON.stringify({
+        bank_code: input.bankCode,
+        account_number: input.accountNumber,
+      }),
+    });
     const json = (await res.json().catch(() => ({}))) as {
-      status?: boolean;
+      success?: boolean;
       message?: string;
-      data?: { account_number: string; account_name: string };
+      data?: { account_name: string; account_number: string };
     };
-    if (!res.ok || !json.status || !json.data?.account_name) {
+    if (!res.ok || !json.success || !json.data?.account_name) {
       return {
         ok: false as const,
         error: json.message || "Could not verify this account number with the bank",
@@ -195,8 +202,8 @@ export async function runVerifyKycPaystack(input: {
     await supabaseAdmin.from("notifications").insert({
       user_id: userId,
       title: "✅ KYC Verified",
-      message:
-        "Your bank account was verified instantly via Paystack. You can now request payouts.",
+       message:
+         "Your bank account was verified instantly. You can now request payouts.",
       type: "success",
     });
 

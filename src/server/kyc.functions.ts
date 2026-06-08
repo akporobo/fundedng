@@ -96,13 +96,13 @@ export const verifyKycServer = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------------------
 // Self-service KYC: trader submits account_number + bank_code, we call
-// Paystack's resolve-account API, fuzzy-match the returned account_name to the
+// Squad's account lookup API, fuzzy-match the returned account_name to the
 // trader's full_name, and on match auto-verify KYC.
 // ---------------------------------------------------------------------------
 
 type Bank = { name: string; code: string; slug: string };
 
-/** Lightweight in-memory cache for the bank list (Paystack rarely changes it). */
+/** Lightweight in-memory cache for the bank list. */
 let _bankCache: { at: number; banks: Bank[] } | null = null;
 
 export const listNigerianBanks = createServerFn({ method: "GET" }).handler(
@@ -116,18 +116,18 @@ export const listNigerianBanks = createServerFn({ method: "GET" }).handler(
         return { ok: false as const, error: "Bank verification is not configured" };
       }
       const res = await fetch(
-        "https://api.paystack.co/bank?country=nigeria&perPage=100",
+        "https://api-d.squadco.com/transaction/mandate/banklists",
         { headers: { Authorization: `Bearer ${secret}` } },
       );
       const json = (await res.json().catch(() => ({}))) as {
-        status?: boolean;
-        data?: Array<{ name: string; code: string; slug: string }>;
+        success?: boolean;
+        data?: Array<{ bank_name: string; bank_code: string }>;
       };
-      if (!res.ok || !json.status || !Array.isArray(json.data)) {
+      if (!res.ok || !json.success || !Array.isArray(json.data)) {
         return { ok: false as const, error: "Could not load bank list" };
       }
       const banks: Bank[] = json.data
-        .map((b) => ({ name: b.name, code: b.code, slug: b.slug }))
+        .map((b) => ({ name: b.bank_name, code: b.bank_code, slug: b.bank_code }))
         .sort((a, b) => a.name.localeCompare(b.name));
       _bankCache = { at: Date.now(), banks };
       return { ok: true as const, banks };
@@ -170,7 +170,7 @@ function namesMatch(a: string, b: string): boolean {
 }
 
 /**
- * Trader-facing: verify own KYC via Paystack resolve-account.
+ * Trader-facing: verify own KYC via Squad account lookup.
  * On success: saves bank details + flips kyc_verified=true.
  */
 export const verifyKycPaystack = createServerFn({ method: "POST" })
@@ -195,17 +195,24 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
         return { ok: false as const, error: "Add your full name to your profile first" };
       }
 
-      // Call Paystack resolve.
-      const url = `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(
-        data.accountNumber,
-      )}&bank_code=${encodeURIComponent(data.bankCode)}`;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${secret}` } });
+      // Call Squad account lookup.
+      const res = await fetch("https://api-d.squadco.com/payout/account/lookup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify({
+          bank_code: data.bankCode,
+          account_number: data.accountNumber,
+        }),
+      });
       const json = (await res.json().catch(() => ({}))) as {
-        status?: boolean;
+        success?: boolean;
         message?: string;
-        data?: { account_number: string; account_name: string };
+        data?: { account_name: string; account_number: string };
       };
-      if (!res.ok || !json.status || !json.data?.account_name) {
+      if (!res.ok || !json.success || !json.data?.account_name) {
         return {
           ok: false as const,
           error: json.message || "Could not verify this account number with the bank",
@@ -235,7 +242,7 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
          user_id: userId,
          title: "✅ KYC Verified",
          message:
-           "Your bank account was verified instantly via Paystack. You can now request payouts.",
+           "Your bank account was verified instantly. You can now request payouts.",
          type: "success",
        });
 
