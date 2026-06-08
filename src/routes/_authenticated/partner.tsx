@@ -5,11 +5,14 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
-import { Copy, Gift, MousePointerClick, Users, Wallet, Send, Share2, Percent, Mail } from "lucide-react";
+import { Copy, Gift, MousePointerClick, Users, Wallet, Send, Share2, Percent, Mail, Landmark, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { getBuyerInfo } from "@/server/partner.functions";
+import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
 
 export const Route = createFileRoute("/_authenticated/partner")({
   component: PartnerPage,
@@ -41,6 +44,11 @@ function PartnerPage() {
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [banks, setBanks] = useState<Array<{ name: string; code: string; slug: string }>>([]);
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankCode, setBankCode] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [verifyingKyc, setVerifyingKyc] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -76,7 +84,37 @@ function PartnerPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
+  useEffect(() => {
+    load();
+    listNigerianBanks().then((res) => {
+      if (res.ok && Array.isArray(res.banks)) setBanks(res.banks);
+    });
+  /* eslint-disable-next-line */ }, [user]);
+
+  const verifyBankWithPaystack = async () => {
+    const acct = bankAccountNumber.replace(/\s+/g, "");
+    if (!/^\d{10}$/.test(acct)) return toast.error("Account number must be 10 digits.");
+    if (!bankCode) return toast.error("Select your bank.");
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session) return toast.error("Please sign in again.");
+    const bank = banks.find((b) => b.code === bankCode);
+    setVerifyingKyc(true);
+    try {
+      const res = await verifyKycPaystack({
+        data: {
+          accessToken: sess.session.access_token,
+          accountNumber: acct,
+          bankCode,
+          bankName: bank?.name ?? bankName.trim() ?? "",
+        },
+      });
+      if (!res.ok) return toast.error(res.error);
+      toast.success(`Verified · ${res.accountName}`);
+      await refresh();
+    } finally {
+      setVerifyingKyc(false);
+    }
+  };
 
   if (!loading && !pp) {
     return (
@@ -127,7 +165,7 @@ function PartnerPage() {
     const amt = Number(amount.replace(/[^0-9]/g, ""));
     if (!amt || amt < 5000) return toast.error("Minimum payout is ₦5,000");
     if (amt > balance) return toast.error("Amount exceeds available balance");
-    if (!profile?.bank_account_number) return toast.error("Add your bank details on the dashboard first.");
+    if (!profile?.kyc_verified) return toast.error("Verify your bank account above first.");
     setSubmitting(true);
     const { error } = await supabase.rpc("request_partner_payout", { _amount: amt });
     setSubmitting(false);
@@ -209,6 +247,60 @@ function PartnerPage() {
         )}
       </div>
 
+      {/* KYC — Bank Account Verification */}
+      <div className={`mt-6 rounded-2xl border p-6 ${profile?.kyc_verified ? "border-primary/30 bg-primary/5" : "border-warning/40 bg-warning/5"}`}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-display flex items-center gap-2 text-base font-semibold">
+              {profile?.kyc_verified ? <ShieldCheck className="h-4 w-4 text-primary"/> : <ShieldAlert className="h-4 w-4 text-warning"/>}
+              Payout Bank Account
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Verify your bank account via Paystack to receive payouts. The account name must match your profile name.
+            </p>
+          </div>
+          <Badge className={`font-display ${profile?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
+            {profile?.kyc_verified ? "VERIFIED" : "PENDING"}
+          </Badge>
+        </div>
+        {profile?.kyc_verified ? (
+          <div className="mt-5 rounded-md border border-border bg-background p-3 text-sm">
+            <div className="text-[11px] text-muted-foreground">Verified bank account</div>
+            <div className="font-display mt-1 text-primary break-words">
+              {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Need to change it? Re-verify with new details — KYC will reset until the new account passes.
+            </p>
+          </div>
+        ) : null}
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div>
+            <Label htmlFor="partner-bank-acct">Account number</Label>
+            <Input id="partner-bank-acct" inputMode="numeric" maxLength={10} placeholder="10-digit NUBAN" className="mt-1 font-mono" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value.replace(/\D/g, ""))} />
+          </div>
+          <div>
+            <Label htmlFor="partner-bank-select">Bank</Label>
+            <Select value={bankCode} onValueChange={(v) => { setBankCode(v); setBankName(banks.find((b) => b.code === v)?.name ?? ""); }}>
+              <SelectTrigger id="partner-bank-select" className="mt-1">
+                <SelectValue placeholder={banks.length ? "Select your bank" : "Loading banks…"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {banks.map((b) => (
+                  <SelectItem key={b.code} value={b.code}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          We'll fetch the registered account name from your bank and approve KYC instantly if it matches your profile name (<span className="font-display text-foreground">{profile?.full_name || "—"}</span>).
+        </p>
+        <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10}>
+          <Landmark className="mr-1 h-4 w-4" />{verifyingKyc ? "Verifying…" : profile?.kyc_verified ? "Re-verify bank" : "Verify bank account"}
+        </Button>
+      </div>
+
       {/* Stats */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat icon={MousePointerClick} label="Clicks" value={clicks.toString()} />
@@ -231,7 +323,7 @@ function PartnerPage() {
             className="flex-1"
             disabled={cooldownActive}
           />
-          <Button onClick={requestPayout} disabled={submitting || balance < 5000 || cooldownActive} className="font-display">
+          <Button onClick={requestPayout} disabled={submitting || balance < 5000 || cooldownActive || !profile?.kyc_verified} className="font-display">
             <Send className="mr-1 h-4 w-4" />
             {submitting ? "Requesting..." : "Request Payout"}
           </Button>
@@ -242,8 +334,8 @@ function PartnerPage() {
         {!cooldownActive && balance < 5000 && (
           <p className="mt-2 text-xs text-muted-foreground">You need at least {formatNaira(5000)} available balance to request a payout.</p>
         )}
-        {!profile?.bank_account_number && (
-          <p className="mt-2 text-xs text-amber-500">Add your bank details on the Dashboard to enable payouts.</p>
+        {!profile?.kyc_verified && (
+          <p className="mt-2 text-xs text-amber-500">Verify your bank account above to enable payouts.</p>
         )}
       </div>
 

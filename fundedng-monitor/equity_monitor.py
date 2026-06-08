@@ -21,11 +21,11 @@ How it works:
   6. Log everything to equity_monitor.log
 
 Safety checks:
-  - Login mismatch detection     -> skips account, prevents data corruption
-  - Zero equity guard            -> skips account, prevents false breaches
-  - Balance sanity check         -> skips if balance < 10% of starting
-  - MT5 recovery on error        -> re-initializes MT5 if login fails
-  - Thread-local HTTP sessions   -> each thread has its own connection
+  - Login mismatch detection     → skips account, prevents data corruption
+  - Zero equity guard            → skips account, prevents false breaches
+  - Balance sanity check         → skips if balance < 10% of starting
+  - MT5 recovery on error        → re-initializes MT5 if login fails
+  - Thread-local HTTP sessions   → each thread has its own connection
 """
 
 import os
@@ -45,12 +45,11 @@ import MetaTrader5 as mt5
 from supabase import create_client, Client
 
 
-# ---------------------------------------------------------------------------
-#  CONFIG - loaded from .env in the same folder
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
+#  CONFIG — loaded from .env in the same folder
+# ─────────────────────────────────────────────
 
-SCRIPT_DIR = Path(__file__).parent.resolve()
-load_dotenv(dotenv_path=SCRIPT_DIR / ".env")
+load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -66,14 +65,15 @@ MT5_PATH = _raw_mt5_path if _raw_mt5_path else None
 MAX_WORKERS = 4
 
 # MT5 initialize timeout in milliseconds.
-# 30 seconds is enough - if MT5 isn't responding in 30s it won't in 120s.
-MT5_INIT_TIMEOUT_MS = 60000
+# 30 seconds is enough — if MT5 isn't responding in 30s it won't in 120s.
+MT5_INIT_TIMEOUT_MS = 30000
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  LOGGING
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
+SCRIPT_DIR = Path(__file__).parent
 LOG_FILE   = SCRIPT_DIR / "equity_monitor.log"
 
 logger = logging.getLogger("fundedng_monitor")
@@ -84,29 +84,29 @@ _fmt = logging.Formatter(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-# File handler - rotates at 5 MB, keeps 3 backups
+# File handler — rotates at 5 MB, keeps 3 backups
 _fh = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3)
 _fh.setFormatter(_fmt)
 logger.addHandler(_fh)
 
-# Console handler - visible when running manually
+# Console handler — visible when running manually
 _ch = logging.StreamHandler(sys.stdout)
 _ch.setFormatter(_fmt)
 logger.addHandler(_ch)
 
 
-# ---------------------------------------------------------------------------
-#  MT5 LOCK - only one MT5 call at a time
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
+#  MT5 LOCK — only one MT5 call at a time
+# ─────────────────────────────────────────────
 
 mt5_lock = threading.Lock()
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  THREAD-LOCAL HTTP SESSION
 #  Each worker thread gets its own requests.Session
 #  Avoids thread-safety issues with shared sessions
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 _thread_local = threading.local()
 
@@ -122,33 +122,40 @@ def get_http_session() -> requests.Session:
     return _thread_local.session
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  MARKET HOURS CHECK
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 def is_market_open() -> bool:
-    """Always returns True — some traders trade BTC on weekends."""
+    """
+    Returns False on weekends when Exness demo servers are idle.
+    Uses UTC time:
+      Saturday all day           → closed
+      Sunday before 22:00 UTC   → closed
+      Monday – Friday            → open
+    """
+    now = datetime.now(timezone.utc)
+    wd  = now.weekday()  # 0=Mon … 6=Sun
+    if wd == 5:
+        return False
+    if wd == 6 and now.hour < 22:
+        return False
     return True
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  SUPABASE
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 def get_supabase() -> Client:
-    from supabase._sync.client import ClientOptions
-    return create_client(
-        SUPABASE_URL,
-        SUPABASE_KEY,
-        options=ClientOptions(postgrest_client_timeout=30),
-    )
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def fetch_accounts(supabase: Client) -> list[dict]:
     """
     Return active/funded accounts that have investor_password set.
     Accounts without investor_password are silently skipped
-    - they can still be manually updated via the admin panel.
+    — they can still be manually updated via the admin panel.
     """
     res = (
         supabase.table("trader_accounts")
@@ -164,12 +171,12 @@ def fetch_accounts(supabase: Client) -> list[dict]:
     return res.data or []
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  MT5 HELPERS
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 def _safe_mt5_shutdown() -> None:
-    """Shutdown MT5 without raising - safe to call even if not initialized."""
+    """Shutdown MT5 without raising — safe to call even if not initialized."""
     try:
         mt5.shutdown()
     except Exception:
@@ -196,19 +203,6 @@ def _init_mt5() -> bool:
     return ok
 
 
-def _kill_mt5_process() -> None:
-    """Force-kill any lingering MT5 terminal process."""
-    try:
-        import subprocess
-        subprocess.run(
-            ["taskkill", "/f", "/im", "terminal64.exe"],
-            capture_output=True, timeout=5,
-        )
-        time.sleep(2)
-    except Exception:
-        pass
-
-
 def _recover_mt5() -> bool:
     """
     Called after a failed account read.
@@ -216,19 +210,13 @@ def _recover_mt5() -> bool:
     Returns True if recovery succeeded.
     """
     _safe_mt5_shutdown()
-    time.sleep(1)
-    ok = _init_mt5()
-    if ok:
-        return True
-    # Graceful shutdown failed — force-kill the process and retry
-    logger.warning("[MT5] Graceful shutdown failed, force-killing terminal64.exe")
-    _kill_mt5_process()
+    time.sleep(1)  # Brief pause before re-init
     return _init_mt5()
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  MT5 ACCOUNT READ
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 def read_account(
     login: str,
@@ -243,7 +231,7 @@ def read_account(
         dict with equity, balance, profit, scalping_violations
 
     Raises:
-        RuntimeError - on any problem (caller logs and skips account)
+        RuntimeError — on any problem (caller logs and skips account)
     """
     # Switch to this account using investor (read-only) password
     login_ok = mt5.login(
@@ -262,59 +250,34 @@ def read_account(
     if info is None:
         raise RuntimeError(f"account_info() returned None for {login}")
 
-    # -- Safety 1: verify we're actually on the right account ----------
-    # If login() claims success but didn't switch, retry once with a
-    # fresh terminal shutdown + re-init to clear the stale session.
+    # ── Safety 1: verify we're actually on the right account ──────
     if str(info.login) != str(login):
-        logger.warning(
-            f"Login mismatch: requested {login} but MT5 returned "
-            f"{info.login} - reinitializing and retrying once"
+        raise RuntimeError(
+            f"Login mismatch: requested {login} "
+            f"but MT5 returned {info.login} — "
+            f"skipping to prevent data corruption"
         )
-        _safe_mt5_shutdown()
-        time.sleep(0.5)
-        _kill_mt5_process()
-        if not _init_mt5():
-            raise RuntimeError(
-                f"Login mismatch recovery failed for {login}"
-            )
-        retry_ok = mt5.login(
-            login=int(login), password=investor_pw, server=server,
-        )
-        if not retry_ok:
-            err = mt5.last_error()
-            code = err[0] if isinstance(err, tuple) else 0
-            desc = err[1] if isinstance(err, tuple) else str(err)
-            raise RuntimeError(
-                f"Login to {login} failed on retry ({code}): {desc}"
-            )
-        info = mt5.account_info()
-        if info is None or str(info.login) != str(login):
-            raise RuntimeError(
-                f"Login mismatch persisted after retry: "
-                f"requested {login} but got {info.login if info else None}"
-            )
-        logger.info(f"[{login}] Login retry succeeded")
 
-    # -- Safety 2: reject zero or negative equity ----------------------
+    # ── Safety 2: reject zero or negative equity ──────────────────
     if info.equity <= 0:
         raise RuntimeError(
-            f"Equity is {info.equity} for {login} - "
+            f"Equity is {info.equity} for {login} — "
             f"bad read, skipping"
         )
 
-    # -- Safety 3: reject suspiciously low balance ---------------------
+    # ── Safety 3: reject suspiciously low balance ─────────────────
     if starting_balance > 0 and info.balance < starting_balance * 0.10:
         raise RuntimeError(
             f"Balance {info.balance} is below 10% of starting "
-            f"{starting_balance} for {login} - bad read, skipping"
+            f"{starting_balance} for {login} — bad read, skipping"
         )
 
-    # -- Scalping check: look for trades closed in under 3 min ---------
+    # ── Scalping check: look for trades closed in under 3 min ─────
     now   = datetime.now(timezone.utc).replace(tzinfo=None)
     since = now - timedelta(hours=24)
     deals = mt5.history_deals_get(since, now) or []
 
-    # Map position_id -> open time for IN deals
+    # Map position_id → open time for IN deals
     open_times: dict[int, int] = {}
     for d in deals:
         if d.entry == 0:  # DEAL_ENTRY_IN
@@ -346,9 +309,9 @@ def read_account(
     }
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  API POST
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 def post_snapshot(
     account_id: str,
@@ -379,9 +342,9 @@ def post_snapshot(
         )
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  PROCESS ONE ACCOUNT  (runs in thread pool)
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 def process_account(acct: dict) -> dict:
     """
@@ -405,7 +368,7 @@ def process_account(acct: dict) -> dict:
     # Small random jitter so threads don't all slam the lock together
     time.sleep(random.uniform(0, 0.5))
 
-    # -- Step 1 & 2: MT5 read (serialized via lock) --------------------
+    # ── Step 1 & 2: MT5 read (serialized via lock) ────────────────
     data: dict | None = None
     with mt5_lock:
         try:
@@ -413,16 +376,18 @@ def process_account(acct: dict) -> dict:
         except Exception as exc:
             logger.error(f"[{login}] MT5 error: {exc}")
             result["error"] = str(exc)
-            # Recover MT5 after failed read so next account isn't affected
+            # ── BUG FIX: recover MT5 after failed read ────────────
+            # Without this, the next account's mt5.login() may fail
+            # because MT5 is left in an inconsistent state.
             logger.info(f"[{login}] Recovering MT5 for next account...")
             recovered = _recover_mt5()
             if not recovered:
                 logger.warning(
-                    "[MT5] Recovery failed - remaining accounts may also fail"
+                    "[MT5] Recovery failed — remaining accounts may also fail"
                 )
             return result
 
-    # -- Step 3: POST to API (runs while next thread reads MT5) --------
+    # ── Step 3: POST to API (runs while next thread reads MT5) ────
     violations = data.get("scalping_violations", [])
     try:
         post_snapshot(
@@ -438,10 +403,10 @@ def process_account(acct: dict) -> dict:
         result["error"] = str(exc)
         return result
 
-    # -- Log -----------------------------------------------------------
+    # ── Log ───────────────────────────────────────────────────────
     if violations:
         logger.warning(
-            f"[{login}] SCALPING DETECTED - "
+            f"[{login}] SCALPING DETECTED — "
             + ", ".join(
                 f"{v['symbol']} {v['duration_seconds']}s"
                 for v in violations
@@ -458,17 +423,18 @@ def process_account(acct: dict) -> dict:
     return result
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 #  MAIN
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────
 
 def main() -> None:
     start = time.time()
     logger.info("=" * 50)
     logger.info("Equity Monitor started")
 
-    # Run every day — some traders trade BTC on weekends
+    # Skip runs on weekends — Exness demo servers are idle
     if not is_market_open():
+        logger.info("Market closed (weekend) — skipping")
         return
 
     # Connect to Supabase and fetch accounts
@@ -478,26 +444,22 @@ def main() -> None:
         logger.error(f"Supabase failed: {exc}")
         sys.exit(1)
 
-    try:
-        accounts = fetch_accounts(supabase)
-    except Exception as exc:
-        logger.error(f"Fetch accounts failed: {exc}")
-        sys.exit(1)
-
+    accounts = fetch_accounts(supabase)
     total    = len(accounts)
     logger.info(f"Fetched {total} account(s)")
 
     if total == 0:
-        logger.info("No accounts to monitor - done")
+        logger.info("No accounts to monitor — done")
         return
 
-    # Initialize MT5 once - reused across all account reads via mt5.login()
+    # Initialize MT5 once — reused across all account reads via mt5.login()
     logger.info("Initializing MT5...")
     if not _init_mt5():
+        # Error already logged in _init_mt5()
         sys.exit(1)
     logger.info("MT5 initialized")
 
-    # Process accounts - MT5 reads sequential, API posts parallel
+    # Process accounts — MT5 reads sequential, API posts parallel
     succeeded = 0
     failed    = 0
     workers   = min(total, MAX_WORKERS)
@@ -526,7 +488,7 @@ def main() -> None:
         _safe_mt5_shutdown()
 
     elapsed = round(time.time() - start, 1)
-    logger.info(f"Done - {succeeded} ok, {failed} failed, {elapsed}s")
+    logger.info(f"Done — {succeeded} ok, {failed} failed, {elapsed}s")
 
     if failed > 0:
         sys.exit(1)
