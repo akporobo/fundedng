@@ -111,7 +111,7 @@ export const listNigerianBanks = createServerFn({ method: "GET" }).handler(
       const fresh = _bankCache && Date.now() - _bankCache.at < 24 * 3600 * 1000;
       if (fresh && _bankCache) return { ok: true as const, banks: _bankCache.banks };
 
-      const secret = process.env.PAYSTACK_SECRET_KEY;
+      const secret = process.env.SQUAD_SECRET_KEY;
       if (!secret) {
         return { ok: false as const, error: "Bank verification is not configured" };
       }
@@ -181,7 +181,7 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
       if (authErr || !authData.user) return { ok: false as const, error: "Please sign in again" };
       const userId = authData.user.id;
 
-      const secret = process.env.PAYSTACK_SECRET_KEY;
+      const secret = process.env.SQUAD_SECRET_KEY;
       if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
       // Load profile to get the registered full_name.

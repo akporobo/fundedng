@@ -8,7 +8,7 @@
     "VITE_SUPABASE_PROJECT_ID": "umjbaqpjfdumovtdgcmr",
     "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_A-6fg7Iu8ZJ-UtNVfs2jfw_GCZ-zcrR",
     "VITE_SUPABASE_URL": "https://umjbaqpjfdumovtdgcmr.supabase.co",
-    "VITE_PAYSTACK_PUBLIC_KEY": "pk_live_2bcd6a33d32439c04b08576648818d6ce5e7cbe8",
+    "VITE_SQUAD_PUBLIC_KEY": "pk_c1ef7802916384640cc5540e64cb9f75cf3e6785",
     "VITE_VAPID_PUBLIC_KEY": "your-vapid-public-key-here"
   },
   "observability": {

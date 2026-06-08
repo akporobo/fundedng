@@ -87,7 +87,7 @@ export async function runListNigerianBanks() {
     const fresh = _bankCache && Date.now() - _bankCache.at < 24 * 3600 * 1000;
     if (fresh && _bankCache) return { ok: true as const, banks: _bankCache.banks };
 
-    const secret = process.env.PAYSTACK_SECRET_KEY;
+    const secret = process.env.SQUAD_SECRET_KEY;
     if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
     const res = await fetch(
@@ -144,7 +144,7 @@ export async function runVerifyKycPaystack(input: {
       return { ok: false as const, error: "Please sign in again" };
     const userId = authData.user.id;
 
-    const secret = process.env.PAYSTACK_SECRET_KEY;
+    const secret = process.env.SQUAD_SECRET_KEY;
     if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
     const { data: profile, error: profErr } = await supabaseAdmin

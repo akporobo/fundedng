@@ -12,17 +12,21 @@ export const Route = createFileRoute("/payment/callback")({
     reference: z.string().optional(),
     trxref: z.string().optional(),
     challenge_id: z.string().optional(),
+    dp: z.string().optional(),
+    dc: z.string().optional(),
+    pp: z.string().optional(),
+    oa: z.string().optional(),
   }),
   component: PaymentCallback,
 });
 
 function PaymentCallback() {
-  const { reference, trxref, challenge_id } = Route.useSearch();
+  const { reference, trxref, challenge_id, dp, dc, pp, oa } = Route.useSearch();
   const { session, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const ranRef = useRef(false);
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
-  const [message, setMessage] = useState("Confirming your payment with Paystack…");
+  const [message, setMessage] = useState("Confirming your payment with Squad…");
   const [orderId, setOrderId] = useState<string | null>(null);
 
   const ref = reference ?? trxref;
@@ -50,7 +54,7 @@ function PaymentCallback() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ reference: ref, challenge_id }),
+          body: JSON.stringify({ reference: ref, challenge_id, discount_percent: dp, discount_code: dc, partner_promo_code: pp, original_amount: oa }),
         });
         const result = (await res.json().catch(() => ({}))) as {
           ok?: boolean;

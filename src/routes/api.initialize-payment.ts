@@ -4,12 +4,12 @@ import { sendEventEmail } from "@/lib/email.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
 
 /**
- * Server-side Paystack initialization for the redirect/standard checkout flow.
+ * Server-side Squad initialization for the redirect checkout flow.
  *
  * Authenticates the caller, looks up the challenge price on the server (so
- * the browser can't tamper with it), then asks Paystack to create a
- * transaction and returns the hosted `authorization_url` for the client to
- * redirect to. After payment Paystack redirects back to `callback_url`, where
+ * the browser can't tamper with it), then asks Squad to create a
+ * transaction and returns the hosted `checkout_url` for the client to
+ * redirect to. After payment Squad redirects back to `callback_url`, where
  * `/payment/callback` calls `/api/verify-payment` to finalize the order.
  */
 export const Route = createFileRoute("/api/initialize-payment")({
@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
             headerOrigin ||
             (referer ? new URL(referer).origin : "") ||
             new URL(request.url).origin;
-          // Hard guard: never send Paystack a localhost callback in production.
+          // Hard guard: never send Squad a localhost callback in production.
           if (/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(origin)) {
             origin = process.env.PUBLIC_SITE_URL?.trim() || origin;
           }
@@ -114,7 +114,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
           const discountAmountNaira = Math.floor(originalAmountNaira * discountPercent / 100);
           const amountKobo = Math.max(0, originalAmountNaira - discountAmountNaira) * 100;
 
-          // 100 % discount → free order: skip Paystack entirely
+          // 100 % discount → free order: skip Squad entirely
           if (amountKobo <= 0) {
             const { data: order, error: orderErr } = await supabaseAdmin
               .from("orders")
@@ -186,44 +186,42 @@ export const Route = createFileRoute("/api/initialize-payment")({
             return Response.json({ ok: true, free: true, order_id: order.id, reference, auto_delivered: poolResult?.ok ?? false });
           }
 
-          const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-          if (!paystackSecret) {
-            console.error("[initialize-payment] PAYSTACK_SECRET_KEY missing");
+          const squadSecret = process.env.SQUAD_SECRET_KEY;
+          if (!squadSecret) {
+            console.error("[initialize-payment] SQUAD_SECRET_KEY missing");
             return Response.json({ error: "Payment is not configured" }, { status: 500 });
           }
 
-          const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
+          const callbackParams = new URLSearchParams({
+            challenge_id: challengeId,
+            dp: String(discountPercent),
+            oa: String(originalAmountNaira * 100),
+          });
+          if (discountCode) callbackParams.set("dc", discountCode);
+          if (partnerPromoCode) callbackParams.set("pp", partnerPromoCode);
+
+          const initRes = await fetch("https://api-d.squadco.com/transaction/init", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${paystackSecret}`,
+              Authorization: `Bearer ${squadSecret}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              email: user.email,
               amount: amountKobo,
-              currency: "NGN",
-              reference,
-              callback_url: `${origin}/payment/callback?challenge_id=${encodeURIComponent(challengeId)}`,
-              metadata: {
-                challenge_id: challenge.id,
-                challenge_name: challenge.name,
-                user_id: user.id,
-                original_amount: originalAmountNaira * 100,
-                discount_amount: discountAmountNaira * 100,
-                discount_percent: discountPercent,
-                discount_code: discountCode,
-                partner_promo_code: partnerPromoCode,
-              },
+              email: user.email,
+              currency_id: "NGN",
+              transaction_ref: reference,
+              callback_url: `${origin}/payment/callback?${callbackParams.toString()}`,
             }),
           });
 
           const initJson = (await initRes.json().catch(() => ({}))) as {
-            status?: boolean;
+            status?: number;
             message?: string;
-            data?: { authorization_url?: string; reference?: string };
+            data?: { checkout_url?: string; transaction_ref?: string };
           };
 
-          if (!initRes.ok || !initJson.status || !initJson.data?.authorization_url) {
+          if (!initRes.ok || initJson.status !== 200 || !initJson.data?.checkout_url) {
             return Response.json(
               { error: initJson.message ?? "Could not start payment" },
               { status: 400 },
@@ -232,8 +230,8 @@ export const Route = createFileRoute("/api/initialize-payment")({
 
           return Response.json({
             ok: true,
-            authorization_url: initJson.data.authorization_url,
-            reference: initJson.data.reference ?? reference,
+            authorization_url: initJson.data.checkout_url,
+            reference: initJson.data.transaction_ref ?? reference,
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Initialization failed";

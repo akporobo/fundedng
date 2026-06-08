@@ -300,7 +300,7 @@ function BuyPage() {
         setError("Could not start payment");
         return;
       }
-      toast.message("Redirecting to Paystack…");
+      toast.message("Redirecting to checkout…");
       window.location.href = result.authorization_url;
     } catch (e) {
       setLoading(false);
@@ -585,7 +585,7 @@ function BuyPage() {
 
                       <p className="text-center text-xs text-muted-foreground">
                         {currency === "NGN"
-                          ? "You will be redirected to Paystack to complete payment."
+                          ? "You will be redirected to complete payment."
                           : "USD accounts are coming soon. Join the waitlist."}
                       </p>
                     </div>

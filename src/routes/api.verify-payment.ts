@@ -4,12 +4,12 @@ import { sendEventEmail } from "@/lib/email.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
 
 /**
- * Server-side Paystack verification.
+ * Server-side Squad verification.
  *
  * The browser cannot be trusted to confirm payment success — anyone could
  * fabricate an `onSuccess` payload and create a paid order. This endpoint:
  *  1. Authenticates the caller via their Supabase access token.
- *  2. Asks Paystack directly whether the transaction reference succeeded.
+ *  2. Asks Squad directly whether the transaction reference succeeded.
  *  3. Confirms the kobo amount matches the challenge price on file.
  *  4. Inserts the order with the service-role client (bypassing RLS but
  *     scoped to the verified user_id).
@@ -40,6 +40,10 @@ export const Route = createFileRoute("/api/verify-payment")({
           const body = (await request.json().catch(() => ({}))) as {
             reference?: string;
             challenge_id?: string;
+            discount_percent?: string;
+            discount_code?: string;
+            partner_promo_code?: string;
+            original_amount?: string;
           };
           const reference = body.reference?.trim();
           const challengeId = body.challenge_id?.trim();
@@ -66,38 +70,31 @@ export const Route = createFileRoute("/api/verify-payment")({
             return Response.json({ ok: true, order_id: existing.id, already: true });
           }
 
-          // ---- 4. Verify with Paystack ----
-          const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-          if (!paystackSecret) {
-            console.error("[verify-payment] PAYSTACK_SECRET_KEY missing");
+          // ---- 4. Verify with Squad ----
+          const squadSecret = process.env.SQUAD_SECRET_KEY;
+          if (!squadSecret) {
+            console.error("[verify-payment] SQUAD_SECRET_KEY missing");
             return Response.json(
               { error: "Payment verification is not configured" },
               { status: 500 },
             );
           }
-          const paystackRes = await fetch(
-            `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-            { headers: { Authorization: `Bearer ${paystackSecret}` } },
+          const squadRes = await fetch(
+            `https://api-d.squadco.com/transaction/verify/${encodeURIComponent(reference)}`,
+            { headers: { Authorization: `Bearer ${squadSecret}` } },
           );
-          const paystackJson = (await paystackRes.json().catch(() => ({}))) as {
-            status?: boolean;
+          const squadJson = (await squadRes.json().catch(() => ({}))) as {
+            status?: number;
             message?: string;
             data?: {
-              status?: string;
+              transaction_status?: string;
               amount?: number;
-              currency?: string;
-              metadata?: Record<string, unknown>;
+              currency?: { currency_code?: string };
             };
           };
-          if (!paystackRes.ok || !paystackJson.status || paystackJson.data?.status !== "success") {
+          if (!squadRes.ok || squadJson.status !== 200 || squadJson.data?.transaction_status !== "success") {
             return Response.json(
-              { error: paystackJson.message ?? "Payment not successful" },
-              { status: 400 },
-            );
-          }
-          if (paystackJson.data?.currency && paystackJson.data.currency !== "NGN") {
-            return Response.json(
-              { error: `Unexpected currency: ${paystackJson.data.currency}` },
+              { error: squadJson.message ?? "Payment not successful" },
               { status: 400 },
             );
           }
@@ -111,14 +108,13 @@ export const Route = createFileRoute("/api/verify-payment")({
           if (chErr || !challenge) {
             return Response.json({ error: "Challenge not found" }, { status: 404 });
           }
-          const metadata = (paystackJson.data?.metadata ?? {}) as Record<string, unknown>;
-          const discountPercent = Math.max(0, Math.min(100, Number(metadata.discount_percent ?? 0) || 0));
-          const discountCode = typeof metadata.discount_code === "string" ? metadata.discount_code : null;
-          const partnerPromoCode = typeof metadata.partner_promo_code === "string" ? metadata.partner_promo_code : null;
+          const discountPercent = Math.max(0, Math.min(100, Number(body.discount_percent ?? 0) || 0));
+          const discountCode = body.discount_code?.trim() || null;
+          const partnerPromoCode = body.partner_promo_code?.trim() || null;
           const originalKobo = Number(challenge.price_naira) * 100;
           const discountKobo = Math.floor(originalKobo * discountPercent / 100);
           const expectedKobo = Math.max(0, originalKobo - discountKobo);
-          const paidKobo = Number(paystackJson.data?.amount ?? 0);
+          const paidKobo = Number(squadJson.data?.amount ?? 0);
           if (paidKobo !== expectedKobo) {
             return Response.json(
               {
