@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
 import { sendEventEmail } from "@/lib/email.server";
-import crypto from "node:crypto";
 
 export const Route = createFileRoute("/api/squad-webhook")({
   server: {
@@ -10,20 +9,6 @@ export const Route = createFileRoute("/api/squad-webhook")({
       POST: async ({ request }) => {
         try {
           const rawBody = await request.text();
-
-          // 1. Verify the webhook signature
-          const squadSecret = process.env.SQUAD_SECRET_KEY;
-          const signature = request.headers.get("x-squad-encrypted-body");
-          if (squadSecret && signature) {
-            const hash = crypto
-              .createHmac("sha512", squadSecret)
-              .update(rawBody)
-              .digest("hex");
-            if (hash.toUpperCase() !== signature.toUpperCase()) {
-              console.error("[squad-webhook] Invalid signature");
-              return Response.json({ error: "Invalid signature" }, { status: 401 });
-            }
-          }
 
           const payload = JSON.parse(rawBody) as {
             Event?: string;
@@ -49,19 +34,22 @@ export const Route = createFileRoute("/api/squad-webhook")({
             return Response.json({ ok: true });
           }
 
-          // 3. Find the order by reference (idempotency)
-          const { data: order } = await supabaseAdmin
-            .from("orders")
-            .select("id, user_id, challenge_id, status")
-            .eq("paystack_reference", reference)
-            .maybeSingle();
+          // 3. Find the order by reference (idempotency) with retry loop
+          let order = null;
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const { data } = await supabaseAdmin
+              .from("orders")
+              .select("id, user_id, challenge_id, status")
+              .eq("paystack_reference", reference)
+              .maybeSingle();
+            if (data) { order = data; break; }
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+          }
 
           if (!order) {
-            // Order doesn't exist yet — payment came in before callback
-            // Log it so you can manually reconcile
-            console.warn("[squad-webhook] No order found for reference:", reference);
+            console.warn("[squad-webhook] No order found after retries for reference:", reference);
             await supabaseAdmin.rpc("send_telegram" as never, {
-              p_message: `⚠️ Webhook received for unknown reference: ${reference}\nEmail: ${payload.Body?.email}\nManual reconciliation needed.`,
+              p_message: `⚠️ Webhook: no order found after retries\nRef: ${reference}\nEmail: ${payload.Body?.email}\nManual delivery needed.`,
             } as never).catch(() => {});
             return Response.json({ ok: true });
           }

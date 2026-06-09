@@ -93,7 +93,7 @@ export const Route = createFileRoute("/api/verify-payment")({
               transaction_currency_id?: string;
             };
           };
-          if (!squadRes.ok || squadJson.status !== 200 || squadJson.data?.transaction_status !== "Success") {
+          if (!squadRes.ok || squadJson.status !== 200 || squadJson.data?.transaction_status?.toLowerCase() !== "success") {
             return Response.json(
               { error: squadJson.message ?? "Payment not successful" },
               { status: 400 },

@@ -87,19 +87,19 @@ export async function runListNigerianBanks() {
     const fresh = _bankCache && Date.now() - _bankCache.at < 24 * 3600 * 1000;
     if (fresh && _bankCache) return { ok: true as const, banks: _bankCache.banks };
 
-    const secret = process.env.SQUAD_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
+    const secret = process.env.PAYSTACK_SECRET_KEY;
     if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
     const res = await fetch(
-      "https://api-d.squadco.com/transaction/mandate/banklists",
+      "https://api.paystack.co/bank?country=nigeria",
       { headers: { Authorization: `Bearer ${secret}` } },
     );
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok || !json.success || !Array.isArray(json.data)) {
+    if (!res.ok || !json.status || !Array.isArray(json.data)) {
       return { ok: false as const, error: JSON.stringify(json) };
     }
-    const banks: Bank[] = json.data
-      .map((b) => ({ name: b.bank_name, code: b.bank_code, slug: b.bank_code }))
+    const banks: Bank[] = (json.data as Array<{ name: string; code: string; slug?: string }>)
+      .map((b) => ({ name: b.name, code: b.code, slug: b.slug ?? b.code }))
       .sort((a, b) => a.name.localeCompare(b.name));
     _bankCache = { at: Date.now(), banks };
     return { ok: true as const, banks };
@@ -141,7 +141,7 @@ export async function runVerifyKycPaystack(input: {
       return { ok: false as const, error: "Please sign in again" };
     const userId = authData.user.id;
 
-    const secret = process.env.SQUAD_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
+    const secret = process.env.PAYSTACK_SECRET_KEY;
     if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
     const { data: profile, error: profErr } = await supabaseAdmin
@@ -154,23 +154,16 @@ export async function runVerifyKycPaystack(input: {
       return { ok: false as const, error: "Add your full name to your profile first" };
     }
 
-    const res = await fetch("https://api-d.squadco.com/payout/account/lookup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${secret}`,
-      },
-      body: JSON.stringify({
-        bank_code: input.bankCode,
-        account_number: input.accountNumber,
-      }),
-    });
+    const res = await fetch(
+      `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(input.accountNumber)}&bank_code=${encodeURIComponent(input.bankCode)}`,
+      { headers: { Authorization: `Bearer ${secret}` } },
+    );
     const json = (await res.json().catch(() => ({}))) as {
-      success?: boolean;
+      status?: boolean;
       message?: string;
       data?: { account_name: string; account_number: string };
     };
-    if (!res.ok || !json.success || !json.data?.account_name) {
+    if (!res.ok || !json.status || !json.data?.account_name) {
       return {
         ok: false as const,
         error: json.message || "Could not verify this account number with the bank",
