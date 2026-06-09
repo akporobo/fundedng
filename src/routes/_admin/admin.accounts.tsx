@@ -20,13 +20,55 @@ function AccountsPage() {
   const {
     accounts, equityDraft, equitySaving, setEquityDraft, submitEquity,
     kycTarget, kycVerifying, setKycTarget, openKycVerify, submitKycVerify,
-    breachTarget, breachReason, breaching, setBreachTarget, setBreachReason, openBreachDialog, submitBreach,
-    warnTarget, warnReason, warning, setWarnTarget, setWarnReason, openWarningDialog, submitWarning,
+    breachTarget, breachReason, breaching,
+    breachType, setBreachType, breachPair, setBreachPair,
+    breachOpenTime, setBreachOpenTime, breachCloseTime, setBreachCloseTime, breachDuration, setBreachDuration,
+    setBreachTarget, setBreachReason, openBreachDialog, submitBreach,
+    warnTarget, warnReason, warning,
+    warnType, setWarnType, warnPair, setWarnPair,
+    warnOpenTime, setWarnOpenTime, warnCloseTime, setWarnCloseTime, warnDuration, setWarnDuration,
+    setWarnTarget, setWarnReason, openWarningDialog, submitWarning,
     rejectTarget, rejectReason, rejecting, rejectType, setRejectTarget, setRejectReason, setRejectType,
     openRejectDialog, submitRejectPhase, approvePhase2, approveFunded, viewCredsFor, setViewCredsFor, updateAccount,
   } = useAdminData();
   const [credDraft, setCredDraft] = useState<Record<string, Record<string, string>>>({});
   const [credSaving, setCredSaving] = useState<string | null>(null);
+
+  function getBreachReason(type: string, pair: string, openTime: string, closeTime: string, duration: string, name: string) {
+    switch (type) {
+      case "inactivity":
+        return `Hi ${name}, your FundedNG challenge account has been closed due to inactivity. Our rules require at least 1 trade every calendar week to keep your account active. Unfortunately no trading activity was detected on your account within the required period.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
+      case "drawdown":
+        return `Hi ${name}, your FundedNG challenge account has been closed due to exceeding the maximum allowed drawdown.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
+      case "scalping":
+        return `Hi ${name}, your FundedNG challenge account has been closed due to a tick scalping violation.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules prohibit closing a trade in under 3 minutes (180 seconds). Stop-loss and take-profit exits are exempt, but manual closes under 3 minutes constitute a breach regardless of profit or loss.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
+      default: return "";
+    }
+  }
+
+  function getWarnReason(type: string, pair: string, openTime: string, closeTime: string, duration: string, name: string) {
+    switch (type) {
+      case "inactivity":
+        return `Hi ${name}, your FundedNG challenge account is at risk of being closed due to inactivity. Our rules require at least 1 trade every calendar week to keep your account active. Please place a trade to keep your account active.\n— FundedNG Team`;
+      case "drawdown":
+        return `Hi ${name}, your FundedNG challenge account has received a warning for exceeding the maximum allowed drawdown. Please manage your risk carefully.\n— FundedNG Team`;
+      case "scalping":
+        return `Hi ${name}, your FundedNG challenge account has received a warning for tick scalping.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules prohibit closing a trade in under 3 minutes (180 seconds). Continued violations may result in account closure.\n— FundedNG Team`;
+      default: return "";
+    }
+  }
+
+  const breachTypes = [
+    { value: "inactivity", label: "Inactivity" },
+    { value: "scalping", label: "Scalping" },
+    { value: "drawdown", label: "Drawdown Exceeded" },
+  ] as const;
+
+  const warnTypes = [
+    { value: "inactivity", label: "Inactivity" },
+    { value: "scalping", label: "Scalping" },
+    { value: "drawdown", label: "Drawdown Exceeded" },
+  ] as const;
 
   return (
     <div className="mt-6 space-y-2">
@@ -186,8 +228,48 @@ function AccountsPage() {
           </DialogHeader>
           <div className="grid gap-3">
             <div className="grid gap-1.5">
+              <Label>Breach type</Label>
+              <div className="flex flex-wrap gap-2">
+                {breachTypes.map((t) => (
+                  <Button key={t.value} size="sm" variant={breachType === t.value ? "default" : "outline"}
+                    onClick={() => {
+                      setBreachType(t.value);
+                      setBreachPair(""); setBreachOpenTime(""); setBreachCloseTime(""); setBreachDuration("");
+                      setBreachReason(getBreachReason(t.value, "", "", "", "", breachTarget?.profiles?.full_name ?? "Trader"));
+                    }}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            {breachType === "scalping" && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-1">
+                  <Label className="text-xs">Trading Pair</Label>
+                  <Input placeholder="e.g. EURUSDm" value={breachPair}
+                    onChange={(e) => { setBreachPair(e.target.value); setBreachReason(getBreachReason(breachType, e.target.value, breachOpenTime, breachCloseTime, breachDuration, breachTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Open Time</Label>
+                  <Input placeholder="e.g. 2026-06-08 23:41:00" value={breachOpenTime}
+                    onChange={(e) => { setBreachOpenTime(e.target.value); setBreachReason(getBreachReason(breachType, breachPair, e.target.value, breachCloseTime, breachDuration, breachTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Close Time</Label>
+                  <Input placeholder="e.g. 2026-06-08 23:41:32" value={breachCloseTime}
+                    onChange={(e) => { setBreachCloseTime(e.target.value); setBreachReason(getBreachReason(breachType, breachPair, breachOpenTime, e.target.value, breachDuration, breachTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Duration</Label>
+                  <Input placeholder="e.g. 32 seconds" value={breachDuration}
+                    onChange={(e) => { setBreachDuration(e.target.value); setBreachReason(getBreachReason(breachType, breachPair, breachOpenTime, breachCloseTime, e.target.value, breachTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+              </div>
+            )}
+            <div className="grid gap-1.5">
               <Label htmlFor="breach-reason">Reason for breach</Label>
-              <Textarea id="breach-reason" placeholder="Enter the reason for breaching this account..." value={breachReason} onChange={(e) => setBreachReason(e.target.value)} rows={4} />
+              <Textarea id="breach-reason" placeholder="Enter the reason for breaching this account..." value={breachReason} onChange={(e) => setBreachReason(e.target.value)} rows={3} />
             </div>
           </div>
           <DialogFooter>
@@ -206,8 +288,48 @@ function AccountsPage() {
           </DialogHeader>
           <div className="grid gap-3">
             <div className="grid gap-1.5">
+              <Label>Warning type</Label>
+              <div className="flex flex-wrap gap-2">
+                {warnTypes.map((t) => (
+                  <Button key={t.value} size="sm" variant={warnType === t.value ? "default" : "outline"}
+                    onClick={() => {
+                      setWarnType(t.value);
+                      setWarnPair(""); setWarnOpenTime(""); setWarnCloseTime(""); setWarnDuration("");
+                      setWarnReason(getWarnReason(t.value, "", "", "", "", warnTarget?.profiles?.full_name ?? "Trader"));
+                    }}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            {warnType === "scalping" && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-1">
+                  <Label className="text-xs">Trading Pair</Label>
+                  <Input placeholder="e.g. EURUSDm" value={warnPair}
+                    onChange={(e) => { setWarnPair(e.target.value); setWarnReason(getWarnReason(warnType, e.target.value, warnOpenTime, warnCloseTime, warnDuration, warnTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Open Time</Label>
+                  <Input placeholder="e.g. 2026-06-08 23:41:00" value={warnOpenTime}
+                    onChange={(e) => { setWarnOpenTime(e.target.value); setWarnReason(getWarnReason(warnType, warnPair, e.target.value, warnCloseTime, warnDuration, warnTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Close Time</Label>
+                  <Input placeholder="e.g. 2026-06-08 23:41:32" value={warnCloseTime}
+                    onChange={(e) => { setWarnCloseTime(e.target.value); setWarnReason(getWarnReason(warnType, warnPair, warnOpenTime, e.target.value, warnDuration, warnTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Duration</Label>
+                  <Input placeholder="e.g. 32 seconds" value={warnDuration}
+                    onChange={(e) => { setWarnDuration(e.target.value); setWarnReason(getWarnReason(warnType, warnPair, warnOpenTime, warnCloseTime, e.target.value, warnTarget?.profiles?.full_name ?? "Trader")); }} />
+                </div>
+              </div>
+            )}
+            <div className="grid gap-1.5">
               <Label htmlFor="warn-reason">Warning message</Label>
-              <Textarea id="warn-reason" placeholder="Describe the concerning trading activity..." value={warnReason} onChange={(e) => setWarnReason(e.target.value)} rows={4} />
+              <Textarea id="warn-reason" placeholder="Describe the concerning trading activity..." value={warnReason} onChange={(e) => setWarnReason(e.target.value)} rows={3} />
             </div>
           </div>
           <DialogFooter>

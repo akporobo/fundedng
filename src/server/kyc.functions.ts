@@ -96,7 +96,7 @@ export const verifyKycServer = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------------------
 // Self-service KYC: trader submits account_number + bank_code, we call
-// Squad's account lookup API, fuzzy-match the returned account_name to the
+// Paystack's account lookup API, fuzzy-match the returned account_name to the
 // trader's full_name, and on match auto-verify KYC.
 // ---------------------------------------------------------------------------
 
@@ -111,24 +111,21 @@ export const listNigerianBanks = createServerFn({ method: "GET" }).handler(
       const fresh = _bankCache && Date.now() - _bankCache.at < 24 * 3600 * 1000;
       if (fresh && _bankCache) return { ok: true as const, banks: _bankCache.banks };
 
-      const secret = process.env.SQUAD_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
+      const secret = process.env.PAYSTACK_SECRET_KEY;
       if (!secret) {
         return { ok: false as const, error: "Bank verification is not configured" };
       }
 
       const res = await fetch(
-        "https://api.squadco.com/transaction/mandate/banklists",
+        "https://api.paystack.co/bank?country=nigeria",
         { headers: { Authorization: `Bearer ${secret}` } },
       );
-      const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        data?: Array<{ bank_name: string; bank_code: string }>;
-      };
-      if (!res.ok || !json.success || !Array.isArray(json.data)) {
-        return { ok: false as const, error: "Could not load bank list" };
+      const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || !json.status || !Array.isArray(json.data)) {
+        return { ok: false as const, error: JSON.stringify(json) };
       }
-      const banks: Bank[] = json.data
-        .map((b) => ({ name: b.bank_name, code: b.bank_code, slug: b.bank_code }))
+      const banks: Bank[] = (json.data as Array<{ name: string; code: string; slug: string }>)
+        .map((b) => ({ name: b.name, code: b.code, slug: b.slug || b.code }))
         .sort((a, b) => a.name.localeCompare(b.name));
       _bankCache = { at: Date.now(), banks };
       return { ok: true as const, banks };
@@ -171,7 +168,7 @@ function namesMatch(a: string, b: string): boolean {
 }
 
 /**
- * Trader-facing: verify own KYC via Squad account lookup.
+ * Trader-facing: verify own KYC via Paystack account lookup.
  * On success: saves bank details + flips kyc_verified=true.
  */
 export const verifyKycPaystack = createServerFn({ method: "POST" })
@@ -182,7 +179,7 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
       if (authErr || !authData.user) return { ok: false as const, error: "Please sign in again" };
       const userId = authData.user.id;
 
-      const secret = process.env.SQUAD_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY;
+      const secret = process.env.PAYSTACK_SECRET_KEY;
       if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
       // Load profile to get the registered full_name.
@@ -196,8 +193,8 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
         return { ok: false as const, error: "Add your full name to your profile first" };
       }
 
-      // Call Squad account lookup.
-      const res = await fetch("https://api.squadco.com/payout/account/lookup", {
+      // Call Paystack account lookup.
+      const res = await fetch("https://api.paystack.co/bank/resolve", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -209,11 +206,11 @@ export const verifyKycPaystack = createServerFn({ method: "POST" })
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
+        status?: boolean;
         message?: string;
         data?: { account_name: string; account_number: string };
       };
-      if (!res.ok || !json.success || !json.data?.account_name) {
+      if (!res.ok || !json.status || !json.data?.account_name) {
         return {
           ok: false as const,
           error: json.message || "Could not verify this account number with the bank",

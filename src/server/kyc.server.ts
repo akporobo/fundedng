@@ -91,15 +91,12 @@ export async function runListNigerianBanks() {
     if (!secret) return { ok: false as const, error: "Bank verification is not configured" };
 
     const res = await fetch(
-      "https://api.squadco.com/transaction/mandate/banklists",
+      "https://api-d.squadco.com/transaction/mandate/banklists",
       { headers: { Authorization: `Bearer ${secret}` } },
     );
-    const json = (await res.json().catch(() => ({}))) as {
-      success?: boolean;
-      data?: Array<{ bank_name: string; bank_code: string }>;
-    };
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (!res.ok || !json.success || !Array.isArray(json.data)) {
-      return { ok: false as const, error: "Could not load bank list" };
+      return { ok: false as const, error: JSON.stringify(json) };
     }
     const banks: Bank[] = json.data
       .map((b) => ({ name: b.bank_name, code: b.bank_code, slug: b.bank_code }))
@@ -157,7 +154,7 @@ export async function runVerifyKycPaystack(input: {
       return { ok: false as const, error: "Add your full name to your profile first" };
     }
 
-    const res = await fetch("https://api.squadco.com/payout/account/lookup", {
+    const res = await fetch("https://api-d.squadco.com/payout/account/lookup", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

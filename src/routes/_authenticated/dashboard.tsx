@@ -20,7 +20,7 @@ import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { TradingAnalytics } from "@/components/dashboard/TradingAnalytics";
 import { RefreshButton } from "@/components/ui/refresh-button";
-import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
+import { BANKS } from "@/lib/bank-list";
 import { requestPayoutServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -127,7 +127,7 @@ function DashboardPage() {
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankName, setBankName] = useState("");
   const [bankCode, setBankCode] = useState("");
-  const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
+  const [banks] = useState<{ name: string; code: string }[]>(BANKS);
   const [verifyingKyc, setVerifyingKyc] = useState(false);
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -144,18 +144,6 @@ function DashboardPage() {
     setBankAccountNumber(profile?.bank_account_number ?? "");
     setBankName(profile?.bank_name ?? "");
   }, [profile]);
-
-  // Load Nigerian bank list (Paystack) once.
-  useEffect(() => {
-    let alive = true;
-    listNigerianBanks()
-      .then((res) => {
-        if (!alive) return;
-        if (res.ok) setBanks(res.banks);
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
 
   // Fire the welcome email once per new signup, the first time the user lands
   // on the dashboard after registering (covers email-confirm flows where the
@@ -179,16 +167,21 @@ function DashboardPage() {
     const bank = banks.find((b) => b.code === bankCode);
     setVerifyingKyc(true);
     try {
-      const res = await verifyKycPaystack({
-        data: {
-          accessToken: sess.session.access_token,
-          accountNumber: acct,
-          bankCode,
-          bankName: bank?.name ?? bankName.trim() ?? "",
+      const res = await fetch("/api/verify-bank", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sess.session.access_token}`,
         },
+        body: JSON.stringify({
+          bank_code: bankCode,
+          account_number: acct,
+          bank_name: bank?.name ?? bankName.trim() ?? "",
+        }),
       });
-      if (!res.ok) return toast.error(res.error);
-      toast.success(`Verified · ${res.accountName}`);
+      const json = await res.json();
+      if (!res.ok || !json.ok) return toast.error(json.error || "Verification failed");
+      toast.success(`Verified · ${json.account_name}`);
       await refresh();
     } finally {
       setVerifyingKyc(false);

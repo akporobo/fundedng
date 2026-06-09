@@ -64,8 +64,18 @@ function useAdminDataHook() {
   const [breachTarget, setBreachTarget] = useState<any | null>(null);
   const [breachReason, setBreachReason] = useState("");
   const [breaching, setBreaching] = useState(false);
+  const [breachType, setBreachType] = useState("inactivity");
+  const [breachPair, setBreachPair] = useState("");
+  const [breachOpenTime, setBreachOpenTime] = useState("");
+  const [breachCloseTime, setBreachCloseTime] = useState("");
+  const [breachDuration, setBreachDuration] = useState("");
   const [warnTarget, setWarnTarget] = useState<any | null>(null);
   const [warnReason, setWarnReason] = useState("");
+  const [warnType, setWarnType] = useState("inactivity");
+  const [warnPair, setWarnPair] = useState("");
+  const [warnOpenTime, setWarnOpenTime] = useState("");
+  const [warnCloseTime, setWarnCloseTime] = useState("");
+  const [warnDuration, setWarnDuration] = useState("");
   const [warning, setWarning] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -346,8 +356,20 @@ function useAdminDataHook() {
     } catch (e: any) { toast.error(e?.message ?? "Verification failed"); } finally { setKycVerifying(false); }
   };
 
-  const openBreachDialog = (account: any) => { setBreachTarget(account); setBreachReason(""); };
-  const openWarningDialog = (account: any) => { setWarnTarget(account); setWarnReason(""); };
+  const openBreachDialog = (account: any) => {
+    const name = account?.profiles?.full_name ?? "Trader";
+    setBreachTarget(account);
+    setBreachType("inactivity");
+    setBreachPair(""); setBreachOpenTime(""); setBreachCloseTime(""); setBreachDuration("");
+    setBreachReason(`Hi ${name}, your FundedNG challenge account has been closed due to inactivity. Our rules require at least 1 trade every calendar week to keep your account active. Unfortunately no trading activity was detected on your account within the required period.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`);
+  };
+  const openWarningDialog = (account: any) => {
+    const name = account?.profiles?.full_name ?? "Trader";
+    setWarnTarget(account);
+    setWarnType("inactivity");
+    setWarnPair(""); setWarnOpenTime(""); setWarnCloseTime(""); setWarnDuration("");
+    setWarnReason(`Hi ${name}, your FundedNG challenge account is at risk of being closed due to inactivity. Our rules require at least 1 trade every calendar week to keep your account active. Please place a trade to keep your account active.\n— FundedNG Team`);
+  };
   const openRejectDialog = (account: any, type: "phase2" | "funded") => { setRejectTarget(account); setRejectType(type); setRejectReason(""); };
 
   const submitRejectPhase = async () => {
@@ -608,8 +630,14 @@ function useAdminDataHook() {
     tgBotToken, tgChatId, tgSaving, tgTesting, setTgBotToken, setTgChatId, saveTelegram, testTelegram,
     equityDraft, equitySaving, setEquityDraft, submitEquity,
     kycTarget, kycVerifying, setKycTarget, openKycVerify, submitKycVerify,
-    breachTarget, breachReason, breaching, setBreachTarget, setBreachReason, openBreachDialog, submitBreach,
-    warnTarget, warnReason, warning, setWarnTarget, setWarnReason, openWarningDialog, submitWarning,
+    breachTarget, breachReason, breaching,
+    breachType, setBreachType, breachPair, setBreachPair,
+    breachOpenTime, setBreachOpenTime, breachCloseTime, setBreachCloseTime, breachDuration, setBreachDuration,
+    setBreachTarget, setBreachReason, openBreachDialog, submitBreach,
+    warnTarget, warnReason, warning,
+    warnType, setWarnType, warnPair, setWarnPair,
+    warnOpenTime, setWarnOpenTime, warnCloseTime, setWarnCloseTime, warnDuration, setWarnDuration,
+    setWarnTarget, setWarnReason, openWarningDialog, submitWarning,
     rejectTarget, rejectReason, rejecting, rejectType, setRejectTarget, setRejectReason, setRejectType,
     openRejectDialog, submitRejectPhase,
     poolAccounts, poolInventory, poolLoading, poolFormOpen, poolSaving, poolForm, viewCredsFor,

@@ -80,19 +80,20 @@ export const Route = createFileRoute("/api/verify-payment")({
             );
           }
           const squadRes = await fetch(
-            `https://api.squadco.com/transaction/verify/${encodeURIComponent(reference)}`,
+            `https://api-d.squadco.com/transaction/verify/${encodeURIComponent(reference)}`,
             { headers: { Authorization: `Bearer ${squadSecret}` } },
           );
           const squadJson = (await squadRes.json().catch(() => ({}))) as {
             status?: number;
+            success?: boolean;
             message?: string;
             data?: {
               transaction_status?: string;
-              amount?: number;
-              currency?: { currency_code?: string };
+              transaction_amount?: number;
+              transaction_currency_id?: string;
             };
           };
-          if (!squadRes.ok || squadJson.status !== 200 || squadJson.data?.transaction_status !== "success") {
+          if (!squadRes.ok || squadJson.status !== 200 || squadJson.data?.transaction_status !== "Success") {
             return Response.json(
               { error: squadJson.message ?? "Payment not successful" },
               { status: 400 },
@@ -114,7 +115,7 @@ export const Route = createFileRoute("/api/verify-payment")({
           const originalKobo = Number(challenge.price_naira) * 100;
           const discountKobo = Math.floor(originalKobo * discountPercent / 100);
           const expectedKobo = Math.max(0, originalKobo - discountKobo);
-          const paidKobo = Number(squadJson.data?.amount ?? 0);
+          const paidKobo = Number(squadJson.data?.transaction_amount ?? 0);
           if (paidKobo !== expectedKobo) {
             return Response.json(
               {

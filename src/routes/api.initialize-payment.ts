@@ -192,6 +192,14 @@ export const Route = createFileRoute("/api/initialize-payment")({
             return Response.json({ error: "Payment is not configured" }, { status: 500 });
           }
 
+          // Fetch customer name for Squad's required customer_name field
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("full_name")
+            .eq("id", user.id)
+            .maybeSingle();
+          const customerName = profile?.full_name?.trim() || user.email?.split("@")[0] || "Customer";
+
           const callbackParams = new URLSearchParams({
             challenge_id: challengeId,
             dp: String(discountPercent),
@@ -200,7 +208,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
           if (discountCode) callbackParams.set("dc", discountCode);
           if (partnerPromoCode) callbackParams.set("pp", partnerPromoCode);
 
-          const initRes = await fetch("https://api.squadco.com/transaction/initiate", {
+          const initRes = await fetch("https://api-d.squadco.com/transaction/initiate", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${squadSecret}`,
@@ -210,8 +218,16 @@ export const Route = createFileRoute("/api/initialize-payment")({
               amount: amountKobo,
               email: user.email,
               currency: "NGN",
+              initiate_type: "inline",
               transaction_ref: reference,
+              customer_name: customerName,
               callback_url: `${origin}/payment/callback?${callbackParams.toString()}`,
+              payment_channels: ["transfer"],
+              metadata: {
+                challenge_id: challenge.id,
+                challenge_name: challenge.name,
+                user_id: user.id,
+              },
             }),
           });
 
@@ -222,8 +238,9 @@ export const Route = createFileRoute("/api/initialize-payment")({
           };
 
           if (!initRes.ok || initJson.status !== 200 || !initJson.data?.checkout_url) {
+            console.error("[initialize-payment] Squad raw response:", JSON.stringify(initJson));
             return Response.json(
-              { error: initJson.message ?? "Could not start payment" },
+              { error: JSON.stringify(initJson) },
               { status: 400 },
             );
           }

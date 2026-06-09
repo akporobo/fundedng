@@ -22,6 +22,8 @@ import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as ApiVerifyPaymentRouteImport } from './routes/api.verify-payment'
+import { Route as ApiVerifyBankRouteImport } from './routes/api.verify-bank'
+import { Route as ApiSquadWebhookRouteImport } from './routes/api.squad-webhook'
 import { Route as ApiSendEmailRouteImport } from './routes/api.send-email'
 import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
 import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-new-purchase'
@@ -115,6 +117,16 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
 const ApiVerifyPaymentRoute = ApiVerifyPaymentRouteImport.update({
   id: '/api/verify-payment',
   path: '/api/verify-payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVerifyBankRoute = ApiVerifyBankRouteImport.update({
+  id: '/api/verify-bank',
+  path: '/api/verify-bank',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSquadWebhookRoute = ApiSquadWebhookRouteImport.update({
+  id: '/api/squad-webhook',
+  path: '/api/squad-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSendEmailRoute = ApiSendEmailRouteImport.update({
@@ -295,6 +307,8 @@ export interface FileRoutesByFullPath {
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/squad-webhook': typeof ApiSquadWebhookRoute
+  '/api/verify-bank': typeof ApiVerifyBankRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
@@ -337,6 +351,8 @@ export interface FileRoutesByTo {
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/squad-webhook': typeof ApiSquadWebhookRoute
+  '/api/verify-bank': typeof ApiVerifyBankRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
@@ -384,6 +400,8 @@ export interface FileRoutesById {
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/squad-webhook': typeof ApiSquadWebhookRoute
+  '/api/verify-bank': typeof ApiVerifyBankRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
@@ -430,6 +448,8 @@ export interface FileRouteTypes {
     | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/api/send-email'
+    | '/api/squad-webhook'
+    | '/api/verify-bank'
     | '/api/verify-payment'
     | '/auth/forgot-password'
     | '/auth/login'
@@ -472,6 +492,8 @@ export interface FileRouteTypes {
     | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/api/send-email'
+    | '/api/squad-webhook'
+    | '/api/verify-bank'
     | '/api/verify-payment'
     | '/auth/forgot-password'
     | '/auth/login'
@@ -518,6 +540,8 @@ export interface FileRouteTypes {
     | '/api/notify-new-purchase'
     | '/api/provision-account'
     | '/api/send-email'
+    | '/api/squad-webhook'
+    | '/api/verify-bank'
     | '/api/verify-payment'
     | '/auth/forgot-password'
     | '/auth/login'
@@ -558,6 +582,8 @@ export interface RootRouteChildren {
   ApiNotifyNewPurchaseRoute: typeof ApiNotifyNewPurchaseRoute
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
   ApiSendEmailRoute: typeof ApiSendEmailRoute
+  ApiSquadWebhookRoute: typeof ApiSquadWebhookRoute
+  ApiVerifyBankRoute: typeof ApiVerifyBankRoute
   ApiVerifyPaymentRoute: typeof ApiVerifyPaymentRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
@@ -663,6 +689,20 @@ declare module '@tanstack/react-router' {
       path: '/api/verify-payment'
       fullPath: '/api/verify-payment'
       preLoaderRoute: typeof ApiVerifyPaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/verify-bank': {
+      id: '/api/verify-bank'
+      path: '/api/verify-bank'
+      fullPath: '/api/verify-bank'
+      preLoaderRoute: typeof ApiVerifyBankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/squad-webhook': {
+      id: '/api/squad-webhook'
+      path: '/api/squad-webhook'
+      fullPath: '/api/squad-webhook'
+      preLoaderRoute: typeof ApiSquadWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/send-email': {
@@ -978,6 +1018,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiNotifyNewPurchaseRoute: ApiNotifyNewPurchaseRoute,
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
   ApiSendEmailRoute: ApiSendEmailRoute,
+  ApiSquadWebhookRoute: ApiSquadWebhookRoute,
+  ApiVerifyBankRoute: ApiVerifyBankRoute,
   ApiVerifyPaymentRoute: ApiVerifyPaymentRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
