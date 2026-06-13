@@ -225,7 +225,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
               payment_channels: ["transfer"],
               metadata: {
                 challenge_id: challenge.id,
-                challenge_name: challenge.name,
+                challenge_namcd "e: challenge.name,
                 user_id: user.id,
               },
             }),

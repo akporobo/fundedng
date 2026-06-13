@@ -20,7 +20,7 @@ import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { TradingAnalytics } from "@/components/dashboard/TradingAnalytics";
 import { RefreshButton } from "@/components/ui/refresh-button";
-import { BANKS } from "@/lib/bank-list";
+import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
 import { requestPayoutServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -126,8 +126,10 @@ function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankName, setBankName] = useState("");
+  const [bankAccountName, setBankAccountName] = useState("");
   const [bankCode, setBankCode] = useState("");
-  const [banks] = useState<{ name: string; code: string }[]>(BANKS);
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
+  const [kycVerified, setKycVerified] = useState(!!profile?.kyc_verified);
   const [verifyingKyc, setVerifyingKyc] = useState(false);
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -143,7 +145,14 @@ function DashboardPage() {
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
     setBankName(profile?.bank_name ?? "");
+    setBankAccountName(profile?.bank_account_name ?? "");
   }, [profile]);
+
+  useEffect(() => {
+    listNigerianBanks().then((res) => {
+      if (res.ok && Array.isArray(res.banks)) setBanks(res.banks);
+    });
+  }, []);
 
   // Fire the welcome email once per new signup, the first time the user lands
   // on the dashboard after registering (covers email-confirm flows where the
@@ -167,21 +176,20 @@ function DashboardPage() {
     const bank = banks.find((b) => b.code === bankCode);
     setVerifyingKyc(true);
     try {
-      const res = await fetch("/api/verify-bank", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sess.session.access_token}`,
+      const res = await verifyKycPaystack({
+        data: {
+          accessToken: sess.session.access_token,
+          accountNumber: acct,
+          bankCode,
+          bankName: bank?.name ?? bankName.trim() ?? "",
         },
-        body: JSON.stringify({
-          bank_code: bankCode,
-          account_number: acct,
-          bank_name: bank?.name ?? bankName.trim() ?? "",
-        }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) return toast.error(json.error || "Verification failed");
-      toast.success(`Verified · ${json.account_name}`);
+      if (!res.ok) return toast.error(res.error);
+      setKycVerified(true);
+      setBankAccountNumber(acct);
+      setBankName(bank?.name ?? bankName.trim() ?? "");
+      setBankAccountName(res.accountName ?? "");
+      toast.success(`Verified · ${res.accountName}`);
       await refresh();
     } finally {
       setVerifyingKyc(false);
@@ -274,7 +282,7 @@ function DashboardPage() {
         .select("snapshot_time, equity, balance")
         .eq("trader_account_id", fresh.id);
       if (phaseStart) query = query.gte("snapshot_time", phaseStart);
-      query.order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
+      query.limit(1000000).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
       if (fresh.id !== selected?.id) setSelected(fresh);
     }
     toast.success("Dashboard updated");
@@ -291,7 +299,7 @@ function DashboardPage() {
       .select("snapshot_time, equity, balance")
       .eq("trader_account_id", selected.id);
     if (phaseStart) query = query.gte("snapshot_time", phaseStart);
-    query.order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
+    query.limit(1000000).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
   }, [selected]);
 
   useEffect(() => {
@@ -387,8 +395,8 @@ function DashboardPage() {
 
   const requestPayout = async () => {
     if (!selected) return;
-    if (!profile?.bank_account_number) return toast.error("Add your bank account in the KYC card first.");
-    if (!profile?.kyc_verified) return toast.error("Bank account pending admin verification.");
+    if (!bankAccountNumber) return toast.error("Add your bank account in the KYC card first.");
+    if (!kycVerified) return toast.error("Bank account pending admin verification.");
     if (selected.status !== "funded") return toast.error("Account must be funded.");
     const equity = Number(selected.current_equity ?? selected.starting_balance);
     const profit = equity - selected.starting_balance;
@@ -425,9 +433,9 @@ function DashboardPage() {
       amountNaira: amount,
       profitPercent: Number(((requestedProfit / selected.starting_balance) * 100).toFixed(4)),
       bankDetails: {
-        account_number: profile.bank_account_number!,
-        bank_name: profile.bank_name!,
-        account_name: profile.bank_account_name!,
+        account_number: bankAccountNumber,
+        bank_name: bankName,
+        account_name: bankAccountName,
       },
     }});
     setSubmitting(false);
@@ -885,26 +893,26 @@ function DashboardPage() {
                   </div>
 
                   {/* KYC: bank account on file (only KYC field) */}
-                  <div className={`rounded-xl border p-6 ${profile?.kyc_verified ? "border-primary/30 bg-primary/5" : "border-warning/40 bg-warning/5"}`}>
+                  <div className={`rounded-xl border p-6 ${kycVerified ? "border-primary/30 bg-primary/5" : "border-warning/40 bg-warning/5"}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className="font-display flex items-center gap-2 text-base font-semibold">
-                          {profile?.kyc_verified ? <ShieldCheck className="h-4 w-4 text-primary"/> : <ShieldAlert className="h-4 w-4 text-warning"/>}
+                          {kycVerified ? <ShieldCheck className="h-4 w-4 text-primary"/> : <ShieldAlert className="h-4 w-4 text-warning"/>}
                           KYC — Payout Bank Account
                         </h3>
                         <p className="mt-1 text-xs text-muted-foreground">
                           We verify your bank instantly via Paystack. The account name must match the name on your trader profile. Payouts go only to this account.
                         </p>
                       </div>
-                      <Badge className={`font-display ${profile?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
-                        {profile?.kyc_verified ? "VERIFIED" : "PENDING"}
+                      <Badge className={`font-display ${kycVerified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
+                        {kycVerified ? "VERIFIED" : "PENDING"}
                       </Badge>
                     </div>
-                    {profile?.kyc_verified ? (
+                    {kycVerified ? (
                       <div className="mt-5 rounded-md border border-border bg-background p-3 text-sm">
                         <div className="text-[11px] text-muted-foreground">Verified bank account</div>
                         <div className="font-display mt-1 text-primary break-words">
-                          {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
+                          {bankAccountNumber || profile.bank_account_number} · {bankName || profile.bank_name} · {bankAccountName || profile.bank_account_name}
                         </div>
                         <p className="mt-2 text-[11px] text-muted-foreground">
                           Need to change it? Re-verify with new details — KYC will reset until the new account passes.
@@ -934,8 +942,8 @@ function DashboardPage() {
                    KYC is only available after you become a funded trader. {selected?.status !== "funded" && <span className="font-display text-warning">Complete your challenge to unlock this feature.</span>}
                    {selected?.status === "funded" && <>We'll fetch the registered account name from your bank and approve KYC instantly if it matches your profile name (<span className="font-display text-foreground">{profile?.full_name || "—"}</span>).</>}
                  </p>
-                     <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10 || selected?.status !== "funded"}>
-                      <Landmark className="mr-1 h-4 w-4"/>{verifyingKyc ? "Verifying…" : profile?.kyc_verified ? "Re-verify bank" : "Verify bank account"}
+                      <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10 || selected?.status !== "funded"}>
+                       <Landmark className="mr-1 h-4 w-4"/>{verifyingKyc ? "Verifying…" : kycVerified ? "Re-verify bank" : "Verify bank account"}
                     </Button>
                   </div>
 
@@ -964,12 +972,12 @@ function DashboardPage() {
                                <p className="mt-1 text-[11px] text-muted-foreground">
                                  <span className="font-display text-foreground">First payout:</span> capped at 10% of account size (you receive 80% of profit). Subsequent payouts use the full 50% cap.
                                </p>
-                              {!profile?.kyc_verified && (
-                                <Alert variant="destructive" className="mt-3">
-                                  <AlertDescription>Your bank account is awaiting admin verification before payouts are released.</AlertDescription>
-                                </Alert>
-                              )}
-                              {profile?.kyc_verified && profile.bank_account_number && (
+                               {!kycVerified && (
+                                 <Alert variant="destructive" className="mt-3">
+                                   <AlertDescription>Your bank account is awaiting admin verification before payouts are released.</AlertDescription>
+                                 </Alert>
+                               )}
+                               {kycVerified && profile.bank_account_number && (
                                 <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
                                   <div className="text-[11px] text-muted-foreground">Payout destination</div>
                                   <div className="font-display mt-1 text-primary break-words">
@@ -978,7 +986,7 @@ function DashboardPage() {
                                 </div>
                               )}
                               {ready ? (
-                                <Button className="font-display mt-4" onClick={requestPayout} disabled={submitting || !profile?.kyc_verified}>
+                                <Button className="font-display mt-4" onClick={requestPayout} disabled={submitting || !kycVerified}>
                                   {submitting ? "Submitting…" : "Request payout →"}
                                 </Button>
                               ) : (

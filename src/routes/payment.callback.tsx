@@ -12,10 +12,10 @@ export const Route = createFileRoute("/payment/callback")({
     reference: z.string().optional(),
     trxref: z.string().optional(),
     challenge_id: z.string().optional(),
-    dp: z.string().optional(),
+    dp: z.coerce.number().optional(),
     dc: z.string().optional(),
     pp: z.string().optional(),
-    oa: z.string().optional(),
+    oa: z.coerce.number().optional(),
   }),
   component: PaymentCallback,
 });

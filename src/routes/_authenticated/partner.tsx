@@ -45,9 +45,11 @@ function PartnerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [banks, setBanks] = useState<Array<{ name: string; code: string; slug: string }>>([]);
-  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [kycVerified, setKycVerified] = useState(!!profile?.kyc_verified);
+  const [bankAccountNumber, setBankAccountNumber] = useState(profile?.bank_account_number ?? "");
+  const [bankName, setBankName] = useState(profile?.bank_name ?? "");
+  const [bankAccountName, setBankAccountName] = useState(profile?.bank_account_name ?? "");
   const [bankCode, setBankCode] = useState("");
-  const [bankName, setBankName] = useState("");
   const [verifyingKyc, setVerifyingKyc] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -109,6 +111,10 @@ function PartnerPage() {
         },
       });
       if (!res.ok) return toast.error(res.error);
+      setKycVerified(true);
+      setBankAccountNumber(acct);
+      setBankName(bank?.name ?? bankName.trim() ?? "");
+      setBankAccountName(res.accountName ?? "");
       toast.success(`Verified · ${res.accountName}`);
       await refresh();
     } finally {
@@ -165,7 +171,7 @@ function PartnerPage() {
     const amt = Number(amount.replace(/[^0-9]/g, ""));
     if (!amt || amt < 5000) return toast.error("Minimum payout is ₦5,000");
     if (amt > balance) return toast.error("Amount exceeds available balance");
-    if (!profile?.kyc_verified) return toast.error("Verify your bank account above first.");
+    if (!kycVerified) return toast.error("Verify your bank account above first.");
     setSubmitting(true);
     const { error } = await supabase.rpc("request_partner_payout", { _amount: amt });
     setSubmitting(false);
@@ -248,26 +254,26 @@ function PartnerPage() {
       </div>
 
       {/* KYC — Bank Account Verification */}
-      <div className={`mt-6 rounded-2xl border p-6 ${profile?.kyc_verified ? "border-primary/30 bg-primary/5" : "border-warning/40 bg-warning/5"}`}>
+      <div className={`mt-6 rounded-2xl border p-6 ${kycVerified ? "border-primary/30 bg-primary/5" : "border-warning/40 bg-warning/5"}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="font-display flex items-center gap-2 text-base font-semibold">
-              {profile?.kyc_verified ? <ShieldCheck className="h-4 w-4 text-primary"/> : <ShieldAlert className="h-4 w-4 text-warning"/>}
+              {kycVerified ? <ShieldCheck className="h-4 w-4 text-primary"/> : <ShieldAlert className="h-4 w-4 text-warning"/>}
               Payout Bank Account
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Verify your bank account via Paystack to receive payouts. The account name must match your profile name.
             </p>
           </div>
-          <Badge className={`font-display ${profile?.kyc_verified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
-            {profile?.kyc_verified ? "VERIFIED" : "PENDING"}
+          <Badge className={`font-display ${kycVerified ? "bg-primary/15 text-primary border-primary/30" : "bg-warning/15 text-warning border-warning/30"}`}>
+            {kycVerified ? "VERIFIED" : "PENDING"}
           </Badge>
         </div>
-        {profile?.kyc_verified ? (
+        {kycVerified ? (
           <div className="mt-5 rounded-md border border-border bg-background p-3 text-sm">
             <div className="text-[11px] text-muted-foreground">Verified bank account</div>
             <div className="font-display mt-1 text-primary break-words">
-              {profile.bank_account_number} · {profile.bank_name} · {profile.bank_account_name}
+              {bankAccountNumber} · {bankName} · {bankAccountName}
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
               Need to change it? Re-verify with new details — KYC will reset until the new account passes.
@@ -297,7 +303,7 @@ function PartnerPage() {
           We'll fetch the registered account name from your bank and approve KYC instantly if it matches your profile name (<span className="font-display text-foreground">{profile?.full_name || "—"}</span>).
         </p>
         <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10}>
-          <Landmark className="mr-1 h-4 w-4" />{verifyingKyc ? "Verifying…" : profile?.kyc_verified ? "Re-verify bank" : "Verify bank account"}
+          <Landmark className="mr-1 h-4 w-4" />{verifyingKyc ? "Verifying…" : kycVerified ? "Re-verify bank" : "Verify bank account"}
         </Button>
       </div>
 
@@ -323,7 +329,7 @@ function PartnerPage() {
             className="flex-1"
             disabled={cooldownActive}
           />
-          <Button onClick={requestPayout} disabled={submitting || balance < 5000 || cooldownActive || !profile?.kyc_verified} className="font-display">
+          <Button onClick={requestPayout} disabled={submitting || balance < 5000 || cooldownActive || !kycVerified} className="font-display">
             <Send className="mr-1 h-4 w-4" />
             {submitting ? "Requesting..." : "Request Payout"}
           </Button>
@@ -334,8 +340,18 @@ function PartnerPage() {
         {!cooldownActive && balance < 5000 && (
           <p className="mt-2 text-xs text-muted-foreground">You need at least {formatNaira(5000)} available balance to request a payout.</p>
         )}
-        {!profile?.kyc_verified && (
+        {!kycVerified ? (
           <p className="mt-2 text-xs text-amber-500">Verify your bank account above to enable payouts.</p>
+        ) : (
+          <>
+            <p className="mt-2 text-xs text-green-500">Bank account verified. You can now request payouts.</p>
+            {bankAccountNumber && (
+              <div className="mt-2 rounded-md border border-border bg-background p-2 text-xs">
+                <span className="text-muted-foreground">Payout destination: </span>
+                <span className="font-display text-foreground">{bankAccountNumber} · {bankName} · {bankAccountName}</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
