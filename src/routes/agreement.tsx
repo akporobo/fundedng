@@ -73,7 +73,9 @@ function AgreementPage() {
             and to refrain from any prohibited strategies including but not limited
             to tick scalping (closing trades in less than 3 minutes),
             cross-account hedging, copy trading from a third party, undisclosed
-            expert advisors, and any form of price manipulation.
+            expert advisors, any form of price manipulation, and creating or
+            using multiple accounts to participate in free giveaway challenges
+            or promotions.
           </p>
           <p>
             You agree that the challenge fee is a one-time service fee for the
@@ -125,9 +127,11 @@ function AgreementPage() {
           <p>
             We may close any account that breaches the trading rules, attempts to
             circumvent the evaluation, or engages in abusive behaviour in our
-            community channels. In serious cases of fraud or attempted fraud we
-            reserve the right to forfeit any pending payouts and ban the user from
-            future challenges.
+            community channels. Gaming the system — including using multiple
+            accounts for free giveaways or promotions — will result in all
+            associated accounts being permanently terminated. In serious cases
+            of fraud or attempted fraud we reserve the right to forfeit any
+            pending payouts and ban the user from future challenges.
           </p>
           <p>You may terminate your account at any time by contacting support.</p>
         </Section>

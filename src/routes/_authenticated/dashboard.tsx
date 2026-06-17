@@ -44,7 +44,7 @@ interface Account {
   phase_rejected_at?: string | null;
   deleted_at?: string | null;
   trading_days?: number;
-  challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number; min_trading_days?: number };
+      challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number; min_trading_days?: number; max_daily_drawdown_percent?: number | null };
 }
 
 interface PartnerFreeAccount {
@@ -199,7 +199,7 @@ function DashboardPage() {
   const load = async (): Promise<Account[]> => {
     if (!user) return [];
     const [a, p, n, c, pf] = await Promise.all([
-      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases,min_trading_days)").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases,min_trading_days,max_daily_drawdown_percent)").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("certificates").select("*").eq("user_id", user.id).order("issued_at", { ascending: false }),
@@ -238,7 +238,7 @@ function DashboardPage() {
           if (challengeId) {
             const { data } = await supabase
               .from("challenges")
-              .select("name, profit_target_percent, max_drawdown_percent, phases, min_trading_days")
+              .select("name, profit_target_percent, max_drawdown_percent, phases, min_trading_days, max_daily_drawdown_percent")
               .eq("id", challengeId)
               .maybeSingle();
             chData = data;
@@ -255,7 +255,7 @@ function DashboardPage() {
             challenge_id: challengeId || "",
             phase2_requested_at: null,
             funded_requested_at: null,
-            challenges: chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2, min_trading_days: 3 },
+            challenges:             chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2, min_trading_days: 3, max_daily_drawdown_percent: 10 },
           };
           list.push(freeAccount);
           setAccounts([...list]);
@@ -282,7 +282,7 @@ function DashboardPage() {
         .select("snapshot_time, equity, balance")
         .eq("trader_account_id", fresh.id);
       if (phaseStart) query = query.gte("snapshot_time", phaseStart);
-      query.limit(1000000).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
+      query.order("snapshot_time", { ascending: false }).limit(2000).then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[])?.reverse() ?? []));
       if (fresh.id !== selected?.id) setSelected(fresh);
     }
     toast.success("Dashboard updated");
@@ -299,7 +299,7 @@ function DashboardPage() {
       .select("snapshot_time, equity, balance")
       .eq("trader_account_id", selected.id);
     if (phaseStart) query = query.gte("snapshot_time", phaseStart);
-    query.limit(1000000).order("snapshot_time").then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[]) ?? []));
+    query.order("snapshot_time", { ascending: false }).limit(2000).then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[])?.reverse() ?? []));
   }, [selected]);
 
   useEffect(() => {
@@ -458,6 +458,15 @@ function DashboardPage() {
   const ddPct = peakEquity > 0 ? Math.max(0, ((peakEquity - equity) / peakEquity) * 100) : 0;
   const target = selected?.challenges?.profit_target_percent ?? 10;
   const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
+  const maxDailyDD = selected?.challenges?.max_daily_drawdown_percent ?? null;
+  const dailyDrawdownPercent = (() => {
+    if (!maxDailyDD) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const todaySnaps = snapshots.filter((s) => s.snapshot_time.slice(0, 10) === today);
+    if (todaySnaps.length === 0) return 0;
+    const dailyPeak = Math.max(...todaySnaps.map((s) => Number(s.equity)), equity);
+    return dailyPeak > 0 ? ((dailyPeak - equity) / dailyPeak) * 100 : 0;
+  })();
   const unread = notifications.filter((n) => !n.is_read).length;
 
   const drawdownLimit = peakEquity * (1 - maxDD / 100);
@@ -490,6 +499,9 @@ function DashboardPage() {
     }
     if (ddPct >= maxDD) {
       reasons.push({ reason: "Drawdown limit exceeded", current: `Current drawdown: ${ddPct.toFixed(2)}%/${maxDD}%`, required: `Drawdown below ${maxDD}%` });
+    }
+    if (maxDailyDD && dailyDrawdownPercent >= maxDailyDD) {
+      reasons.push({ reason: "Daily drawdown limit exceeded", current: `Current daily drawdown: ${dailyDrawdownPercent.toFixed(2)}%/${maxDailyDD}%`, required: `Daily drawdown below ${maxDailyDD}%` });
     }
     return reasons;
   };
@@ -693,6 +705,7 @@ function DashboardPage() {
                       { label: "Equity", value: formatNaira(equity), color: "text-primary" },
                       { label: "P/L", value: formatNaira(equity - start), color: equity-start >= 0 ? "text-primary" : "text-destructive" },
                       { label: "Drawdown Limit", value: formatNaira(Math.floor(peakEquity * (1 - maxDD / 100))), color: "text-red-500" },
+                      ...(maxDailyDD ? [{ label: "Daily DD Limit", value: `${maxDailyDD}%`, color: "text-red-500" }] : []),
                        { label: "Phase", value: selected.status === "funded" ? "FUNDED" : `${selected.current_phase}/${selected.challenges?.phases ?? 2}`, color: "text-gold" },
                       { label: "Status", value: <Badge className={`${statusVariant[selected.status]} font-display`}>{selected.status.toUpperCase()}</Badge> },
                     ].map((m, i) => (
@@ -711,9 +724,15 @@ function DashboardPage() {
                          <Progress value={Math.min(100, Math.max(0, (profitPct / target) * 100))} />
                        </div>
                        <div>
-                         <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Drawdown</span><span className={`font-display ${ddPct/maxDD>0.75?"text-destructive":ddPct/maxDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(ddPct)} / {maxDD}%</span></div>
-                         <Progress value={Math.min(100, (ddPct/maxDD)*100)} />
+                          <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Drawdown</span><span className={`font-display ${ddPct/maxDD>0.75?"text-destructive":ddPct/maxDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(ddPct)} / {maxDD}%</span></div>
+                          <Progress value={Math.min(100, (ddPct/maxDD)*100)} />
                        </div>
+                       {maxDailyDD ? (
+                       <div>
+                          <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Daily Drawdown</span><span className={`font-display ${dailyDrawdownPercent/maxDailyDD>0.75?"text-destructive":dailyDrawdownPercent/maxDailyDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(dailyDrawdownPercent)} / {maxDailyDD}%</span></div>
+                          <Progress value={Math.min(100, (dailyDrawdownPercent/maxDailyDD)*100)} />
+                       </div>
+                       ) : null}
                      </div>
                      {selected.status !== "funded" && selected.current_phase < 2 && selected.status === "active" && (
                       <div className="mt-5 rounded-md border border-primary/30 bg-primary/5 p-4">
@@ -877,6 +896,8 @@ function DashboardPage() {
                       currentPhase={selected.current_phase}
                       status={selected.status}
                       tradingDays={selected.trading_days ?? 0}
+                      maxDailyDrawdownPercent={maxDailyDD ?? undefined}
+                      dailyDrawdownPercent={dailyDrawdownPercent}
                     />
                   )}
 

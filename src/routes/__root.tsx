@@ -1,8 +1,10 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { Outlet, Link, createRootRoute, useLocation, HeadContent, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth";
 import { NotificationsProvider } from "@/lib/notifications";
 import { Toaster } from "@/components/ui/sonner";
 import { ReferralCapture } from "@/components/ReferralCapture";
+import { initTikTokPixel, trackPageView, captureTtclid } from "@/lib/tiktok-pixel";
+import { useEffect } from "react";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -66,6 +68,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{var t=localStorage.getItem('theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
           }}
         />
+        {import.meta.env.VITE_TIKTOK_PIXEL_ID && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.load=function(t,e){var n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src="https://analytics.tiktok.com/i18n/pixel/static/identify_manager?v=4.0.2";var o=document.getElementsByTagName("script")[0];o.parentNode.insertBefore(n,o);ttq._t=+new Date,ttq._p=e,ttq._v="4.0.2";var i="https://analytics.tiktok.com/i18n/pixel/events.js?v=4.0.2";ttq.load(i,e)};ttq.load("","${import.meta.env.VITE_TIKTOK_PIXEL_ID}");ttq.page()}(window,document,"ttq");`,
+            }}
+          />
+        )}
       </head>
       <body className="noise-overlay">
         {children}
@@ -86,10 +95,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function PageTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    initTikTokPixel();
+    captureTtclid();
+    trackPageView({ content_name: location.pathname, content_type: "webpage" });
+  }, [location.pathname]);
+  return null;
+}
+
 function RootComponent() {
   return (
     <AuthProvider>
       <NotificationsProvider>
+        <PageTracker />
         <ReferralCapture />
         <Outlet />
         <Toaster />

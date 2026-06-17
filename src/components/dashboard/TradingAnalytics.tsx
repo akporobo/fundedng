@@ -32,6 +32,8 @@ interface TradingAnalyticsProps {
   currentPhase: number;
   status: "active" | "breached" | "passed" | "funded";
   tradingDays: number;
+  maxDailyDrawdownPercent?: number;
+  dailyDrawdownPercent?: number;
 }
 
 function getDailyPL(snapshots: Snapshot[]) {
@@ -128,8 +130,8 @@ function DrawdownMeter({ current, max }: { current: number; max: number }) {
   );
 }
 
-function RuleChecklist({ status, profitPct, target, ddPct, maxDD, daysTraded, minDays }:
-  { status: string; profitPct: number; target: number; ddPct: number; maxDD: number; daysTraded: number; minDays: number }) {
+function RuleChecklist({ status, profitPct, target, ddPct, maxDD, daysTraded, minDays, dailyDDPct, maxDailyDD }:
+  { status: string; profitPct: number; target: number; ddPct: number; maxDD: number; daysTraded: number; minDays: number; dailyDDPct?: number; maxDailyDD?: number }) {
   const rules = [
     {
       label: "Max drawdown ≤ " + maxDD + "%",
@@ -137,6 +139,12 @@ function RuleChecklist({ status, profitPct, target, ddPct, maxDD, daysTraded, mi
       passed: ddPct < maxDD,
       warn: ddPct / maxDD > 0.75,
     },
+    ...(maxDailyDD != null ? [{
+      label: `Max daily drawdown ≤ ${maxDailyDD}%`,
+      description: `Today: ${(dailyDDPct ?? 0).toFixed(2)}% drawdown from daily peak`,
+      passed: (dailyDDPct ?? 0) < maxDailyDD,
+      warn: (dailyDDPct ?? 0) / maxDailyDD > 0.75,
+    }] : []),
     {
       label: `All profits in ${minDays}+ min trading days`,
       description: `${daysTraded} of ${minDays} days traded (profits must be spread across ${minDays} days)`,
@@ -181,6 +189,8 @@ export function TradingAnalytics({
   currentPhase,
   status,
   tradingDays,
+  maxDailyDrawdownPercent,
+  dailyDrawdownPercent,
 }: TradingAnalyticsProps) {
   const chartData = getEquityChartData(snapshots, startingBalance);
   const dailyPL = getDailyPL(snapshots);
@@ -233,6 +243,14 @@ export function TradingAnalytics({
             color: peakDD / maxDrawdownPercent > 0.75 ? "text-red-500" : peakDD / maxDrawdownPercent > 0.5 ? "text-amber-500" : "text-green-500",
             bg: peakDD / maxDrawdownPercent > 0.75 ? "border-red-500/20 bg-red-500/5" : "border-border bg-card",
           },
+          ...(maxDailyDrawdownPercent != null ? [{
+            label: "Daily Drawdown",
+            value: `${(dailyDrawdownPercent ?? 0).toFixed(2)}%`,
+            sub: `Limit: ${maxDailyDrawdownPercent}%`,
+            icon: ShieldAlert,
+            color: (dailyDrawdownPercent ?? 0) / maxDailyDrawdownPercent > 0.75 ? "text-red-500" : (dailyDrawdownPercent ?? 0) / maxDailyDrawdownPercent > 0.5 ? "text-amber-500" : "text-green-500",
+            bg: (dailyDrawdownPercent ?? 0) / maxDailyDrawdownPercent > 0.75 ? "border-red-500/20 bg-red-500/5" : "border-border bg-card",
+          }] : []),
           {
             label: "Sync Points",
             value: tradeCount.toLocaleString(),
@@ -414,6 +432,8 @@ export function TradingAnalytics({
           maxDD={maxDrawdownPercent}
           daysTraded={daysTraded}
           minDays={minTradingDays}
+          dailyDDPct={dailyDrawdownPercent}
+          maxDailyDD={maxDailyDrawdownPercent}
         />
       </div>
     </div>

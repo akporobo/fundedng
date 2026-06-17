@@ -3,7 +3,7 @@ import { PublicHeader } from "@/components/site/PublicHeader";
 import { Brand } from "@/components/site/Brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Zap, ArrowRight, AlertTriangle, Clock, TrendingUp, Wallet, Ban, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Zap, ArrowRight, AlertTriangle, Clock, TrendingUp, Wallet, Ban, CheckCircle2, Users } from "lucide-react";
 
 export const Route = createFileRoute("/rules")({
   head: () => ({
@@ -195,6 +195,11 @@ function RulesPage() {
                 icon: Ban,
                 title: "Prohibited Strategies",
                 body: "No HFT, no tick scalping (closing trades in less than 3 minutes), no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
+              },
+              {
+                icon: Users,
+                title: "No Gaming The System",
+                body: "Creating or using multiple accounts to participate in free giveaway challenges, promotions, or any evaluation multiple times is strictly prohibited. All associated accounts will be permanently terminated and any pending payouts forfeited.",
               },
               {
                 icon: ShieldCheck,
