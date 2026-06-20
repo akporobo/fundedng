@@ -42,7 +42,7 @@ function AccountsPage() {
       case "drawdown":
         return `Hi ${name}, your FundedNG challenge account has been closed due to exceeding the maximum allowed drawdown.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
       case "scalping":
-        return `Hi ${name}, your FundedNG challenge account has been closed due to a scalping violation.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules require ALL trades to be held for a minimum of 3 minutes (180 seconds) regardless of how they are closed. You get 4 warnings before the 5th short-held trade breaches your account. Two short trades at the same time is an instant breach.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
+        return `Hi ${name}, your FundedNG challenge account has been closed due to a scalping violation.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules require ALL trades to be held for a minimum of 3 minutes (180 seconds) regardless of how they are closed. You get 3 warnings, then the 4th short-held trade breaches your account. Two short trades at the same time is an instant breach.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
       default: return "";
     }
   }
@@ -54,7 +54,7 @@ function AccountsPage() {
       case "drawdown":
         return `Hi ${name}, your FundedNG challenge account has received a warning for exceeding the maximum allowed drawdown. Please manage your risk carefully.\n— FundedNG Team`;
       case "scalping":
-        return `Hi ${name}, your FundedNG challenge account has received a warning for scalping.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules require ALL trades to be held for a minimum of 3 minutes (180 seconds) regardless of close type. You have a 4-warning grace allowance — the 5th short-held trade will breach your account. Two short trades at the same time is an instant breach.\n— FundedNG Team`;
+        return `Hi ${name}, your FundedNG challenge account has received a warning for scalping.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules require ALL trades to be held for a minimum of 3 minutes (180 seconds) regardless of close type. You have a 3-warning grace allowance — the 4th short-held trade will breach your account. Two short trades at the same time is an instant breach.\n— FundedNG Team`;
       default: return "";
     }
   }

@@ -258,7 +258,7 @@ async function mt5Delivered(orderId: string, login: string, password: string, se
     `<ul style="margin:0 0 14px 18px;padding:0;font-size:14px;color:#374151;line-height:1.7;">` +
     `<li>Profit Target: <b>${(ch as any)?.profit_target_percent ?? "—"}%</b></li>` +
     `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b> (equity trailing from highest peak)</li>` +
-    `<li>Anti-Scalping: <b>3-minute</b> minimum hold — 4 warnings, then breach on 5th</li>` +
+    `<li>Anti-Scalping: <b>3-minute</b> minimum hold — 3 warnings, then breach on 4th</li>` +
     `<li>No Weekend Holding: close all positions before weekend market close</li>` +
     `</ul>`;
   const html = shell({

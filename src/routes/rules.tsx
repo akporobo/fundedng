@@ -48,25 +48,9 @@ function RulesPage() {
             <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
               <div className="flex items-start justify-between">
                 <div className="font-display text-6xl font-bold text-primary/30">01</div>
-                <Clock className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">Minimum Hold Time (Anti-Scalping)</h3>
-              <p className="mt-3 text-muted-foreground">
-                Each trade must remain open for at least 3 minutes before closing. Shorter holds count against a 4-warning grace allowance:
-              </p>
-              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> 1st through 4th short-held trade → warning (visible on your dashboard)</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> 5th short-held trade → instant breach, account closes</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Two short-held trades open at the same time → instant breach</li>
-              </ul>
-            </div>
-
-            <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
-              <div className="flex items-start justify-between">
-                <div className="font-display text-6xl font-bold text-primary/30">02</div>
                 <ShieldCheck className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">20% Max Drawdown (Equity Trailing)</h3>
+              <h3 className="font-display mt-4 text-2xl font-bold">Max 20% Drawdown (Equity Trailing)</h3>
               <p className="mt-3 text-muted-foreground">
                 Your equity must never drop more than 20% from the highest equity peak reached (trailing).
                 For example, if your account peaks at ₦220,000, equity must stay above ₦176,000.
@@ -75,6 +59,22 @@ function RulesPage() {
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Measured on floating equity, trailing from the highest peak.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> No daily loss limit — only the total trailing 20% cap matters.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Hit it once and the account is closed permanently.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border-2 border-primary/40 bg-card p-8 glow-primary">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-primary/30">02</div>
+                <Clock className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">No Tick Scalping</h3>
+              <p className="mt-3 text-muted-foreground">
+                Each trade must remain open for at least 3 minutes before closing. Breached on the 4th short-held detection:
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> 1st through 3rd short-held trade → warning (visible on your dashboard)</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> 4th short-held trade → instant breach, account closes</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Two short-held trades open at the same time → instant breach</li>
               </ul>
             </div>
 
@@ -193,12 +193,12 @@ function RulesPage() {
               {
                 icon: AlertTriangle,
                 title: "What Counts As A Breach",
-                body: "Equity dropping to 20% drawdown (trailing from the highest peak) — even momentarily on a spike — is a breach. So is a 5th short-held trade, two short-held trades open at the same time, or any attempt to manipulate price, abuse evaluation-server latency, or coordinate trades across accounts.",
+                body: "Equity dropping to 20% drawdown (trailing from the highest peak) — even momentarily on a spike — is a breach. So is a 4th short-held trade, two short-held trades open at the same time, or any attempt to manipulate price, abuse evaluation-server latency, or coordinate trades across accounts.",
               },
               {
                 icon: Ban,
                 title: "Prohibited Strategies",
-                body: "No HFT, no tick scalping (closing trades in less than 3 minutes — 4 warnings then breach), no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
+                body: "No HFT, no tick scalping (closing trades in less than 3 minutes — 3 warnings then breach on 4th), no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
               },
               {
                 icon: Users,

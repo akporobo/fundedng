@@ -71,7 +71,7 @@ function AgreementPage() {
             account provisioned by FundedNG, to follow all published rules (see{" "}
             <Link to="/rules" className="text-primary hover:underline">/rules</Link>),
             and to refrain from any prohibited strategies including but not limited
-            to tick scalping (closing trades in less than 3 minutes regardless of close type — 4 warnings then breach on 5th),
+            to tick scalping (closing trades in less than 3 minutes regardless of close type — 3 warnings then breach on 4th),
             cross-account hedging, copy trading from a third party, undisclosed
             expert advisors, any form of price manipulation, and creating or
             using multiple accounts to participate in free giveaway challenges

@@ -114,10 +114,10 @@ async function handleScalping(request: Request) {
   const currentWarnings = account.scalping_warnings ?? 0;
   const newTotal = currentWarnings + recentViolations.length;
 
-  // 5th (or more) short-held trade → breach
-  if (newTotal >= 5) {
+  // 4th short-held trade → breach
+  if (newTotal >= 4) {
     const v = recentViolations[0];
-    const breachReason = `Scalping violation: ${v.symbol} trade closed in ${v.duration_seconds}s (warning #${newTotal}). All trades must be held a minimum of 3 minutes (180s) regardless of close type. Trade #${v.ticket}. Account accumulated ${newTotal} short-held trades.`;
+    const breachReason = `Scalping violation: ${v.symbol} trade closed in ${v.duration_seconds}s. All trades must be held a minimum of 3 minutes (180s) regardless of close type. Trade #${v.ticket}. Account breached on the 4th short-held trade.`;
 
     await supabaseAdmin
       .from("trader_accounts")
@@ -131,7 +131,7 @@ async function handleScalping(request: Request) {
     await supabaseAdmin.from("notifications").insert({
       user_id: account.user_id,
       title: "⚠️ Account Breached — Scalping Violation",
-      message: `A trade on ${v.symbol} was closed in ${v.duration_seconds} seconds. This was the ${newTotal}th short-held trade — the account has been breached.`,
+      message: `A trade on ${v.symbol} was closed in ${v.duration_seconds} seconds. This was the 4th short-held trade — the account has been breached.`,
       type: "breach",
     });
 
@@ -153,7 +153,7 @@ async function handleScalping(request: Request) {
     });
   }
 
-  // 1st through 4th short-held trade → warning
+  // 1st through 3rd short-held trade → warning
   await supabaseAdmin
     .from("trader_accounts")
     .update({
@@ -165,8 +165,8 @@ async function handleScalping(request: Request) {
   const warningNum = newTotal;
   await supabaseAdmin.from("notifications").insert({
     user_id: account.user_id,
-    title: `⚠️ Scalping Warning ${warningNum}/4`,
-    message: `A trade on ${v.symbol} was closed in ${v.duration_seconds} seconds. Warning ${warningNum} of 4 — ${4 - warningNum} more short-held trades and the account will be breached. All trades must be held a minimum of 3 minutes.`,
+    title: `⚠️ Scalping Warning ${warningNum}/3`,
+    message: `A trade on ${v.symbol} was closed in ${v.duration_seconds} seconds. Warning ${warningNum} of 3 — ${3 - warningNum} more short-held trades and the account will be breached. All trades must be held a minimum of 3 minutes.`,
     type: "warning",
   });
 

@@ -128,9 +128,9 @@ function Index() {
           <h2 className="font-display mt-4 text-4xl font-bold">Just 3 Rules. That's It.</h2>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {[
-              { num: "01", title: "Minimum Hold Time (Anti-Scalping)", desc: "Each trade must be held at least 3 minutes — 4 warnings then breach on the 5th. Two short trades at the same time is an instant breach.", icon: Clock },
-              { num: "02", title: "20% Max Drawdown (Trailing)", desc: "Your equity must never drop more than 20% from the highest peak reached. No daily loss limit.", icon: ShieldCheck },
-              { num: "03", title: "Weekly Activity Requirement", desc: "At least 1 trade every calendar week to stay active. Profits spread across at least 3 trading days per phase.", icon: Zap },
+              { num: "01", title: "Max 20% Drawdown (Trailing)", desc: "Your equity must never drop more than 20% from the highest peak reached. No daily loss limit.", icon: ShieldCheck },
+              { num: "02", title: "No Tick Scalping", desc: "Each trade must be held at least 3 minutes — breached on the 4th detection. Two short trades at the same time is an instant breach.", icon: Clock },
+              { num: "03", title: "Trade at Least Once a Week", desc: "At least 1 trade every calendar week to stay active. Profits across 3+ trading days per phase.", icon: Zap },
             ].map((r) => (
               <div key={r.num} className="rounded-xl border border-border bg-card p-8 text-left transition-colors hover:border-primary/40">
                 <div className="flex items-start justify-between">
@@ -142,12 +142,12 @@ function Index() {
               </div>
             ))}
           </div>
-          <div className="mt-10">
-            <Link to="/rules">
-              <Button variant="outline" size="lg" className="font-display">
-                Read the full rulebook <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            See our{" "}
+            <Link to="/rules" className="text-primary font-semibold hover:underline">
+              full rules
+            </Link>{" "}
+            to learn more about weekend holding, news trading restrictions, allowed instruments, and more.
           </div>
         </div>
       </section>
