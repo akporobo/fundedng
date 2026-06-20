@@ -1118,12 +1118,14 @@ export type Database = {
           mt5_password: string
           mt5_server: string
           order_id: string
+          peak_equity: number | null
           phase1_passed_at: string | null
-           phase2_passed_at: string | null
-           phase2_requested_at: string | null
-           phase_rejected_at: string | null
-           phase_rejected_reason: string | null
-           provider: string
+          phase2_passed_at: string | null
+          phase2_requested_at: string | null
+          phase_rejected_at: string | null
+          phase_rejected_reason: string | null
+          provider: string
+          scalping_warnings: number
           starting_balance: number
           status: Database["public"]["Enums"]["account_status"]
           trading_days: number
@@ -1147,12 +1149,14 @@ export type Database = {
           mt5_password: string
           mt5_server?: string
           order_id: string
+          peak_equity?: number | null
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
           phase2_requested_at?: string | null
           phase_rejected_at?: string | null
           phase_rejected_reason?: string | null
           provider?: string
+          scalping_warnings?: number
           starting_balance: number
           status?: Database["public"]["Enums"]["account_status"]
           trading_days?: number
@@ -1176,12 +1180,14 @@ export type Database = {
           mt5_password?: string
           mt5_server?: string
           order_id?: string
+          peak_equity?: number | null
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
           phase2_requested_at?: string | null
           phase_rejected_at?: string | null
           phase_rejected_reason?: string | null
           provider?: string
+          scalping_warnings?: number
           starting_balance?: number
           status?: Database["public"]["Enums"]["account_status"]
           trading_days?: number

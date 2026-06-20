@@ -121,11 +121,9 @@ function ChallengesPage() {
               <div className="grid gap-1.5"><Label htmlFor="ch-dd">Max Drawdown %</Label><Input id="ch-dd" type="number" min={0} step="0.01" value={challengeForm.max_drawdown_percent} onChange={(e) => setChallengeForm({ ...challengeForm, max_drawdown_percent: e.target.value })} /></div>
               <div className="grid gap-1.5"><Label htmlFor="ch-phases">Phases</Label><Input id="ch-phases" type="number" min={1} max={5} value={challengeForm.phases} onChange={(e) => setChallengeForm({ ...challengeForm, phases: e.target.value })} /></div>
               <div className="flex items-end gap-2"><Checkbox id="ch-active" checked={!!challengeForm.is_active} onCheckedChange={(v) => setChallengeForm({ ...challengeForm, is_active: !!v })} /><Label htmlFor="ch-active" className="cursor-pointer">Active</Label></div>
+              <div className="grid gap-1.5"><Label htmlFor="ch-daily-dd">Max Daily Drawdown %</Label><Input id="ch-daily-dd" type="number" min={0} step="0.01" value={challengeForm.max_daily_drawdown_percent ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_daily_drawdown_percent: e.target.value })} /></div>
               {challengeForm.challenge_type === "instant" && (
-                <>
-                  <div className="grid gap-1.5"><Label htmlFor="ch-daily-dd">Max Daily Drawdown %</Label><Input id="ch-daily-dd" type="number" min={0} step="0.01" value={challengeForm.max_daily_drawdown_percent ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_daily_drawdown_percent: e.target.value })} /></div>
-                  <div className="grid gap-1.5"><Label htmlFor="ch-max-days">Max Trading Days</Label><Input id="ch-max-days" type="number" min={1} value={challengeForm.max_trading_days ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_trading_days: e.target.value })} /></div>
-                </>
+                <div className="grid gap-1.5"><Label htmlFor="ch-max-days">Max Trading Days</Label><Input id="ch-max-days" type="number" min={1} value={challengeForm.max_trading_days ?? ""} onChange={(e) => setChallengeForm({ ...challengeForm, max_trading_days: e.target.value })} /></div>
               )}
             </div>
             {Number(challengeForm.price_naira) > 0 && Number(challengeForm.account_size) > 0 && (

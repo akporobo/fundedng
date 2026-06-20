@@ -32,6 +32,14 @@ async function syncEquityV2(request: Request) {
       volume: number;
       ticket: number;
     }>;
+    news_violations?: Array<{
+      symbol: string;
+      open_time: number;
+      event_title: string;
+      event_time: number;
+      volume: number;
+      ticket: number;
+    }>;
   };
   try {
     body = await request.json();
@@ -39,7 +47,7 @@ async function syncEquityV2(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { account_id, mt5_login, equity, balance, profit, scalping_violations } = body;
+  const { account_id, mt5_login, equity, balance, profit, scalping_violations, news_violations } = body;
   if (
     !account_id ||
     !mt5_login ||
@@ -140,6 +148,24 @@ async function syncEquityV2(request: Request) {
         violations: scalping_violations,
       }),
     }).catch((e) => console.error("[sync-equity-v2] scalping forward failed:", e));
+  }
+
+  // Forward news violations to the handler endpoint
+  if (news_violations?.length > 0) {
+    const newsUrl = new URL(request.url);
+    newsUrl.pathname = "/api/public/cron/handle-news-violation";
+    fetch(newsUrl.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-cron-secret": process.env.CRON_SECRET ?? "",
+      },
+      body: JSON.stringify({
+        account_id,
+        mt5_login,
+        violations: news_violations,
+      }),
+    }).catch((e) => console.error("[sync-equity-v2] news forward failed:", e));
   }
 
   return Response.json({

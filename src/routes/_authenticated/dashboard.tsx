@@ -255,7 +255,7 @@ function DashboardPage() {
             challenge_id: challengeId || "",
             phase2_requested_at: null,
             funded_requested_at: null,
-            challenges:             chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2, min_trading_days: 3, max_daily_drawdown_percent: 10 },
+            challenges:             chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2, min_trading_days: 3 },
           };
           list.push(freeAccount);
           setAccounts([...list]);
@@ -578,6 +578,30 @@ function DashboardPage() {
 
         {user && <PendingAccounts userId={user.id} />}
 
+        {(() => {
+          const dismissed = typeof window !== "undefined" && localStorage.getItem("flash_challenge_dd_notice_dismissed") === "1";
+          const has1MAccount = accounts.some((a) => a.starting_balance === 1000000);
+          if (!dismissed && has1MAccount) {
+            return (
+              <div className="relative mt-4 overflow-hidden rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 pr-10">
+                <button
+                  type="button"
+                  onClick={() => localStorage.setItem("flash_challenge_dd_notice_dismissed", "1")}
+                  className="absolute right-3 top-3 text-amber-600/60 hover:text-amber-600 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <XCircle className="h-4 w-4" />
+                </button>
+                <div className="font-display text-sm font-bold text-amber-700 dark:text-amber-400">Flash Challenge Rule Update</div>
+                <p className="mt-1 text-xs text-amber-600/80 dark:text-amber-300/80 leading-relaxed">
+                  A 10% daily drawdown limit now applies to all accounts purchased during the 48-hour promo. Your overall drawdown limit remains at 20%. This rule applies to the discounted challenge only — regular challenge rules are unchanged.
+                </p>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         {accounts.length === 0 ? (
           <div className="mt-10 overflow-hidden rounded-2xl border border-primary/40 bg-card p-8 md:p-12">
             <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-center">
@@ -594,7 +618,7 @@ function DashboardPage() {
                 <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
                   {[
                     "Instant FundedNG MT5 evaluation account",
-                    "Just 3 trading rules — no tick scalping, 20% trailing drawdown, 3 min trading days (profits spread across them)",
+                    "Just 3 trading rules — 3-minute minimum hold time, 20% trailing drawdown, 3 min trading days (profits spread across them)",
                     "80% profit split, paid in Naira",
                     "Full equity & drawdown tracking on this dashboard",
                   ].map((b) => (

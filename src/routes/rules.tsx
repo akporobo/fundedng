@@ -9,9 +9,9 @@ export const Route = createFileRoute("/rules")({
   head: () => ({
     meta: [
       { title: "Trading Rules — FundedNG" },
-      { name: "description", content: "Full breakdown of FundedNG's prop trading rules: no tick scalping, 20% max drawdown (equity trailing), 3 minimum trading days, profit targets, payouts, and what's allowed." },
+      { name: "description", content: "Full breakdown of FundedNG's prop trading rules: 20% max drawdown (equity trailing), 3-minute minimum hold time with 4-warning grace, weekly activity requirement, profit targets, payouts, and what's allowed." },
       { property: "og:title", content: "Trading Rules — FundedNG" },
-      { property: "og:description", content: "Just 3 main rules — no tick scalping, 20% max drawdown (equity trailing), and 3 days minimum trading. See the full rulebook here." },
+      { property: "og:description", content: "Just 3 main rules — 20% max drawdown (equity trailing), 3-minute minimum hold time with 4 warnings, and 3 days minimum trading. See the full rulebook here." },
     ],
   }),
   component: RulesPage,
@@ -50,15 +50,14 @@ function RulesPage() {
                 <div className="font-display text-6xl font-bold text-primary/30">01</div>
                 <Clock className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">No Tick Scalping</h3>
+              <h3 className="font-display mt-4 text-2xl font-bold">Minimum Hold Time (Anti-Scalping)</h3>
               <p className="mt-3 text-muted-foreground">
-                Closing a trade in less than 3 minutes from open to close is tick scalping and is strictly prohibited.
-                All manually closed trades must be held for at least 3 minutes.
+                Each trade must remain open for at least 3 minutes before closing. Shorter holds count against a 4-warning grace allowance:
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Stop-loss and take-profit hits are fully exempt.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies to manual closes only — not server-triggered exits.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Repeated breaches void the account.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> 1st through 4th short-held trade → warning (visible on your dashboard)</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> 5th short-held trade → instant breach, account closes</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Two short-held trades open at the same time → instant breach</li>
               </ul>
             </div>
 
@@ -84,15 +83,15 @@ function RulesPage() {
                 <div className="font-display text-6xl font-bold text-primary/30">03</div>
                 <Zap className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">3 Days Min — 1 Trade/Week</h3>
+              <h3 className="font-display mt-4 text-2xl font-bold">Weekly Activity Requirement</h3>
               <p className="mt-3 text-muted-foreground">
-                All profits in each phase must be made in at least 3 min trading days and at least 1 executed trade every calendar week to keep the account active.
+                You must execute at least 1 trade every calendar week to keep your account active, with a minimum of 3 trading days completed in each evaluation phase.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> A trading day = at least one executed position on that calendar day.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> A trading day = at least one executed position opened and closed on that calendar day.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Profits must be spread across at least 3 different trading days per phase.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> At least 1 trade per calendar week to remain active.</li>
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Applies during evaluation phases and after funding.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> Reason: our liquidity provider removes inactive accounts after extended inactivity — this keeps yours from being dropped.</li>
               </ul>
             </div>
           </div>
@@ -179,7 +178,12 @@ function RulesPage() {
               {
                 icon: Zap,
                 title: "Weekly Activity Requirement",
-                body: "You must execute at least 1 trade every calendar week to keep the account active. Missing a full week without any trade will result in the account being closed for inactivity. This applies during evaluation and after funding.",
+                body: "You must execute at least 1 trade every calendar week to keep the account active. Missing a full week without any trade will result in the account being closed for inactivity. This applies during evaluation and after funding. Our liquidity provider removes inactive accounts after extended inactivity — this rule keeps your account from being dropped.",
+              },
+              {
+                icon: Ban,
+                title: "No Weekend Holding",
+                body: "Positions must be closed before the weekend market close. Holding trades over the weekend is not permitted. Markets can gap significantly over the weekend — particularly on Gold, Indices, and certain FX pairs. A gap that opens beyond your Stop Loss can breach your account before you have any chance to react. This rule protects your account from weekend gap risk that is outside your control.",
               },
               {
                 icon: Wallet,
@@ -189,12 +193,12 @@ function RulesPage() {
               {
                 icon: AlertTriangle,
                 title: "What Counts As A Breach",
-                body: "Equity dropping to 20% drawdown (trailing from the highest peak) — even momentarily on a spike — is a breach. So is any attempt to manipulate price, abuse evaluation-server latency, or coordinate trades across accounts.",
+                body: "Equity dropping to 20% drawdown (trailing from the highest peak) — even momentarily on a spike — is a breach. So is a 5th short-held trade, two short-held trades open at the same time, or any attempt to manipulate price, abuse evaluation-server latency, or coordinate trades across accounts.",
               },
               {
                 icon: Ban,
                 title: "Prohibited Strategies",
-                body: "No HFT, no tick scalping (closing trades in less than 3 minutes), no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
+                body: "No HFT, no tick scalping (closing trades in less than 3 minutes — 4 warnings then breach), no arbitrage between accounts, no copy-trading from another funded account, no use of EAs that aren't disclosed. Hedging within a single account is allowed.",
               },
               {
                 icon: Users,
@@ -203,13 +207,13 @@ function RulesPage() {
               },
               {
                 icon: ShieldCheck,
-                title: "News & Weekend Holding",
-                body: "You may trade through high-impact news. You may hold positions over the weekend. There is no overnight or weekend holding penalty.",
+                title: "News Trading Restriction",
+                body: "No new trades may be opened 5 minutes before or 5 minutes after any high-impact news event. Trades already open before the restricted window are not affected — they can remain open and close normally including via SL/TP. High-impact events are sourced from the ForexFactory economic calendar (red folder events). The wider 5-minute buffer gives more protection against post-release volatility spikes that can trigger Stop Losses unfairly.",
               },
               {
                 icon: CheckCircle2,
                 title: "Allowed Instruments",
-                body: "All FX pairs, gold, silver, indices and crypto CFDs available on the FundedNG MT5 evaluation server.",
+                body: "All FX pairs, Gold, Silver, Indices, and Crypto CFDs are available on the FundedNG MT5 evaluation server. Note: Indices and Gold are particularly prone to gaps and spikes — the weekend-hold and news-trading rules apply equally across all instruments to protect traders.",
               },
               {
                 icon: Wallet,

@@ -120,7 +120,7 @@ function useAdminDataHook() {
       profit_target_percent: Number(challengeForm.profit_target_percent), max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
       phases: Number(challengeForm.phases), is_active: !!challengeForm.is_active,
       challenge_type: challengeForm.challenge_type === "instant" ? "instant" : "standard",
-      max_daily_drawdown_percent: challengeForm.challenge_type === "instant" ? Number(challengeForm.max_daily_drawdown_percent) || null : null,
+      max_daily_drawdown_percent: Number(challengeForm.max_daily_drawdown_percent) || null,
       max_trading_days: challengeForm.challenge_type === "instant" ? Number(challengeForm.max_trading_days) || null : null,
       discount_percent: Number(challengeForm.discount_percent) || 0,
     };

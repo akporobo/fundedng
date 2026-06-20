@@ -128,9 +128,9 @@ function Index() {
           <h2 className="font-display mt-4 text-4xl font-bold">Just 3 Rules. That's It.</h2>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {[
-              { num: "01", title: "No Tick Scalping", desc: "Closing a trade in less than 3 minutes is prohibited. Stop-loss and take-profit hits are exempt.", icon: Clock },
+              { num: "01", title: "Minimum Hold Time (Anti-Scalping)", desc: "Each trade must be held at least 3 minutes — 4 warnings then breach on the 5th. Two short trades at the same time is an instant breach.", icon: Clock },
               { num: "02", title: "20% Max Drawdown (Trailing)", desc: "Your equity must never drop more than 20% from the highest peak reached. No daily loss limit.", icon: ShieldCheck },
-              { num: "03", title: "3 Days Min — 1 Trade/Week", desc: "All profits spread across at least 3 trading days per phase and at least 1 trade every calendar week to stay active.", icon: Zap },
+              { num: "03", title: "Weekly Activity Requirement", desc: "At least 1 trade every calendar week to stay active. Profits spread across at least 3 trading days per phase.", icon: Zap },
             ].map((r) => (
               <div key={r.num} className="rounded-xl border border-border bg-card p-8 text-left transition-colors hover:border-primary/40">
                 <div className="flex items-start justify-between">

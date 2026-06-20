@@ -228,7 +228,7 @@ def read_account(
     Login to MT5 account with investor password and read live data.
 
     Returns:
-        dict with equity, balance, profit, scalping_violations
+        dict with equity, balance, profit, scalping_violations, news_violations
 
     Raises:
         RuntimeError — on any problem (caller logs and skips account)
@@ -272,7 +272,8 @@ def read_account(
             f"{starting_balance} for {login} — bad read, skipping"
         )
 
-    # ── Scalping check: look for trades closed in under 3 min ─────
+    # ── Scalping check: ALL trades closed in under 3 min are flagged ──
+    # No close-type exemption — SL, TP, and manual closes all count.
     now   = datetime.now(timezone.utc).replace(tzinfo=None)
     since = now - timedelta(hours=24)
     deals = mt5.history_deals_get(since, now) or []
@@ -301,12 +302,91 @@ def read_account(
                         "ticket":           d.ticket,
                     })
 
+    # ── News trading check: trades opened near high-impact news ────
+    news_violations: list[dict] = []
+    try:
+        high_impact_events = _fetch_high_impact_news()
+        if high_impact_events:
+            for d in deals:
+                if d.entry == 0:  # DEAL_ENTRY_IN — check at trade open time
+                    ot = int(d.time)
+                    for event in high_impact_events:
+                        event_ts = event["timestamp"]
+                        diff = ot - event_ts  # negative = opened before, positive = after
+                        if -120 <= diff <= 120:  # within 2 min before or after
+                            news_violations.append({
+                                "symbol":      d.symbol,
+                                "open_time":   ot,
+                                "event_title": event["title"],
+                                "event_time":  event_ts,
+                                "volume":      d.volume,
+                                "ticket":      d.ticket,
+                            })
+                            break
+    except Exception as exc:
+        logger.warning(f"[{login}] News calendar fetch failed: {exc}")
+
     return {
         "equity":              round(info.equity,  2),
         "balance":             round(info.balance, 2),
         "profit":              round(info.profit,  2),
         "scalping_violations": scalping,
+        "news_violations":     news_violations,
     }
+
+
+# ─────────────────────────────────────────────
+#  NEWS CALENDAR — ForexFactory high-impact events
+# ─────────────────────────────────────────────
+
+NEWS_CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+_news_cache: list[dict] | None = None
+_news_cache_time: float = 0
+NEWS_CACHE_TTL = 300  # 5 minutes
+
+def _fetch_high_impact_news() -> list[dict]:
+    """
+    Fetch high-impact economic events from ForexFactory.
+    Returns a list of dicts with 'title' and 'timestamp' (unix).
+    Cached for NEWS_CACHE_TTL seconds to avoid hammering the API.
+    """
+    global _news_cache, _news_cache_time
+    now = time.time()
+    if _news_cache is not None and now - _news_cache_time < NEWS_CACHE_TTL:
+        return _news_cache
+
+    session = get_http_session()
+    resp = session.get(NEWS_CALENDAR_URL, timeout=15)
+    resp.raise_for_status()
+    raw = resp.json()
+
+    # ForexFactory format: array of { date, title, impact, currency, ... }
+    # impact "High" or 3 = high impact (red folder)
+    events: list[dict] = []
+    for item in raw:
+        impact = item.get("impact", "")
+        is_high = impact == "High" or impact == 3 or str(impact) == "3"
+        if not is_high:
+            continue
+        # Parse the event date/time — format: "2024-01-05T13:30:00"
+        dt_str = item.get("date", "")
+        if not dt_str:
+            continue
+        try:
+            dt = datetime.fromisoformat(dt_str)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            events.append({
+                "title":     item.get("title", "Unknown"),
+                "timestamp": int(dt.timestamp()),
+            })
+        except (ValueError, TypeError):
+            continue
+
+    _news_cache = events
+    _news_cache_time = now
+    logger.info(f"Fetched {len(events)} high-impact news events")
+    return events
 
 
 # ─────────────────────────────────────────────
@@ -320,6 +400,7 @@ def post_snapshot(
     balance: float,
     profit: float,
     scalping_violations: list,
+    news_violations: list,
 ) -> None:
     """
     POST equity data to the FundedNG sync endpoint.
@@ -334,6 +415,7 @@ def post_snapshot(
         "balance":             balance,
         "profit":              profit,
         "scalping_violations": scalping_violations,
+        "news_violations":     news_violations,
     }
     resp = session.post(API_ENDPOINT, json=payload, timeout=20)
     if resp.status_code >= 400:
@@ -388,7 +470,8 @@ def process_account(acct: dict) -> dict:
             return result
 
     # ── Step 3: POST to API (runs while next thread reads MT5) ────
-    violations = data.get("scalping_violations", [])
+    scalping_violations = data.get("scalping_violations", [])
+    news_violations     = data.get("news_violations", [])
     try:
         post_snapshot(
             account_id          = acct_id,
@@ -396,7 +479,8 @@ def process_account(acct: dict) -> dict:
             equity              = data["equity"],
             balance             = data["balance"],
             profit              = data["profit"],
-            scalping_violations = violations,
+            scalping_violations = scalping_violations,
+            news_violations     = news_violations,
         )
     except Exception as exc:
         logger.error(f"[{login}] API error: {exc}")
@@ -404,12 +488,20 @@ def process_account(acct: dict) -> dict:
         return result
 
     # ── Log ───────────────────────────────────────────────────────
-    if violations:
+    if scalping_violations:
         logger.warning(
             f"[{login}] SCALPING DETECTED — "
             + ", ".join(
                 f"{v['symbol']} {v['duration_seconds']}s"
-                for v in violations
+                for v in scalping_violations
+            )
+        )
+    if news_violations:
+        logger.warning(
+            f"[{login}] NEWS VIOLATION — "
+            + ", ".join(
+                f"{v['symbol']} opened near {v['event_title']}"
+                for v in news_violations
             )
         )
 

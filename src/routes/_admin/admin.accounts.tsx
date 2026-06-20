@@ -31,6 +31,7 @@ function AccountsPage() {
     rejectTarget, rejectReason, rejecting, rejectType, setRejectTarget, setRejectReason, setRejectType,
     openRejectDialog, submitRejectPhase, approvePhase2, approveFunded, viewCredsFor, setViewCredsFor, updateAccount,
   } = useAdminData();
+  const [searchQuery, setSearchQuery] = useState("");
   const [credDraft, setCredDraft] = useState<Record<string, Record<string, string>>>({});
   const [credSaving, setCredSaving] = useState<string | null>(null);
 
@@ -41,7 +42,7 @@ function AccountsPage() {
       case "drawdown":
         return `Hi ${name}, your FundedNG challenge account has been closed due to exceeding the maximum allowed drawdown.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
       case "scalping":
-        return `Hi ${name}, your FundedNG challenge account has been closed due to a tick scalping violation.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules prohibit closing a trade in under 3 minutes (180 seconds). Stop-loss and take-profit exits are exempt, but manual closes under 3 minutes constitute a breach regardless of profit or loss.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
+        return `Hi ${name}, your FundedNG challenge account has been closed due to a scalping violation.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules require ALL trades to be held for a minimum of 3 minutes (180 seconds) regardless of how they are closed. You get 4 warnings before the 5th short-held trade breaches your account. Two short trades at the same time is an instant breach.\nYou're welcome to start a new challenge anytime at fundedng.fun 💪\n— FundedNG Team`;
       default: return "";
     }
   }
@@ -53,7 +54,7 @@ function AccountsPage() {
       case "drawdown":
         return `Hi ${name}, your FundedNG challenge account has received a warning for exceeding the maximum allowed drawdown. Please manage your risk carefully.\n— FundedNG Team`;
       case "scalping":
-        return `Hi ${name}, your FundedNG challenge account has received a warning for tick scalping.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules prohibit closing a trade in under 3 minutes (180 seconds). Continued violations may result in account closure.\n— FundedNG Team`;
+        return `Hi ${name}, your FundedNG challenge account has received a warning for scalping.\nTrade Details:\nPair: ${pair || "—"}\nOpen: ${openTime || "—"}\nClose: ${closeTime || "—"}\nDuration: ${duration || "—"}\nOur rules require ALL trades to be held for a minimum of 3 minutes (180 seconds) regardless of close type. You have a 4-warning grace allowance — the 5th short-held trade will breach your account. Two short trades at the same time is an instant breach.\n— FundedNG Team`;
       default: return "";
     }
   }
@@ -73,7 +74,12 @@ function AccountsPage() {
   return (
     <div className="mt-6 space-y-2">
       <h2 className="font-display text-xl font-bold">Trader Accounts</h2>
-      {accounts.map((a) => (
+      <Input placeholder="Search by MT5 login or trader name…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-9 w-full max-w-md" />
+      {accounts.filter((a) => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.trim().toLowerCase();
+        return (a.mt5_login ?? "").toLowerCase().includes(q) || (a.profiles?.full_name ?? "").toLowerCase().includes(q);
+      }).map((a) => (
         <div key={a.id}>
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-center gap-3">

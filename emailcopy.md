@@ -64,7 +64,8 @@ Server: [MT5 Server]
 YOUR CHALLENGE RULES
 - Profit Target: [X]%
 - Max Drawdown: [X]% (equity trailing from highest peak)
-- No Tick Scalping: 3-minute minimum hold on manual closes
+- Anti-Scalping: 3-minute minimum hold — 4 warnings, then breach on 5th
+- No Weekend Holding: close all positions before weekend market close
 - Min Trading Days: 3 days to clear a phase · 1 trade/week to stay active
 
 [HOW TO LOGIN →] (link to fundedng.fun/rules)

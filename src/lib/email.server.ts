@@ -257,9 +257,9 @@ async function mt5Delivered(orderId: string, login: string, password: string, se
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">YOUR CHALLENGE RULES</div>` +
     `<ul style="margin:0 0 14px 18px;padding:0;font-size:14px;color:#374151;line-height:1.7;">` +
     `<li>Profit Target: <b>${(ch as any)?.profit_target_percent ?? "—"}%</b></li>` +
-    `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b></li>` +
-    `<li>Min Trade Duration: <b>3 minutes</b> (no scalping)</li>` +
-    `<li>No holding trades over weekends</li>` +
+    `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b> (equity trailing from highest peak)</li>` +
+    `<li>Anti-Scalping: <b>3-minute</b> minimum hold — 4 warnings, then breach on 5th</li>` +
+    `<li>No Weekend Holding: close all positions before weekend market close</li>` +
     `</ul>`;
   const html = shell({
     title: subject,
