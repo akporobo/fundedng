@@ -56,10 +56,18 @@ async function handleScalping(request: Request) {
     return Response.json({ ok: true, action: "none" });
   }
 
-  const twoMinutesAgo = Math.floor(Date.now() / 1000) - 120;
-  const recentViolations = violations.filter(v => v.close_time > twoMinutesAgo);
+  // Dedup: filter out tickets already recorded in processed_violations
+  const { data: existing } = await supabaseAdmin
+    .from("processed_violations")
+    .select("ticket")
+    .eq("account_id", account_id)
+    .eq("violation_type", "scalping")
+    .in("ticket", violations.map(v => v.ticket));
 
-  if (recentViolations.length === 0) {
+  const existingTickets = new Set((existing ?? []).map(r => r.ticket));
+  const newViolations = violations.filter(v => !existingTickets.has(v.ticket));
+
+  if (newViolations.length === 0) {
     return Response.json({ ok: true, action: "none" });
   }
 
@@ -77,9 +85,43 @@ async function handleScalping(request: Request) {
     return Response.json({ ok: true, action: "already_breached" });
   }
 
+  // Record processed tickets early to prevent double-counting on concurrent calls
+  const insertRows = newViolations.map(v => ({
+    account_id,
+    ticket: v.ticket,
+    violation_type: "scalping" as const,
+  }));
+
+  const { error: insertErr } = await supabaseAdmin
+    .from("processed_violations")
+    .insert(insertRows)
+    .select();
+
+  if (insertErr) {
+    return Response.json({ error: insertErr.message }, { status: 500 });
+  }
+
+  // Log every new violation to short_held_trades for trader-facing history
+  const shortHeldRows = newViolations.map(v => ({
+    account_id,
+    ticket: v.ticket,
+    symbol: v.symbol,
+    opened_at: new Date(v.open_time * 1000).toISOString(),
+    closed_at: new Date(v.close_time * 1000).toISOString(),
+    duration_seconds: v.duration_seconds,
+  }));
+
+  const { error: shortErr } = await supabaseAdmin
+    .from("short_held_trades")
+    .insert(shortHeldRows);
+
+  if (shortErr) {
+    console.error("[handle-scalping] short_held_trades insert failed:", shortErr);
+  }
+
   // Two short-held trades open at the same time → instant breach
-  if (hasOverlappingTrades(recentViolations)) {
-    const v = recentViolations[0];
+  if (hasOverlappingTrades(newViolations)) {
+    const v = newViolations[0];
     const breachReason = `Scalping violation: two short-held trades overlapped in time (e.g., ${v.symbol} ticket #${v.ticket}). All trades must be held a minimum of 3 minutes (180s) regardless of close type.`;
 
     await supabaseAdmin
@@ -112,11 +154,11 @@ async function handleScalping(request: Request) {
   }
 
   const currentWarnings = account.scalping_warnings ?? 0;
-  const newTotal = currentWarnings + recentViolations.length;
+  const newTotal = currentWarnings + newViolations.length;
 
   // 4th short-held trade → breach
   if (newTotal >= 4) {
-    const v = recentViolations[0];
+    const v = newViolations[0];
     const breachReason = `Scalping violation: ${v.symbol} trade closed in ${v.duration_seconds}s. All trades must be held a minimum of 3 minutes (180s) regardless of close type. Trade #${v.ticket}. Account breached on the 4th short-held trade.`;
 
     await supabaseAdmin
@@ -148,7 +190,7 @@ async function handleScalping(request: Request) {
     return Response.json({
       ok: true,
       action: "breached",
-      violations_count: recentViolations.length,
+      violations_count: newViolations.length,
       total_warnings: newTotal,
     });
   }
@@ -161,7 +203,7 @@ async function handleScalping(request: Request) {
     })
     .eq("id", account_id);
 
-  const v = recentViolations[0];
+  const v = newViolations[0];
   const warningNum = newTotal;
   await supabaseAdmin.from("notifications").insert({
     user_id: account.user_id,
@@ -174,6 +216,6 @@ async function handleScalping(request: Request) {
     ok: true,
     action: "warning",
     warnings_count: newTotal,
-    violations_count: recentViolations.length,
+    violations_count: newViolations.length,
   });
 }

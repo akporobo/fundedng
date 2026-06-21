@@ -40,6 +40,12 @@ async function syncEquityV2(request: Request) {
       volume: number;
       ticket: number;
     }>;
+    weekend_violations?: Array<{
+      symbol: string;
+      ticket: number;
+      open_time: number;
+      volume: number;
+    }>;
   };
   try {
     body = await request.json();
@@ -47,7 +53,7 @@ async function syncEquityV2(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { account_id, mt5_login, equity, balance, profit, scalping_violations, news_violations } = body;
+  const { account_id, mt5_login, equity, balance, profit, scalping_violations, news_violations, weekend_violations } = body;
   if (
     !account_id ||
     !mt5_login ||
@@ -166,6 +172,24 @@ async function syncEquityV2(request: Request) {
         violations: news_violations,
       }),
     }).catch((e) => console.error("[sync-equity-v2] news forward failed:", e));
+  }
+
+  // Forward weekend violations to the handler endpoint
+  if (weekend_violations?.length > 0) {
+    const weekendUrl = new URL(request.url);
+    weekendUrl.pathname = "/api/public/cron/handle-weekend-violation";
+    fetch(weekendUrl.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-cron-secret": process.env.CRON_SECRET ?? "",
+      },
+      body: JSON.stringify({
+        account_id,
+        mt5_login,
+        violations: weekend_violations,
+      }),
+    }).catch((e) => console.error("[sync-equity-v2] weekend forward failed:", e));
   }
 
   return Response.json({

@@ -27,10 +27,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardPage });
 
+interface ShortHeldTrade {
+  id: string;
+  account_id: string;
+  ticket: number;
+  symbol: string;
+  opened_at: string;
+  closed_at: string;
+  duration_seconds: number;
+  created_at: string;
+}
+
 interface Account {
   id: string; mt5_login: string; mt5_password: string; mt5_server: string;
   starting_balance: number; current_equity: number | null; current_phase: number;
   peak_equity?: number | null;
+  scalping_warnings?: number;
   status: "active" | "breached" | "passed" | "funded";
   breach_reason?: string;
   challenge_id: string;
@@ -131,6 +143,7 @@ function DashboardPage() {
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
   const [kycVerified, setKycVerified] = useState(!!profile?.kyc_verified);
   const [verifyingKyc, setVerifyingKyc] = useState(false);
+  const [shortHeldTrades, setShortHeldTrades] = useState<ShortHeldTrade[]>([]);
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [blockedReasons, setBlockedReasons] = useState<{ reason: string; current: string; required: string }[]>([]);
@@ -300,6 +313,14 @@ function DashboardPage() {
       .eq("trader_account_id", selected.id);
     if (phaseStart) query = query.gte("snapshot_time", phaseStart);
     query.order("snapshot_time", { ascending: false }).limit(2000).then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[])?.reverse() ?? []));
+
+    supabase
+      .from("short_held_trades")
+      .select("*")
+      .eq("account_id", selected.id)
+      .order("closed_at", { ascending: false })
+      .limit(50)
+      .then(({ data }) => setShortHeldTrades((data as ShortHeldTrade[]) ?? []));
   }, [selected]);
 
   useEffect(() => {
@@ -367,6 +388,18 @@ function DashboardPage() {
               `⚠️ Account Breached — ${payload.new.breach_reason}`,
             );
           }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'short_held_trades',
+        },
+        (payload) => {
+          if (payload.new.account_id !== selectedRef.current?.id) return;
+          setShortHeldTrades((prev) => [payload.new as ShortHeldTrade, ...prev]);
         },
       )
       .subscribe((status, err) => {
@@ -804,6 +837,47 @@ function DashboardPage() {
                     )}
                   </div>
 
+                  <div className="rounded-xl border border-border bg-card p-6">
+                    <h3 className="font-display flex items-center gap-2 text-base font-semibold"><AlertTriangle className="h-4 w-4 text-warning"/>Scalping Violations</h3>
+                    {(() => {
+                      const isScalpingBreach = selected.status === "breached" && selected.breach_reason?.match(/(Scalping|overlapped)/i);
+                      const warnings = selected.scalping_warnings ?? 0;
+                      if (isScalpingBreach) {
+                        return (
+                          <p className="mt-2 text-sm text-destructive">{selected.breach_reason}</p>
+                        );
+                      }
+                      return (
+                        <>
+                          <div className="mt-3 flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Short-held trades</span>
+                            <span className="font-display font-semibold">{warnings} / 4</span>
+                          </div>
+                          <Progress
+                            value={Math.min(100, (warnings / 4) * 100)}
+                            className={warnings >= 4 ? "bg-destructive/20" : warnings >= 2 ? "bg-warning/20" : "bg-primary/20"}
+                          />
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Trades closed in under 3 minutes — by SL, TP, or manually — count toward this limit. Two trades closed under 3 minutes at the same time trigger an instant breach regardless of this count.
+                          </p>
+                          {shortHeldTrades.length > 0 && (
+                            <div className="mt-4 space-y-1">
+                              <div className="text-xs font-semibold text-muted-foreground">Recent:</div>
+                              {shortHeldTrades.slice(0, 5).map((t) => (
+                                <div key={t.id} className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+                                  <span className="font-mono text-muted-foreground">#{t.ticket}</span>
+                                  <span className="font-display">{t.symbol}</span>
+                                  <span className="text-muted-foreground">{t.duration_seconds}s</span>
+                                  <span className="text-muted-foreground">{new Date(t.closed_at).toLocaleDateString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+
                   {snapshots.length > 1 ? (
                     <div className="rounded-xl border border-border bg-card p-6">
                       <h3 className="font-display flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary"/>Equity Curve{liveStatus === 'live' ? (
@@ -1058,7 +1132,10 @@ function DashboardPage() {
                   </div>
                   <div className="text-sm">{formatNaira(a.starting_balance)}</div>
                   <div className="font-display text-sm text-gold">{a.status === "funded" ? "FUNDED" : `Phase ${a.current_phase}/${a.challenges?.phases ?? 2}`}</div>
-                  <Badge className={`${statusVariant[a.status]} font-display`}>{a.status.toUpperCase()}</Badge>
+                    <Badge className={`${statusVariant[a.status]} font-display`}>{a.status.toUpperCase()}</Badge>
+                  {a.status === "breached" && a.breach_reason && (
+                    <p className="w-full text-xs text-destructive">{a.breach_reason}</p>
+                  )}
                   {a.deleted_at && (
                     <Button size="sm" variant="outline" className="text-xs" onClick={() => deleteBreachedAccount(a)}>
                       <Trash2 className="mr-1 h-3 w-3" />Delete
