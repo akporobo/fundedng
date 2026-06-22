@@ -30,6 +30,7 @@ import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-ne
 import { Route as ApiInitializePaymentRouteImport } from './routes/api.initialize-payment'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
 import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
+import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPartnerRouteImport } from './routes/_authenticated/partner'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -159,6 +160,11 @@ const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
 const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
   id: '/support',
   path: '/support',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
@@ -315,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/partner': typeof AuthenticatedPartnerRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/stats': typeof AuthenticatedStatsRoute
   '/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
@@ -361,6 +368,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/partner': typeof AuthenticatedPartnerRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/stats': typeof AuthenticatedStatsRoute
   '/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
@@ -412,6 +420,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/partner': typeof AuthenticatedPartnerRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
@@ -462,6 +471,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/partner'
     | '/profile'
+    | '/stats'
     | '/support'
     | '/api/deliver-account'
     | '/api/initialize-payment'
@@ -508,6 +518,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/partner'
     | '/profile'
+    | '/stats'
     | '/support'
     | '/api/deliver-account'
     | '/api/initialize-payment'
@@ -558,6 +569,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/partner'
     | '/_authenticated/profile'
+    | '/_authenticated/stats'
     | '/_authenticated/support'
     | '/api/deliver-account'
     | '/api/initialize-payment'
@@ -773,6 +785,13 @@ declare module '@tanstack/react-router' {
       path: '/support'
       fullPath: '/support'
       preLoaderRoute: typeof AuthenticatedSupportRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/stats': {
+      id: '/_authenticated/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof AuthenticatedStatsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/profile': {
@@ -1031,6 +1050,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedPartnerRoute: typeof AuthenticatedPartnerRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
 }
 
@@ -1040,6 +1060,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedPartnerRoute: AuthenticatedPartnerRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedSupportRoute: AuthenticatedSupportRoute,
 }
 
