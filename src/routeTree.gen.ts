@@ -54,6 +54,7 @@ import { Route as AdminAdminAffiliateRouteImport } from './routes/_admin/admin.a
 import { Route as AdminAdminAccountsRouteImport } from './routes/_admin/admin.accounts'
 import { Route as ApiPublicCronSyncEquityV2RouteImport } from './routes/api.public.cron.sync-equity-v2'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
+import { Route as ApiPublicCronHandleWeekendViolationRouteImport } from './routes/api.public.cron.handle-weekend-violation'
 import { Route as ApiPublicCronHandleScalpingRouteImport } from './routes/api.public.cron.handle-scalping'
 import { Route as ApiPublicCronHandleNewsViolationRouteImport } from './routes/api.public.cron.handle-news-violation'
 
@@ -283,6 +284,12 @@ const ApiPublicCronSyncEquityRoute = ApiPublicCronSyncEquityRouteImport.update({
   path: '/api/public/cron/sync-equity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronHandleWeekendViolationRoute =
+  ApiPublicCronHandleWeekendViolationRouteImport.update({
+    id: '/api/public/cron/handle-weekend-violation',
+    path: '/api/public/cron/handle-weekend-violation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronHandleScalpingRoute =
   ApiPublicCronHandleScalpingRouteImport.update({
     id: '/api/public/cron/handle-scalping',
@@ -340,6 +347,7 @@ export interface FileRoutesByFullPath {
   '/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/handle-news-violation': typeof ApiPublicCronHandleNewsViolationRoute
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
+  '/api/public/cron/handle-weekend-violation': typeof ApiPublicCronHandleWeekendViolationRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -385,6 +393,7 @@ export interface FileRoutesByTo {
   '/community': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/handle-news-violation': typeof ApiPublicCronHandleNewsViolationRoute
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
+  '/api/public/cron/handle-weekend-violation': typeof ApiPublicCronHandleWeekendViolationRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -435,6 +444,7 @@ export interface FileRoutesById {
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
   '/api/public/cron/handle-news-violation': typeof ApiPublicCronHandleNewsViolationRoute
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
+  '/api/public/cron/handle-weekend-violation': typeof ApiPublicCronHandleWeekendViolationRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -484,6 +494,7 @@ export interface FileRouteTypes {
     | '/community/'
     | '/api/public/cron/handle-news-violation'
     | '/api/public/cron/handle-scalping'
+    | '/api/public/cron/handle-weekend-violation'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   fileRoutesByTo: FileRoutesByTo
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/api/public/cron/handle-news-violation'
     | '/api/public/cron/handle-scalping'
+    | '/api/public/cron/handle-weekend-violation'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   id:
@@ -578,6 +590,7 @@ export interface FileRouteTypes {
     | '/_authenticated/community/'
     | '/api/public/cron/handle-news-violation'
     | '/api/public/cron/handle-scalping'
+    | '/api/public/cron/handle-weekend-violation'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   fileRoutesById: FileRoutesById
@@ -608,6 +621,7 @@ export interface RootRouteChildren {
   ApiPublicPushEventRoute: typeof ApiPublicPushEventRoute
   ApiPublicCronHandleNewsViolationRoute: typeof ApiPublicCronHandleNewsViolationRoute
   ApiPublicCronHandleScalpingRoute: typeof ApiPublicCronHandleScalpingRoute
+  ApiPublicCronHandleWeekendViolationRoute: typeof ApiPublicCronHandleWeekendViolationRoute
   ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
   ApiPublicCronSyncEquityV2Route: typeof ApiPublicCronSyncEquityV2Route
 }
@@ -929,6 +943,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronSyncEquityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/handle-weekend-violation': {
+      id: '/api/public/cron/handle-weekend-violation'
+      path: '/api/public/cron/handle-weekend-violation'
+      fullPath: '/api/public/cron/handle-weekend-violation'
+      preLoaderRoute: typeof ApiPublicCronHandleWeekendViolationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/handle-scalping': {
       id: '/api/public/cron/handle-scalping'
       path: '/api/public/cron/handle-scalping'
@@ -1052,6 +1073,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPushEventRoute: ApiPublicPushEventRoute,
   ApiPublicCronHandleNewsViolationRoute: ApiPublicCronHandleNewsViolationRoute,
   ApiPublicCronHandleScalpingRoute: ApiPublicCronHandleScalpingRoute,
+  ApiPublicCronHandleWeekendViolationRoute:
+    ApiPublicCronHandleWeekendViolationRoute,
   ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,
   ApiPublicCronSyncEquityV2Route: ApiPublicCronSyncEquityV2Route,
 }

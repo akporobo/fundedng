@@ -73,7 +73,7 @@ async function handleScalping(request: Request) {
 
   const { data: account } = await supabaseAdmin
     .from("trader_accounts")
-    .select("id, user_id, status, breach_reason, scalping_warnings")
+    .select("id, user_id, status, breach_reason")
     .eq("id", account_id)
     .single();
 
@@ -85,7 +85,7 @@ async function handleScalping(request: Request) {
     return Response.json({ ok: true, action: "already_breached" });
   }
 
-  // Record processed tickets early to prevent double-counting on concurrent calls
+  // Record processed tickets to prevent double-counting on concurrent calls
   const insertRows = newViolations.map(v => ({
     account_id,
     ticket: v.ticket,
@@ -119,7 +119,7 @@ async function handleScalping(request: Request) {
     console.error("[handle-scalping] short_held_trades insert failed:", shortErr);
   }
 
-  // Two short-held trades open at the same time → instant breach
+  // Two short-held trades open at the same time → instant breach (bypasses counter)
   if (hasOverlappingTrades(newViolations)) {
     const v = newViolations[0];
     const breachReason = `Scalping violation: two short-held trades overlapped in time (e.g., ${v.symbol} ticket #${v.ticket}). All trades must be held a minimum of 3 minutes (180s) regardless of close type.`;
@@ -153,10 +153,26 @@ async function handleScalping(request: Request) {
     return Response.json({ ok: true, action: "breached", reason: "overlapping_short_trades" });
   }
 
-  const currentWarnings = account.scalping_warnings ?? 0;
-  const newTotal = currentWarnings + newViolations.length;
+  // Atomically increment the scalping counter.  The RPC locks the row so
+  // concurrent requests cannot overwrite each other's increments.
+  const { data: newTotal, error: rpcErr } = await supabaseAdmin.rpc(
+    "increment_scalping_warnings",
+    {
+      p_account_id: account_id,
+      p_increment: newViolations.length,
+    },
+  );
 
-  // 4th short-held trade → breach
+  if (rpcErr) {
+    return Response.json({ error: rpcErr.message }, { status: 500 });
+  }
+
+  if (newTotal === -1) {
+    // Account was marked as breached between our read and the RPC
+    return Response.json({ ok: true, action: "already_breached" });
+  }
+
+  // 4th+ short-held trade → breach
   if (newTotal >= 4) {
     const v = newViolations[0];
     const breachReason = `Scalping violation: ${v.symbol} trade closed in ${v.duration_seconds}s. All trades must be held a minimum of 3 minutes (180s) regardless of close type. Trade #${v.ticket}. Account breached on the 4th short-held trade.`;
@@ -195,14 +211,7 @@ async function handleScalping(request: Request) {
     });
   }
 
-  // 1st through 3rd short-held trade → warning
-  await supabaseAdmin
-    .from("trader_accounts")
-    .update({
-      scalping_warnings: newTotal,
-    })
-    .eq("id", account_id);
-
+  // 1st through 3rd short-held trade → warning (counter already updated by RPC)
   const v = newViolations[0];
   const warningNum = newTotal;
   await supabaseAdmin.from("notifications").insert({

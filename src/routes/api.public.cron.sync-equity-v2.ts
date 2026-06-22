@@ -142,54 +142,78 @@ async function syncEquityV2(request: Request) {
   if (scalping_violations?.length > 0) {
     const scalingUrl = new URL(request.url);
     scalingUrl.pathname = "/api/public/cron/handle-scalping";
-    fetch(scalingUrl.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-cron-secret": process.env.CRON_SECRET ?? "",
-      },
-      body: JSON.stringify({
-        account_id,
-        mt5_login,
-        violations: scalping_violations,
-      }),
-    }).catch((e) => console.error("[sync-equity-v2] scalping forward failed:", e));
+    try {
+      const resp = await fetch(scalingUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-cron-secret": process.env.CRON_SECRET ?? "",
+        },
+        body: JSON.stringify({
+          account_id,
+          mt5_login,
+          violations: scalping_violations,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => "");
+        console.error(`[sync-equity-v2] scalping handler returned ${resp.status}: ${body}`);
+      }
+    } catch (e) {
+      console.error("[sync-equity-v2] scalping forward failed:", e);
+    }
   }
 
   // Forward news violations to the handler endpoint
   if (news_violations?.length > 0) {
     const newsUrl = new URL(request.url);
     newsUrl.pathname = "/api/public/cron/handle-news-violation";
-    fetch(newsUrl.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-cron-secret": process.env.CRON_SECRET ?? "",
-      },
-      body: JSON.stringify({
-        account_id,
-        mt5_login,
-        violations: news_violations,
-      }),
-    }).catch((e) => console.error("[sync-equity-v2] news forward failed:", e));
+    try {
+      const resp = await fetch(newsUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-cron-secret": process.env.CRON_SECRET ?? "",
+        },
+        body: JSON.stringify({
+          account_id,
+          mt5_login,
+          violations: news_violations,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => "");
+        console.error(`[sync-equity-v2] news handler returned ${resp.status}: ${body}`);
+      }
+    } catch (e) {
+      console.error("[sync-equity-v2] news forward failed:", e);
+    }
   }
 
   // Forward weekend violations to the handler endpoint
   if (weekend_violations?.length > 0) {
     const weekendUrl = new URL(request.url);
     weekendUrl.pathname = "/api/public/cron/handle-weekend-violation";
-    fetch(weekendUrl.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-cron-secret": process.env.CRON_SECRET ?? "",
-      },
-      body: JSON.stringify({
-        account_id,
-        mt5_login,
-        violations: weekend_violations,
-      }),
-    }).catch((e) => console.error("[sync-equity-v2] weekend forward failed:", e));
+    try {
+      const resp = await fetch(weekendUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-cron-secret": process.env.CRON_SECRET ?? "",
+        },
+        body: JSON.stringify({
+          account_id,
+          mt5_login,
+          violations: weekend_violations,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => "");
+        console.error(`[sync-equity-v2] weekend handler returned ${resp.status}: ${body}`);
+      }
+    } catch (e) {
+      console.error("[sync-equity-v2] weekend forward failed:", e);
+    }
   }
 
   return Response.json({
