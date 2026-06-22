@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Home, PlusCircle, Users, User, ShieldCheck, LogOut, Gift, Handshake, LifeBuoy, Download } from "lucide-react";
+import { Home, PlusCircle, BarChart3, User, ShieldCheck, LogOut, Gift, Handshake, LifeBuoy, Download } from "lucide-react";
 import { Brand } from "./Brand";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
@@ -11,7 +11,7 @@ const NAV = [
   { to: "/buy", label: "Buy", icon: PlusCircle, match: (p: string) => p.startsWith("/buy") },
   { to: "/support", label: "Support", icon: LifeBuoy, match: (p: string) => p.startsWith("/support") },
   { to: "/affiliate", label: "Affiliate", icon: Gift, match: (p: string) => p.startsWith("/affiliate") },
-  { to: "/community", label: "Community", icon: Users, match: (p: string) => p.startsWith("/community") },
+  { to: "/stats", label: "Stats", icon: BarChart3, match: (p: string) => p.startsWith("/stats") },
   { to: "/profile", label: "Profile", icon: User, match: (p: string) => p.startsWith("/profile") },
 ] as const;
 
@@ -158,6 +158,7 @@ export function AppShell() {
   // the sticky top bar, desktop sidebar and mobile bottom nav.
   const isChat = /^\/community\/[^/]+/.test(pathname);
 
+  // Stats page also gets full layout
   if (isChat) {
     return <Outlet />;
   }

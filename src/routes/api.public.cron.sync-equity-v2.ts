@@ -46,6 +46,15 @@ async function syncEquityV2(request: Request) {
       open_time: number;
       volume: number;
     }>;
+    closed_deals?: Array<{
+      ticket: number;
+      symbol: string;
+      open_time: number;
+      close_time: number;
+      duration_seconds: number;
+      profit: number;
+      volume: number;
+    }>;
   };
   try {
     body = await request.json();
@@ -53,7 +62,7 @@ async function syncEquityV2(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { account_id, mt5_login, equity, balance, profit, scalping_violations, news_violations, weekend_violations } = body;
+  const { account_id, mt5_login, equity, balance, profit, scalping_violations, news_violations, weekend_violations, closed_deals } = body;
   if (
     !account_id ||
     !mt5_login ||
@@ -69,7 +78,7 @@ async function syncEquityV2(request: Request) {
 
   const { data: account, error: acctErr } = await supabaseAdmin
     .from("trader_accounts")
-    .select("id, status, starting_balance, peak_equity, last_synced_at, trading_days")
+    .select("id, status, starting_balance, peak_equity, last_synced_at, trading_days, current_phase, phase1_passed_at, created_at")
     .eq("id", account_id)
     .in("status", ["active", "funded"])
     .single();
@@ -89,11 +98,21 @@ async function syncEquityV2(request: Request) {
       ? Number((((newPeak - equity) / newPeak) * 100).toFixed(2))
       : 0;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const lastSyncDay = account.last_synced_at
-    ? account.last_synced_at.slice(0, 10)
-    : null;
-  const isNewDay = lastSyncDay !== today;
+  // Derive trading days from actual closed trades for this phase
+  const phaseStart = account.current_phase >= 2 && account.phase1_passed_at
+    ? account.phase1_passed_at
+    : account.created_at;
+
+  const { data: closeData } = await supabaseAdmin
+    .from("closed_trades")
+    .select("close_time")
+    .eq("account_id", account_id)
+    .gte("close_time", phaseStart);
+
+  const uniqueDays = new Set(
+    (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
+  );
+  const tradingDaysCount = uniqueDays.size;
 
   const { error: snapErr } = await supabaseAdmin
     .from("account_snapshots")
@@ -114,9 +133,7 @@ async function syncEquityV2(request: Request) {
     .update({
       last_synced_at: new Date().toISOString(),
       peak_equity: newPeak,
-      trading_days: isNewDay
-        ? (account.trading_days ?? 0) + 1
-        : account.trading_days ?? 0,
+      trading_days: tradingDaysCount,
     })
     .eq("id", account_id)
     .select("status, breach_reason")
@@ -214,6 +231,25 @@ async function syncEquityV2(request: Request) {
     } catch (e) {
       console.error("[sync-equity-v2] weekend forward failed:", e);
     }
+  }
+
+  // Upsert closed trades for calendar + trading days
+  if (closed_deals?.length > 0) {
+    await supabaseAdmin
+      .from("closed_trades")
+      .upsert(
+        closed_deals.map((d: any) => ({
+          account_id:        account_id,
+          ticket:            d.ticket,
+          symbol:            d.symbol,
+          open_time:         new Date(d.open_time * 1000).toISOString(),
+          close_time:        new Date(d.close_time * 1000).toISOString(),
+          duration_seconds:  d.duration_seconds,
+          profit:            d.profit,
+          volume:            d.volume,
+        })),
+        { onConflict: "account_id,ticket", ignoreDuplicates: true }
+      );
   }
 
   return Response.json({

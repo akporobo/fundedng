@@ -498,6 +498,7 @@ def read_account(
             open_times[d.position_id] = d.time
 
     scalping: list[dict] = []
+    closed_deals: list[dict] = []
     for d in deals:
         if d.entry == 1:  # DEAL_ENTRY_OUT
             ot = open_times.get(d.position_id)
@@ -513,6 +514,15 @@ def read_account(
                         "volume":           d.volume,
                         "ticket":           d.ticket,
                     })
+                closed_deals.append({
+                    "ticket":           d.ticket,
+                    "symbol":           d.symbol,
+                    "open_time":        int(ot),
+                    "close_time":       int(d.time),
+                    "duration_seconds": secs,
+                    "profit":           round(d.profit, 2),
+                    "volume":           d.volume,
+                })
 
     # -- News trading check: trades opened near high-impact news --------
     news_violations = check_news_violations(open_positions, deals)
@@ -530,6 +540,7 @@ def read_account(
         "news_violations":     news_violations,
         "open_positions":      open_positions,
         "weekend_violations":  weekend_violations,
+        "closed_deals":        closed_deals,
     }
 
 
@@ -546,6 +557,7 @@ def post_snapshot(
     scalping_violations: list,
     news_violations: list,
     weekend_violations: list,
+    closed_deals: list,
 ) -> None:
     """
     POST equity data to the FundedNG sync endpoint.
@@ -562,6 +574,7 @@ def post_snapshot(
         "scalping_violations": scalping_violations,
         "news_violations":     news_violations,
         "weekend_violations":  weekend_violations,
+        "closed_deals":        closed_deals,
     }
     resp = session.post(API_ENDPOINT, json=payload, timeout=20)
     if resp.status_code >= 400:
@@ -619,6 +632,7 @@ def process_account(acct: dict) -> dict:
     scalping_violations = data.get("scalping_violations", [])
     news_violations     = data.get("news_violations", [])
     weekend_violations  = data.get("weekend_violations", [])
+    closed_deals        = data.get("closed_deals", [])
     try:
         post_snapshot(
             account_id          = acct_id,
@@ -629,6 +643,7 @@ def process_account(acct: dict) -> dict:
             scalping_violations = scalping_violations,
             news_violations     = news_violations,
             weekend_violations  = weekend_violations,
+            closed_deals        = closed_deals,
         )
     except Exception as exc:
         logger.error(f"[{login}] API error: {exc}")

@@ -390,18 +390,6 @@ function DashboardPage() {
           }
         },
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'short_held_trades',
-        },
-        (payload) => {
-          if (payload.new.account_id !== selectedRef.current?.id) return;
-          setShortHeldTrades((prev) => [payload.new as ShortHeldTrade, ...prev]);
-        },
-      )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           setLiveStatus('live');
@@ -419,8 +407,25 @@ function DashboardPage() {
         }
       });
 
+    const shortTradesChannel = supabase
+      .channel(`short-held-trades-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'short_held_trades',
+        },
+        (payload) => {
+          if (payload.new.account_id !== selectedRef.current?.id) return;
+          setShortHeldTrades((prev) => [payload.new as ShortHeldTrade, ...prev]);
+        },
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(shortTradesChannel);
       lastEquityRef.current = null;
       setLiveStatus('disconnected');
     };
