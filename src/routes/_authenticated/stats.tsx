@@ -137,6 +137,8 @@ function StatsPage() {
   }, [currentYear, currentMonth, phaseStart, dailyPnL, tradesByDay]);
 
   const phaseTrades = trades;
+  const shortHeldTrades = phaseTrades.filter(t => t.duration_seconds < 180);
+  const shortHeldCount = shortHeldTrades.length;
   const totalPnL = phaseTrades.reduce((sum, t) => sum + t.profit, 0);
   const bestDay = [...dailyPnL.entries()].sort((a, b) => b[1] - a[1])[0];
   const worstDay = [...dailyPnL.entries()].sort((a, b) => a[1] - b[1])[0];
@@ -221,16 +223,19 @@ function StatsPage() {
                     </button>
                     {isExpanded && day.trades.length > 0 && (
                       <div className="col-span-7 bg-muted/20 border-t border-border px-3 py-2 text-xs space-y-1">
-                        {day.trades.map((t) => (
-                          <div key={t.ticket} className="flex items-center justify-between gap-4">
-                            <span className="font-mono text-muted-foreground">#{t.ticket}</span>
-                            <span className="font-display">{t.symbol}</span>
-                            <span className="text-muted-foreground">{t.duration_seconds}s</span>
-                            <span className={t.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                              {t.profit >= 0 ? "+" : ""}{formatNaira(t.profit)}
-                            </span>
-                          </div>
-                        ))}
+                        {day.trades.map((t) => {
+                          const isShort = t.duration_seconds < 180;
+                          return (
+                            <div key={t.ticket} className={`flex items-center justify-between gap-4 pl-2 border-l-2 ${isShort ? "border-red-400 bg-red-500/5" : "border-transparent"}`}>
+                              <span className="font-mono text-muted-foreground">#{t.ticket}</span>
+                              <span className="font-display">{t.symbol}</span>
+                              <span className={`${isShort ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>{t.duration_seconds}s</span>
+                              <span className={t.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                                {t.profit >= 0 ? "+" : ""}{formatNaira(t.profit)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -286,6 +291,64 @@ function StatsPage() {
                 {worstDay && <div className="text-[10px] text-muted-foreground">{new Date(worstDay[0]).toLocaleDateString()}</div>}
               </div>
             </div>
+          </div>
+
+          {/* Scalping Tracker */}
+          <div className="mt-6 rounded-xl border border-border bg-card p-6">
+            <h2 className="font-display flex items-center gap-2 text-base font-semibold mb-5">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Scalping Tracker
+            </h2>
+
+            {shortHeldCount === 0 ? (
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                <span className="text-lg">✓</span> No scalping violations this phase
+              </div>
+            ) : (
+              <>
+                {/* Progress bar */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="font-semibold">{shortHeldCount} / 4 short-held trades</span>
+                    <span className="text-xs text-muted-foreground">4th short-held trade triggers automatic breach</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        shortHeldCount >= 4 ? "bg-red-500" : shortHeldCount >= 3 ? "bg-orange-500" : "bg-amber-500"
+                      }`}
+                      style={{ width: `${Math.min((shortHeldCount / 4) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Short-held trades table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-muted-foreground border-b border-border">
+                        <th className="text-left py-2 pr-3 font-semibold">Ticket</th>
+                        <th className="text-left py-2 pr-3 font-semibold">Symbol</th>
+                        <th className="text-left py-2 pr-3 font-semibold">Duration</th>
+                        <th className="text-right py-2 font-semibold">P&amp;L</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shortHeldTrades.map((t) => (
+                        <tr key={t.ticket} className="border-b border-border/50">
+                          <td className="py-1.5 pr-3 font-mono text-muted-foreground">#{t.ticket}</td>
+                          <td className="py-1.5 pr-3 font-display">{t.symbol}</td>
+                          <td className="py-1.5 pr-3 text-muted-foreground">{t.duration_seconds}s</td>
+                          <td className={`py-1.5 text-right ${t.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                            {t.profit >= 0 ? "+" : ""}{formatNaira(t.profit)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </>
       )}

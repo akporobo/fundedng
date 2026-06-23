@@ -92,7 +92,21 @@ async function syncEquityV2(request: Request) {
 
   const startingBalance = Number(account.starting_balance);
   const prevPeak = Number(account.peak_equity ?? startingBalance);
-  const newPeak = Math.max(startingBalance, prevPeak, equity);
+
+  // If peak_equity in DB equals starting_balance exactly, this account was just
+  // phase-reset. Don't let incoming equity (which may still reflect old phase
+  // profits) inflate the peak. Only allow equity to raise peak once balance
+  // also confirms the reset (i.e. balance close to starting_balance).
+  const justReset = Math.abs(prevPeak - startingBalance) < 1;
+  const balanceIsReset = Math.abs(balance - startingBalance) < startingBalance * 0.02;
+
+  let newPeak: number;
+  if (justReset && !balanceIsReset) {
+    newPeak = startingBalance;
+  } else {
+    newPeak = Math.max(startingBalance, prevPeak, equity);
+  }
+
   const drawdownPercent =
     equity < newPeak
       ? Number((((newPeak - equity) / newPeak) * 100).toFixed(2))
