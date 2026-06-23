@@ -28,6 +28,14 @@ function StatsPage() {
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
+  const todayLocal = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const localDateKey = (y: number, m: number, d: number) =>
+    `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
   useEffect(() => {
     if (!user) return;
     supabase
@@ -119,7 +127,7 @@ function StatsPage() {
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const date = new Date(year, month, d);
-      const key = date.toISOString().slice(0, 10);
+      const key = localDateKey(year, month, d);
       const pnl = dailyPnL.get(key) ?? null;
       const dayTrades = tradesByDay.get(key) ?? [];
       days.push({ date, key, pnl, trades: dayTrades });
@@ -187,7 +195,7 @@ function StatsPage() {
               ))}
               {calendarDays.map((day, i) => {
                 if (!day.key) return <div key={`pad-${i}`} className="bg-card p-2" />;
-                const isToday = day.key === new Date().toISOString().slice(0, 10);
+                const isToday = day.key === todayLocal;
                 const pnl = day.pnl;
                 const color = pnl === null ? "bg-card"
                   : pnl > 0 ? "bg-green-500/10"

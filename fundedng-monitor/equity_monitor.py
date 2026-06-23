@@ -472,9 +472,12 @@ def read_account(
             f"{starting_balance} for {login} -- bad read, skipping"
         )
 
-    # -- Read closed deals (last 24h) for scalping + news checks --------
+    # -- Read closed deals (last 7 days) for scalping + news checks --------
+    # A wide window ensures entry deals (DEAL_ENTRY_IN) are captured for trades
+    # that were opened days ago but closed recently. A narrow 24h window would
+    # silently drop exit deals whose entry fell outside the window.
     now   = datetime.now(timezone.utc).replace(tzinfo=None)
-    since = now - timedelta(hours=24)
+    since = now - timedelta(days=7)
     deals = mt5.history_deals_get(since, now) or []
 
     # -- Read open positions -------------------------------------------

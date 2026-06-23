@@ -50,14 +50,6 @@ function getDailyPL(snapshots: Snapshot[]) {
   }));
 }
 
-function getDaysTraded(snapshots: Snapshot[]) {
-  if (snapshots.length === 0) return 0;
-  const first = new Date(snapshots[0].snapshot_time).getTime();
-  const last = new Date(snapshots[snapshots.length - 1].snapshot_time).getTime();
-  const elapsed = last - first;
-  return Math.floor(elapsed / (24 * 60 * 60 * 1000)) + 1;
-}
-
 function getPeakDrawdown(snapshots: Snapshot[], startingBalance: number) {
   let peak = startingBalance;
   let maxDD = 0;
@@ -194,7 +186,7 @@ export function TradingAnalytics({
 }: TradingAnalyticsProps) {
   const chartData = getEquityChartData(snapshots, startingBalance);
   const dailyPL = getDailyPL(snapshots);
-  const daysTraded = Math.max(tradingDays, getDaysTraded(snapshots));
+  const daysTraded = tradingDays;
   const peakDD = getPeakDrawdown(snapshots, startingBalance);
   const profitPct = startingBalance > 0 ? ((currentEquity - startingBalance) / startingBalance) * 100 : 0;
   const totalPL = currentEquity - startingBalance;

@@ -148,7 +148,7 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
           if (account) {
             await supabaseAdmin
               .from("trader_accounts")
-              .update({ current_equity: account.starting_balance, peak_equity: account.starting_balance, trading_days: 0 } as never)
+              .update({ current_equity: account.starting_balance, peak_equity: account.starting_balance, daily_peak_equity: account.starting_balance, daily_peak_date: new Date().toISOString().slice(0, 10), trading_days: 0 } as never)
               .eq("id", account.id);
             await supabaseAdmin
               .from("account_snapshots")
@@ -203,6 +203,8 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
           current_phase: 2,
           current_equity: startingBalance,
           peak_equity: startingBalance,
+          daily_peak_equity: startingBalance,
+          daily_peak_date: new Date().toISOString().slice(0, 10),
           phase1_passed_at: new Date().toISOString(),
           phase2_requested_at: null,
           status: "active",
@@ -269,6 +271,8 @@ export const approveFundedServer = createServerFn({ method: "POST" })
           status: "funded",
           current_equity: startingBalance,
           peak_equity: startingBalance,
+          daily_peak_equity: startingBalance,
+          daily_peak_date: new Date().toISOString().slice(0, 10),
           phase2_passed_at: new Date().toISOString(),
           funded_at: new Date().toISOString(),
           funded_requested_at: null,

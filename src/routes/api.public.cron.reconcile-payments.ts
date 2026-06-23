@@ -11,16 +11,6 @@ export const Route = createFileRoute("/api/public/cron/reconcile-payments")({
   },
 });
 
-interface SquadTransaction {
-  transaction_ref: string;
-  transaction_amount: number;
-  email: string;
-  transaction_status: string;
-  meta?: Record<string, string>;
-  metadata?: Record<string, string>;
-  transaction_date?: string;
-}
-
 async function attemptDelivery(orderId: string, userId: string, challengeId: string) {
   const { data: challenge } = await supabaseAdmin
     .from("challenges")
@@ -69,137 +59,57 @@ async function reconcilePayments(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const squadSecret = process.env.SQUAD_SECRET_KEY;
-  if (!squadSecret) {
-    console.error("[reconcile-payments] SQUAD_SECRET_KEY not configured");
-    return Response.json({ error: "SQUAD_SECRET_KEY not configured" }, { status: 500 });
+  // Find paid orders and check which ones are missing trader_accounts
+  const { data: paidOrders, error: queryErr } = await supabaseAdmin
+    .from("orders")
+    .select("id, user_id, challenge_id, created_at")
+    .eq("status", "paid")
+    .order("created_at", { ascending: true });
+
+  if (queryErr) {
+    console.error("[reconcile-payments] Query failed:", queryErr);
+    return Response.json({ error: queryErr.message }, { status: 500 });
   }
 
-  const from = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-
-  let squadRes: Response;
-  try {
-    squadRes = await fetch(
-      `https://api-d.squadco.com/transaction/list?perPage=100&from=${encodeURIComponent(from)}&transaction_status=success`,
-      { headers: { Authorization: `Bearer ${squadSecret}` } }
-    );
-  } catch (e) {
-    console.error("[reconcile-payments] Squad API request failed:", e);
-    return Response.json({ error: "Squad API request failed" }, { status: 502 });
-  }
-
-  if (!squadRes.ok) {
-    const text = await squadRes.text().catch(() => "");
-    console.error("[reconcile-payments] Squad API error:", squadRes.status, text);
-    return Response.json({ error: "Squad API error" }, { status: 502 });
-  }
-
-  let squadJson: any;
-  try {
-    squadJson = await squadRes.json();
-  } catch {
-    return Response.json({ error: "Invalid Squad API response" }, { status: 502 });
-  }
-
-  const transactions: SquadTransaction[] = squadJson?.data?.transactions ?? [];
-  if (transactions.length === 0) {
+  if (!paidOrders || paidOrders.length === 0) {
     return Response.json({ ok: true, processed: 0 });
   }
 
-  let created = 0;
-  let delivered = 0;
-  let skipped = 0;
+  // Get all order_ids that already have an account delivered
+  const orderIds = paidOrders.map((o) => o.id);
+  const { data: deliveredAccounts } = await supabaseAdmin
+    .from("trader_accounts")
+    .select("order_id")
+    .in("order_id", orderIds);
+
+  const deliveredOrderIds = new Set(
+    (deliveredAccounts ?? []).map((a) => a.order_id)
+  );
+
+  const undelivered = paidOrders.filter((o) => !deliveredOrderIds.has(o.id));
+
+  if (undelivered.length === 0) {
+    return Response.json({ ok: true, total: paidOrders.length, undelivered: 0 });
+  }
+
+  let attempts = 0;
   let errors = 0;
 
-  for (const txn of transactions) {
-    const reference = txn.transaction_ref;
-    if (!reference) continue;
-
+  for (const order of undelivered) {
     try {
-      const { data: existingOrder } = await supabaseAdmin
-        .from("orders")
-        .select("id, user_id, challenge_id, status")
-        .eq("paystack_reference", reference)
-        .maybeSingle();
-
-      if (existingOrder) {
-        const { data: existingAccount } = await supabaseAdmin
-          .from("trader_accounts")
-          .select("id")
-          .eq("order_id", existingOrder.id)
-          .maybeSingle();
-
-        if (existingAccount) {
-          skipped++;
-          continue;
-        }
-
-        await attemptDelivery(existingOrder.id, existingOrder.user_id, existingOrder.challenge_id);
-        delivered++;
-        continue;
-      }
-
-      const meta = txn.metadata ?? txn.meta ?? {};
-      const challengeId = meta.challenge_id;
-      const userId = meta.user_id;
-
-      if (!challengeId || !userId) {
-        await supabaseAdmin.rpc("send_telegram" as never, {
-          p_message: `⚠️ Reconciliation: paid txn with no meta\nRef: ${reference}\nAmount: ${txn.transaction_amount}\nEmail: ${txn.email}\nManual order creation needed.`,
-        } as never).catch(() => {});
-        errors++;
-        continue;
-      }
-
-      const { data: challenge } = await supabaseAdmin
-        .from("challenges")
-        .select("id, name, account_size, price_naira")
-        .eq("id", challengeId)
-        .maybeSingle();
-
-      if (!challenge) {
-        errors++;
-        continue;
-      }
-
-      const { data: order, error: orderErr } = await supabaseAdmin
-        .from("orders")
-        .insert({
-          user_id: userId,
-          challenge_id: challengeId,
-          amount_paid: txn.transaction_amount,
-          status: "paid",
-          paystack_reference: reference,
-        })
-        .select("id")
-        .single();
-
-      if (orderErr || !order) {
-        console.error("[reconcile-payments] Failed to create order for ref:", reference, orderErr);
-        errors++;
-        continue;
-      }
-
-      await sendEventEmail({
-        type: "purchase_confirmed",
-        orderId: order.id,
-      }).catch(() => {});
-
-      await attemptDelivery(order.id, userId, challengeId);
-      created++;
-      delivered++;
+      await attemptDelivery(order.id, order.user_id, order.challenge_id);
+      attempts++;
     } catch (e) {
-      console.error("[reconcile-payments] Error processing txn", reference, e);
+      console.error("[reconcile-payments] Delivery failed for order", order.id, e);
       errors++;
     }
   }
 
   return Response.json({
     ok: true,
-    processed: transactions.length,
-    created,
-    delivered,
-    skipped,
+    total: paidOrders.length,
+    undelivered: undelivered.length,
+    delivered: attempts,
     errors,
   });
 }
