@@ -136,7 +136,7 @@ export type EmailEvent =
   | { type: "payout_approved"; payoutId: string }
   | { type: "payout_paid"; payoutId: string }
   | { type: "payout_rejected"; payoutId: string; reason?: string }
-  | { type: "breached"; accountId: string; reason: string }
+  | { type: "breached"; accountId: string; reason: string; shortHeldTrades?: Array<{ ticket: number; symbol: string; duration_seconds: number; close_time: string; profit: number }> }
   | { type: "kyc_approved"; userId: string }
   | { type: "phase_rejected"; accountId: string; reason: string; phaseType: "phase2" | "funded" };
 
@@ -162,7 +162,7 @@ export async function sendEventEmail(ev: EmailEvent): Promise<{ ok: boolean; err
       case "payout_rejected":
         return await payoutRejected(ev.payoutId, ev.reason ?? "Not specified.");
       case "breached":
-        return await breached(ev.accountId, ev.reason);
+        return await breached(ev.accountId, ev.reason, ev.shortHeldTrades);
       case "kyc_approved":
         return await kycApproved(ev.userId);
       case "phase_rejected":
@@ -497,7 +497,7 @@ async function payoutRejected(payoutId: string, reason: string) {
 }
 
 /* 10. Account breached */
-async function breached(accountId: string, reason: string) {
+async function breached(accountId: string, reason: string, shortHeldTrades?: Array<{ ticket: number; symbol: string; duration_seconds: number; close_time: string; profit: number }>) {
   const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, mt5_login").eq("id", accountId).maybeSingle();
   if (!acc) return { ok: false, error: "account not found" };
   const { email, name } = await getUserEmail((acc as any).user_id);
@@ -510,6 +510,35 @@ async function breached(accountId: string, reason: string) {
     detailRow("Reason", reason) +
     detailRow("Date", new Date().toLocaleDateString("en-NG")) +
     `</div>`;
+  const tradesTable = shortHeldTrades?.length
+    ? `<div style="margin:18px 0;">
+        <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#dc2626;letter-spacing:1px;margin-bottom:10px;">SHORT-HELD TRADES</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="text-align:left;padding:6px 8px;color:#6b7280;">Ticket</th>
+              <th style="text-align:left;padding:6px 8px;color:#6b7280;">Symbol</th>
+              <th style="text-align:left;padding:6px 8px;color:#6b7280;">Duration</th>
+              <th style="text-align:left;padding:6px 8px;color:#6b7280;">Closed (WAT)</th>
+              <th style="text-align:right;padding:6px 8px;color:#6b7280;">P&L</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${shortHeldTrades.map((t, i) => {
+              const watDate = new Date(new Date(t.close_time).getTime() + 3600000).toLocaleString("en-NG");
+              const bg = i % 2 === 0 ? "#ffffff" : "#f9fafb";
+              return `<tr style="background:${bg};">
+                <td style="padding:6px 8px;font-family:monospace;">#${t.ticket}</td>
+                <td style="padding:6px 8px;font-weight:600;">${t.symbol}</td>
+                <td style="padding:6px 8px;">${t.duration_seconds}s</td>
+                <td style="padding:6px 8px;">${watDate}</td>
+                <td style="padding:6px 8px;text-align:right;color:${t.profit >= 0 ? "#16a34a" : "#dc2626"};">${t.profit >= 0 ? "+" : ""}${t.profit.toFixed(2)}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>`
+    : "";
   const html = shell({
     title: subject,
     preview: "Your challenge has ended.",
@@ -517,6 +546,7 @@ async function breached(accountId: string, reason: string) {
       h1(`Hi ${escapeHtml(fn)},`) +
       p(`We regret to inform you that your FundedNG challenge account has been terminated.`) +
       reasonBox +
+      tradesTable +
       p(`Every great trader faces setbacks. What separates the best is how they respond. Review what happened, adjust your strategy and come back stronger.`) +
       p(`Ready to try again? Use code <b style="background:#fef3c7;padding:2px 8px;border-radius:4px;">RETRY20</b> for 20% off your next challenge.`) +
       btn(`${SITE}/buy`, "START FRESH →"),

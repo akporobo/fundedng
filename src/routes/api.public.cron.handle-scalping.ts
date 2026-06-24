@@ -194,10 +194,18 @@ async function handleScalping(request: Request) {
     });
 
     try {
+      const { data: allShortHeld } = await supabaseAdmin
+        .from("closed_trades")
+        .select("ticket, symbol, duration_seconds, close_time, profit")
+        .eq("account_id", account_id)
+        .lt("duration_seconds", 180)
+        .order("close_time", { ascending: true });
+
       await sendEventEmail({
         type: "breached",
         accountId: account_id,
         reason: breachReason,
+        shortHeldTrades: allShortHeld ?? [],
       });
     } catch (emailErr) {
       console.error("[handle-scalping] Breach email failed:", emailErr);
