@@ -71,8 +71,10 @@ function StatsPage() {
   }, [selected, phaseStart]);
 
   useEffect(() => {
-    if (!selected) return;
-    const channel = supabase
+    if (!selected || !phaseStart) return;
+
+    // Fast path: append new closed_trades individually
+    const tradesChannel = supabase
       .channel(`stats-closed-trades-${selected.id}`)
       .on(
         "postgres_changes",
@@ -88,8 +90,36 @@ function StatsPage() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [selected?.id]);
+    // Reliable fallback: sync-equity-v2 inserts an account_snapshot on every
+    // sync.  When one arrives, refetch all trades for the current phase.
+    // This catches any trades missed by the upsert+ignoreDuplicates path.
+    const snapChannel = supabase
+      .channel(`stats-snapshots-${selected.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "account_snapshots",
+          filter: `trader_account_id=eq.${selected.id}`,
+        },
+        () => {
+          supabase
+            .from("closed_trades")
+            .select("ticket, symbol, profit, close_time, duration_seconds, volume")
+            .eq("account_id", selected.id)
+            .gte("close_time", phaseStart)
+            .order("close_time", { ascending: true })
+            .then(({ data }) => setTrades((data as ClosedTrade[]) ?? []));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tradesChannel);
+      supabase.removeChannel(snapChannel);
+    };
+  }, [selected?.id, phaseStart]);
 
   const tradesByDay = useMemo(() => {
     const map = new Map<string, ClosedTrade[]>();
