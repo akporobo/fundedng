@@ -46,6 +46,16 @@ async function syncEquityV2(request: Request) {
       open_time: number;
       volume: number;
     }>;
+    fetcher_only?: boolean;
+    open_positions?: Array<{
+      ticket: number;
+      symbol: string;
+      open_time: number;
+      volume: number;
+      profit: number;
+      price_open: number;
+      type: string;
+    }>;
     closed_deals?: Array<{
       ticket: number;
       symbol: string;
@@ -54,6 +64,8 @@ async function syncEquityV2(request: Request) {
       duration_seconds: number;
       profit: number;
       volume: number;
+      close_price?: number;
+      type?: string;
     }>;
   };
   try {
@@ -62,7 +74,102 @@ async function syncEquityV2(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { account_id, mt5_login, equity, balance, profit, scalping_violations, news_violations, weekend_violations, closed_deals } = body;
+  const { account_id, mt5_login, equity, balance, profit, scalping_violations, news_violations, weekend_violations, closed_deals, fetcher_only, open_positions } = body;
+
+  // Trades fetcher path — skip equity/drawdown/peak, only sync trade data
+  if (fetcher_only === true) {
+    if (closed_deals?.length) {
+      await supabaseAdmin
+        .from("closed_trades")
+        .upsert(
+          closed_deals.map((d: any) => ({
+            account_id:       account_id,
+            ticket:           d.ticket,
+            symbol:           d.symbol,
+            open_time:        new Date(d.open_time * 1000).toISOString(),
+            close_time:       new Date(d.close_time * 1000).toISOString(),
+            duration_seconds: d.duration_seconds,
+            profit:           d.profit,
+            volume:           d.volume,
+            close_price:      d.close_price ?? null,
+            type:             d.type ?? null,
+          })),
+          { onConflict: "account_id,ticket", ignoreDuplicates: true }
+        );
+    }
+
+    if (open_positions !== undefined) {
+      await supabaseAdmin
+        .from("open_positions")
+        .delete()
+        .eq("account_id", account_id);
+
+      if (open_positions.length > 0) {
+        await supabaseAdmin
+          .from("open_positions")
+          .insert(
+            open_positions.map((p: any) => ({
+              account_id:  account_id,
+              ticket:      p.ticket,
+              symbol:      p.symbol,
+              open_time:   new Date(p.open_time * 1000).toISOString(),
+              volume:      p.volume,
+              profit:      p.profit,
+              price_open:  p.price_open,
+              type:        p.type,
+            }))
+          );
+      }
+    }
+
+    const { data: fetcherAccount } = await supabaseAdmin
+      .from("trader_accounts")
+      .select("current_phase, phase1_passed_at, created_at")
+      .eq("id", account_id)
+      .single();
+
+    if (fetcherAccount) {
+      const phaseStart = fetcherAccount.current_phase >= 2 && fetcherAccount.phase1_passed_at
+        ? fetcherAccount.phase1_passed_at
+        : fetcherAccount.created_at;
+
+      const { data: closeData } = await supabaseAdmin
+        .from("closed_trades")
+        .select("close_time")
+        .eq("account_id", account_id)
+        .gte("close_time", phaseStart)
+        .limit(10000);
+
+      const uniqueDays = new Set(
+        (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
+      );
+
+      await supabaseAdmin
+        .from("trader_accounts")
+        .update({ trading_days: uniqueDays.size })
+        .eq("id", account_id);
+    }
+
+    if (scalping_violations?.length > 0) {
+      const scalingUrl = new URL(request.url);
+      scalingUrl.pathname = "/api/public/cron/handle-scalping";
+      await fetch(scalingUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "x-cron-secret": process.env.CRON_SECRET ?? "",
+        },
+        body: JSON.stringify({
+          account_id,
+          mt5_login,
+          violations: scalping_violations,
+        }),
+      });
+    }
+
+    return Response.json({ ok: true, fetcher_only: true });
+  }
+
   if (
     !account_id ||
     !mt5_login ||
@@ -78,7 +185,7 @@ async function syncEquityV2(request: Request) {
 
   const { data: account, error: acctErr } = await supabaseAdmin
     .from("trader_accounts")
-    .select("id, status, starting_balance, peak_equity, last_synced_at, trading_days, current_phase, phase1_passed_at, created_at")
+    .select("id, status, starting_balance, peak_equity, last_synced_at, trading_days")
     .eq("id", account_id)
     .in("status", ["active", "funded"])
     .single();
@@ -112,22 +219,6 @@ async function syncEquityV2(request: Request) {
       ? Number((((newPeak - equity) / newPeak) * 100).toFixed(2))
       : 0;
 
-  // Derive trading days from actual closed trades for this phase
-  const phaseStart = account.current_phase >= 2 && account.phase1_passed_at
-    ? account.phase1_passed_at
-    : account.created_at;
-
-  const { data: closeData } = await supabaseAdmin
-    .from("closed_trades")
-    .select("close_time")
-    .eq("account_id", account_id)
-    .gte("close_time", phaseStart);
-
-  const uniqueDays = new Set(
-    (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
-  );
-  const tradingDaysCount = uniqueDays.size;
-
   const { error: snapErr } = await supabaseAdmin
     .from("account_snapshots")
     .insert({
@@ -147,7 +238,6 @@ async function syncEquityV2(request: Request) {
     .update({
       last_synced_at: new Date().toISOString(),
       peak_equity: newPeak,
-      trading_days: tradingDaysCount,
     })
     .eq("id", account_id)
     .select("status, breach_reason")
@@ -166,32 +256,6 @@ async function syncEquityV2(request: Request) {
       });
     } catch (emailErr) {
       console.error("[sync-equity-v2] Breach email failed:", emailErr);
-    }
-  }
-
-  // Forward scalping violations to the handler endpoint
-  if (scalping_violations?.length > 0) {
-    const scalingUrl = new URL(request.url);
-    scalingUrl.pathname = "/api/public/cron/handle-scalping";
-    try {
-      const resp = await fetch(scalingUrl.toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-cron-secret": process.env.CRON_SECRET ?? "",
-        },
-        body: JSON.stringify({
-          account_id,
-          mt5_login,
-          violations: scalping_violations,
-        }),
-      });
-      if (!resp.ok) {
-        const body = await resp.text().catch(() => "");
-        console.error(`[sync-equity-v2] scalping handler returned ${resp.status}: ${body}`);
-      }
-    } catch (e) {
-      console.error("[sync-equity-v2] scalping forward failed:", e);
     }
   }
 
@@ -245,25 +309,6 @@ async function syncEquityV2(request: Request) {
     } catch (e) {
       console.error("[sync-equity-v2] weekend forward failed:", e);
     }
-  }
-
-  // Upsert closed trades for calendar + trading days
-  if (closed_deals?.length > 0) {
-    await supabaseAdmin
-      .from("closed_trades")
-      .upsert(
-        closed_deals.map((d: any) => ({
-          account_id:        account_id,
-          ticket:            d.ticket,
-          symbol:            d.symbol,
-          open_time:         new Date(d.open_time * 1000).toISOString(),
-          close_time:        new Date(d.close_time * 1000).toISOString(),
-          duration_seconds:  d.duration_seconds,
-          profit:            d.profit,
-          volume:            d.volume,
-        })),
-        { onConflict: "account_id,ticket", ignoreDuplicates: true }
-      );
   }
 
   return Response.json({
