@@ -11,6 +11,44 @@ export const Route = createFileRoute("/api/public/cron/sync-equity-v2")({
   },
 });
 
+async function refreshTradingDays(accountId: string) {
+  try {
+    const { data: acct } = await supabaseAdmin
+      .from("trader_accounts")
+      .select("current_phase, phase1_passed_at, created_at")
+      .eq("id", accountId)
+      .single();
+
+    if (!acct) return;
+
+    const phaseStart = acct.current_phase >= 2 && acct.phase1_passed_at
+      ? acct.phase1_passed_at
+      : acct.created_at;
+
+    const { data: closeData } = await supabaseAdmin
+      .from("closed_trades")
+      .select("close_time")
+      .eq("account_id", accountId)
+      .gte("close_time", phaseStart)
+      .limit(10000);
+
+    const uniqueDays = new Set(
+      (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
+    );
+
+    const { error: updateErr } = await supabaseAdmin
+      .from("trader_accounts")
+      .update({ trading_days: uniqueDays.size })
+      .eq("id", accountId);
+
+    if (updateErr) {
+      console.error(`[sync-equity-v2] refreshTradingDays update failed:`, updateErr);
+    }
+  } catch (e) {
+    console.error(`[sync-equity-v2] refreshTradingDays error:`, e);
+  }
+}
+
 async function syncEquityV2(request: Request) {
   const secret = request.headers.get("x-cron-secret");
   if (secret !== process.env.CRON_SECRET) {
@@ -122,33 +160,7 @@ async function syncEquityV2(request: Request) {
       }
     }
 
-    const { data: fetcherAccount } = await supabaseAdmin
-      .from("trader_accounts")
-      .select("current_phase, phase1_passed_at, created_at")
-      .eq("id", account_id)
-      .single();
-
-    if (fetcherAccount) {
-      const phaseStart = fetcherAccount.current_phase >= 2 && fetcherAccount.phase1_passed_at
-        ? fetcherAccount.phase1_passed_at
-        : fetcherAccount.created_at;
-
-      const { data: closeData } = await supabaseAdmin
-        .from("closed_trades")
-        .select("close_time")
-        .eq("account_id", account_id)
-        .gte("close_time", phaseStart)
-        .limit(10000);
-
-      const uniqueDays = new Set(
-        (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
-      );
-
-      await supabaseAdmin
-        .from("trader_accounts")
-        .update({ trading_days: uniqueDays.size })
-        .eq("id", account_id);
-    }
+    await refreshTradingDays(account_id);
 
     if (scalping_violations?.length > 0) {
       const scalingUrl = new URL(request.url);
@@ -338,6 +350,9 @@ async function syncEquityV2(request: Request) {
       console.error("[sync-equity-v2] news forward failed:", e);
     }
   }
+
+  // Recalculate trading days from closed_trades
+  await refreshTradingDays(account_id);
 
   // Forward weekend violations to the handler endpoint
   if (weekend_violations?.length > 0) {
