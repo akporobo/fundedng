@@ -167,6 +167,60 @@ async function syncEquityV2(request: Request) {
       });
     }
 
+    // Safety net: if closed_trades has 4+ short-held trades, breach regardless
+    // of whether scalping_violations were reported or the counter triggered.
+    const { count: shortCount } = await supabaseAdmin
+      .from("closed_trades")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", account_id)
+      .lt("duration_seconds", 180);
+
+    if (shortCount !== null && shortCount >= 4) {
+      const { data: acct } = await supabaseAdmin
+        .from("trader_accounts")
+        .select("id, user_id, status")
+        .eq("id", account_id)
+        .single();
+
+      if (acct && acct.status !== "breached") {
+        const breachReason = `Scalping violation: account breached after ${shortCount} short-held trades (held under 180s). All trades must be held a minimum of 3 minutes regardless of close type.`;
+
+        await supabaseAdmin
+          .from("trader_accounts")
+          .update({
+            status: "breached",
+            breach_reason: breachReason,
+            scalping_warnings: 0,
+          })
+          .eq("id", account_id);
+
+        await supabaseAdmin.from("notifications").insert({
+          user_id: acct.user_id,
+          title: "⚠️ Account Breached — Scalping Violation",
+          message: `Your account was breached after ${shortCount} trades were held for less than 3 minutes. All trades must be held a minimum of 3 minutes.`,
+          type: "breach",
+        });
+
+        try {
+          const { data: allShortHeld } = await supabaseAdmin
+            .from("closed_trades")
+            .select("ticket, symbol, duration_seconds, close_time, profit")
+            .eq("account_id", account_id)
+            .lt("duration_seconds", 180)
+            .order("close_time", { ascending: true });
+
+          await sendEventEmail({
+            type: "breached",
+            accountId: account_id,
+            reason: breachReason,
+            shortHeldTrades: allShortHeld ?? [],
+          });
+        } catch (emailErr) {
+          console.error("[sync-equity-v2] Breach email failed:", emailErr);
+        }
+      }
+    }
+
     return Response.json({ ok: true, fetcher_only: true });
   }
 
