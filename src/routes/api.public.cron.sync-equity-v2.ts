@@ -305,6 +305,7 @@ async function syncEquityV2(request: Request) {
     .from("trader_accounts")
     .update({
       last_synced_at: new Date().toISOString(),
+      current_equity: equity,
       peak_equity: newPeak,
     })
     .eq("id", account_id)

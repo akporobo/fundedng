@@ -447,15 +447,12 @@ function DashboardPage() {
   };
 
   const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
-  const equity = Number(latestSnapshot?.equity ?? selected?.current_equity ?? selected?.starting_balance ?? 0);
+  const equity = Number(selected?.current_equity ?? latestSnapshot?.equity ?? selected?.starting_balance ?? 0);
   const start = Number(selected?.starting_balance ?? 0);
   const profitPct = start ? ((equity - start) / start) * 100 : 0;
   const peakEquity = (() => {
     const dbPeak = Number(selected?.peak_equity ?? 0);
-    if (dbPeak > 0) return Math.max(dbPeak, equity);
-    return snapshots.length > 0
-      ? Math.max(start, equity, ...snapshots.map((s) => Number(s.equity)))
-      : Math.max(start, equity);
+    return dbPeak > 0 ? dbPeak : start;
   })();
   const ddPct = peakEquity > 0 ? Math.max(0, ((peakEquity - equity) / peakEquity) * 100) : 0;
   const target = selected?.challenges?.profit_target_percent ?? 10;
