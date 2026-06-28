@@ -117,7 +117,7 @@ async function syncEquityV2(request: Request) {
   // Trades fetcher path — skip equity/drawdown/peak, only sync trade data
   if (fetcher_only === true) {
     if (closed_deals?.length) {
-      await supabaseAdmin
+      const { error: upsertErr } = await supabaseAdmin
         .from("closed_trades")
         .upsert(
           closed_deals.map((d: any) => ({
@@ -129,11 +129,13 @@ async function syncEquityV2(request: Request) {
             duration_seconds: d.duration_seconds,
             profit:           d.profit,
             volume:           d.volume,
-            close_price:      d.close_price ?? null,
-            type:             d.type ?? null,
+            trade_type:       d.type ?? null,
           })),
           { onConflict: "account_id,ticket", ignoreDuplicates: true }
         );
+      if (upsertErr) {
+        console.error(`[sync-equity-v2] closed_trades upsert failed for ${account_id}:`, upsertErr);
+      }
     }
 
     if (open_positions !== undefined) {

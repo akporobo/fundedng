@@ -141,7 +141,7 @@ function useAdminDataHook() {
     const [pr, ord, accRaw, poRaw, req, breachedRes] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("orders").select("amount_paid,status,challenge_id"),
-      supabase.from("trader_accounts").select("*").is("deleted_at", null).order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("*").order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").order("created_at", { ascending: false }),
       supabase.from("account_requests").select("*").in("status", ["pending", "failed"]).order("created_at", { ascending: false }),
       supabase.from("trader_accounts").select("id", { count: "exact", head: true }).eq("status", "breached"),
@@ -302,6 +302,21 @@ function useAdminDataHook() {
   const updateAccount = async (id: string, patch: Record<string, any>) => {
     const { error } = await supabase.from("trader_accounts").update(patch as never).eq("id", id);
     if (error) return toast.error(error.message); toast.success("Account updated"); load();
+  };
+
+  const resetAccountBalance = async (account: any) => {
+    if (!confirm(`Reset balance for ${account.profiles?.full_name ?? "trader"} (${account.mt5_login})? Equity will reset to ${formatNaira(account.starting_balance)}.`)) return;
+    const { error } = await supabase.from("trader_accounts").update({
+      current_equity: account.starting_balance,
+      peak_equity: account.starting_balance,
+      daily_peak_equity: account.starting_balance,
+      daily_peak_date: new Date().toISOString().slice(0, 10),
+      trading_days: 0,
+    } as never).eq("id", account.id);
+    if (error) return toast.error(error.message);
+    await supabase.from("account_snapshots").insert({ trader_account_id: account.id, equity: account.starting_balance, balance: account.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: new Date().toISOString() } as never);
+    toast.success("Account balance reset");
+    load();
   };
 
   const approvePhase2 = async (a: any) => {
@@ -648,7 +663,7 @@ function useAdminDataHook() {
     challengeList, challengeEditOpen, editingChallenge, challengeForm, savingChallenge,
     openNewChallenge, openEditChallenge, saveChallenge, toggleChallengeActive, setChallengeEditOpen, setChallengeForm,
     load, loadChallenges, loadTickets, loadAffiliate, loadPartners, loadDiscounts,
-    updatePayout, updateAccount, approvePhase2, approveFunded,
+    updatePayout, updateAccount, resetAccountBalance, approvePhase2, approveFunded,
   };
 }
 

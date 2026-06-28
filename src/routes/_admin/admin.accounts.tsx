@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_admin/admin/accounts")({
 
 function AccountsPage() {
   const {
-    accounts, equityDraft, equitySaving, setEquityDraft, submitEquity,
+    accounts, payouts, equityDraft, equitySaving, setEquityDraft, submitEquity,
     kycTarget, kycVerifying, setKycTarget, openKycVerify, submitKycVerify,
     breachTarget, breachReason, breaching,
     breachType, setBreachType, breachPair, setBreachPair,
@@ -30,10 +30,22 @@ function AccountsPage() {
     setWarnTarget, setWarnReason, openWarningDialog, submitWarning,
     rejectTarget, rejectReason, rejecting, rejectType, setRejectTarget, setRejectReason, setRejectType,
     openRejectDialog, submitRejectPhase, approvePhase2, approveFunded, viewCredsFor, setViewCredsFor, updateAccount,
+    resetAccountBalance,
   } = useAdminData();
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
   const [credDraft, setCredDraft] = useState<Record<string, Record<string, string>>>({});
   const [credSaving, setCredSaving] = useState<string | null>(null);
+  const payoutAccountIds = useMemo(() => new Set(payouts.filter(p => p.trader_account_id).map(p => p.trader_account_id)), [payouts]);
+
+  const tabs = [
+    { id: "all", label: "All" },
+    { id: "phase1", label: "Phase 1" },
+    { id: "phase2", label: "Phase 2" },
+    { id: "funded", label: "Funded" },
+    { id: "archived", label: "Archived" },
+    { id: "has_payout", label: "Has Payout" },
+  ] as const;
 
   function getBreachReason(type: string, pair: string, openTime: string, closeTime: string, duration: string, name: string) {
     switch (type) {
@@ -74,8 +86,23 @@ function AccountsPage() {
   return (
     <div className="mt-6 space-y-2">
       <h2 className="font-display text-xl font-bold">Trader Accounts</h2>
+      <div className="flex flex-wrap gap-1">
+        {tabs.map((t) => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${activeTab === t.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
       <Input placeholder="Search by MT5 login or trader name…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-9 w-full max-w-md" />
       {accounts.filter((a) => {
+        if (activeTab === "phase1") return a.current_phase === 1 && a.status === "active";
+        if (activeTab === "phase2") return a.current_phase === 2 && a.status === "active";
+        if (activeTab === "funded") return a.status === "funded";
+        if (activeTab === "archived") return a.status === "breached";
+        if (activeTab === "has_payout") return payoutAccountIds.has(a.id);
+        return true;
+      }).filter((a) => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.trim().toLowerCase();
         return (a.mt5_login ?? "").toLowerCase().includes(q) || (a.profiles?.full_name ?? "").toLowerCase().includes(q);
@@ -134,6 +161,9 @@ function AccountsPage() {
               <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => { setViewCredsFor(a); setCredDraft((d) => ({ ...d, [a.id]: { mt5_login: a.mt5_login ?? "", mt5_server: a.mt5_server ?? "", mt5_password: a.mt5_password ?? "", investor_password: a.investor_password ?? "" } })); }}>
                 <Eye className="mr-1 h-3.5 w-3.5" />Credentials
               </Button>
+              {a.status === "funded" && payoutAccountIds.has(a.id) && (
+                <Button size="sm" variant="outline" onClick={() => resetAccountBalance(a)}>Reset Balance</Button>
+              )}
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-background p-3">
