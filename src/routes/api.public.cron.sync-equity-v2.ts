@@ -232,6 +232,14 @@ async function syncEquityV2(request: Request) {
         } catch (emailErr) {
           console.error("[sync-equity-v2] Breach email failed:", emailErr);
         }
+
+        try {
+          await supabaseAdmin.rpc("send_telegram" as never, {
+            p_message: `🚫 <b>Scalping Breach — Safety Net</b>\nAccount: ${mt5_login ?? account_id}\nShort-held trades: ${shortCount}\n👉 <a href="https://app.fundedng.com/admin">Open Admin Panel</a>`,
+          } as never);
+        } catch (e) {
+          console.error("[sync-equity-v2] Telegram send failed:", e);
+        }
       }
     }
 
@@ -325,6 +333,14 @@ async function syncEquityV2(request: Request) {
       });
     } catch (emailErr) {
       console.error("[sync-equity-v2] Breach email failed:", emailErr);
+    }
+
+    try {
+      await supabaseAdmin.rpc("send_telegram" as never, {
+        p_message: `🚫 <b>Drawdown Breach</b>\nAccount: ${mt5_login ?? account_id}\nReason: ${updatedAccount.breach_reason ?? "Maximum drawdown exceeded"}\n👉 <a href="https://app.fundedng.com/admin">Open Admin Panel</a>`,
+      } as never);
+    } catch (e) {
+      console.error("[sync-equity-v2] Telegram send failed:", e);
     }
   }
 

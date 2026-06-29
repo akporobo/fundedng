@@ -150,6 +150,14 @@ async function handleScalping(request: Request) {
       console.error("[handle-scalping] Breach email failed:", emailErr);
     }
 
+    try {
+      await supabaseAdmin.rpc("send_telegram" as never, {
+        p_message: `🚫 <b>Scalping Breach — Overlapping Trades</b>\nAccount: ${mt5_login ?? account_id}\nReason: Two short-held trades overlapped\n👉 <a href="https://app.fundedng.com/admin">Open Admin Panel</a>`,
+      } as never);
+    } catch (e) {
+      console.error("[handle-scalping] Telegram send failed:", e);
+    }
+
     return Response.json({ ok: true, action: "breached", reason: "overlapping_short_trades" });
   }
 
@@ -209,6 +217,14 @@ async function handleScalping(request: Request) {
       });
     } catch (emailErr) {
       console.error("[handle-scalping] Breach email failed:", emailErr);
+    }
+
+    try {
+      await supabaseAdmin.rpc("send_telegram" as never, {
+        p_message: `🚫 <b>Scalping Breach — 4th Short Trade</b>\nAccount: ${mt5_login ?? account_id}\nTrades: ${newViolations.length} new violation(s), ${newTotal} total\n👉 <a href="https://app.fundedng.com/admin">Open Admin Panel</a>`,
+      } as never);
+    } catch (e) {
+      console.error("[handle-scalping] Telegram send failed:", e);
     }
 
     return Response.json({
