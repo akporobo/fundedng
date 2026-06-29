@@ -399,6 +399,117 @@ async function syncEquityV2(request: Request) {
     }
   }
 
+  // Upsert closed deals into closed_trades for stats & scalping detection
+  if (closed_deals?.length) {
+    const { error: upsertErr } = await supabaseAdmin
+      .from("closed_trades")
+      .upsert(
+        closed_deals.map((d: any) => ({
+          account_id:       account_id,
+          ticket:           d.ticket,
+          symbol:           d.symbol,
+          open_time:        new Date(d.open_time * 1000).toISOString(),
+          close_time:       new Date(d.close_time * 1000).toISOString(),
+          duration_seconds: d.duration_seconds,
+          profit:           d.profit,
+          volume:           d.volume,
+          trade_type:       d.type ?? null,
+        })),
+        { onConflict: "account_id,ticket", ignoreDuplicates: true }
+      );
+    if (upsertErr) {
+      console.error(`[sync-equity-v2] closed_trades upsert failed for ${account_id}:`, upsertErr);
+    }
+  }
+
+  // Forward scalping violations to the handler endpoint
+  if (scalping_violations?.length > 0) {
+    const scalingUrl = new URL(request.url);
+    scalingUrl.pathname = "/api/public/cron/handle-scalping";
+    try {
+      const resp = await fetch(scalingUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "x-cron-secret": process.env.CRON_SECRET ?? "",
+        },
+        body: JSON.stringify({
+          account_id,
+          mt5_login,
+          violations: scalping_violations,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => "");
+        console.error(`[sync-equity-v2] scalping handler returned ${resp.status}: ${body}`);
+      }
+    } catch (e) {
+      console.error("[sync-equity-v2] scalping forward failed:", e);
+    }
+  }
+
+  // Safety net: if closed_trades has 4+ short-held trades, breach regardless
+  // of whether scalping_violations were reported or the counter triggered.
+  const { count: shortCount } = await supabaseAdmin
+    .from("closed_trades")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", account_id)
+    .lt("duration_seconds", 180);
+
+  if (shortCount !== null && shortCount >= 4) {
+    const { data: acct } = await supabaseAdmin
+      .from("trader_accounts")
+      .select("id, user_id, status")
+      .eq("id", account_id)
+      .single();
+
+    if (acct && acct.status !== "breached") {
+      const breachReason = `Scalping violation: account breached after ${shortCount} short-held trades (held under 180s). All trades must be held a minimum of 3 minutes regardless of close type.`;
+
+      await supabaseAdmin
+        .from("trader_accounts")
+        .update({
+          status: "breached",
+          breach_reason: breachReason,
+          scalping_warnings: 0,
+        })
+        .eq("id", account_id);
+
+      await supabaseAdmin.from("notifications").insert({
+        user_id: acct.user_id,
+        title: "⚠️ Account Breached — Scalping Violation",
+        message: `Your account was breached after ${shortCount} trades were held for less than 3 minutes. All trades must be held a minimum of 3 minutes.`,
+        type: "breach",
+      });
+
+      try {
+        const { data: allShortHeld } = await supabaseAdmin
+          .from("closed_trades")
+          .select("ticket, symbol, duration_seconds, close_time, profit")
+          .eq("account_id", account_id)
+          .lt("duration_seconds", 180)
+          .order("close_time", { ascending: true });
+
+        await sendEventEmail({
+          type: "breached",
+          accountId: account_id,
+          reason: breachReason,
+          shortHeldTrades: allShortHeld ?? [],
+        });
+      } catch (emailErr) {
+        console.error("[sync-equity-v2] Breach email failed:", emailErr);
+      }
+
+      try {
+        await supabaseAdmin.rpc("send_telegram" as never, {
+          p_message: `🚫 <b>Scalping Breach — Safety Net</b>\nAccount: ${mt5_login ?? account_id}\nShort-held trades: ${shortCount}\n👉 <a href="https://app.fundedng.com/admin">Open Admin Panel</a>`,
+        } as never);
+      } catch (e) {
+        console.error("[sync-equity-v2] Telegram send failed:", e);
+      }
+    }
+  }
+
   return Response.json({
     ok: true,
     account_id,

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatNaira } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, CalendarDays, BarChart3, DollarSign, Target, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/stats")({ component: StatsPage });
@@ -26,7 +27,7 @@ function StatsPage() {
   const [trades, setTrades] = useState<ClosedTrade[]>([]);
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const todayLocal = useMemo(() => {
     const d = new Date();
@@ -237,41 +238,52 @@ function StatsPage() {
                   : pnl > 0 ? "text-green-600 dark:text-green-400"
                   : pnl < 0 ? "text-red-600 dark:text-red-400"
                   : "text-muted-foreground";
-                const isExpanded = expandedDay === day.key;
                 return (
-                  <div key={day.key}>
-                    <button
-                      onClick={() => setExpandedDay(isExpanded ? null : day.key)}
-                      className={`w-full ${color} p-2 text-center transition-colors hover:brightness-95 cursor-pointer border-0 ${isToday ? "ring-1 ring-primary" : ""}`}
-                    >
-                      <div className="font-display text-xs font-semibold">{day.date.getDate()}</div>
-                      {pnl !== null && (
-                        <div className={`text-[10px] font-medium leading-tight ${textColor}`}>
-                          {pnl > 0 ? "+" : ""}{formatNaira(pnl)}
-                        </div>
-                      )}
-                    </button>
-                    {isExpanded && day.trades.length > 0 && (
-                      <div className="col-span-7 bg-muted/20 border-t border-border px-3 py-2 text-xs space-y-1">
-                        {day.trades.map((t) => {
-                          const isShort = t.duration_seconds < 180;
-                          return (
-                            <div key={t.ticket} className={`flex items-center justify-between gap-4 pl-2 border-l-2 ${isShort ? "border-red-400 bg-red-500/5" : "border-transparent"}`}>
-                              <span className="font-mono text-muted-foreground">#{t.ticket}</span>
-                              <span className="font-display">{t.symbol}</span>
-                              <span className={`${isShort ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>{t.duration_seconds}s</span>
-                              <span className={t.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                                {t.profit >= 0 ? "+" : ""}{formatNaira(t.profit)}
-                              </span>
-                            </div>
-                          );
-                        })}
+                  <button
+                    onClick={() => setSelectedDay(day.trades.length > 0 ? day.key : null)}
+                    className={`w-full ${color} p-2 pb-3 pt-2.5 text-center transition-colors hover:brightness-95 cursor-pointer border-0 ${isToday ? "ring-1 ring-primary" : ""}`}
+                  >
+                    <div className="font-display text-xs font-semibold">{day.date.getDate()}</div>
+                    {pnl !== null && (
+                      <div className={`text-[10px] font-medium leading-tight ${textColor}`}>
+                        {pnl > 0 ? "+" : ""}{formatNaira(pnl)}
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
+
+            <Dialog open={selectedDay !== null} onOpenChange={(open) => { if (!open) setSelectedDay(null); }}>
+              <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+                <DialogHeader>
+                  <DialogTitle className="font-display">
+                    Trades — {selectedDay ? new Date(selectedDay + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) : ""}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="overflow-y-auto -mx-6 px-6">
+                  {selectedDay && (tradesByDay.get(selectedDay) ?? []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No trades this day</p>
+                  ) : (
+                    <div className="space-y-1 pb-2">
+                      {(tradesByDay.get(selectedDay ?? "") ?? []).map((t) => {
+                        const isShort = t.duration_seconds < 180;
+                        return (
+                          <div key={t.ticket} className={`flex items-center justify-between gap-4 rounded-md px-3 py-2 border-l-2 ${isShort ? "border-red-400 bg-red-500/5" : "border-transparent hover:bg-muted/30"}`}>
+                            <span className="font-mono text-xs text-muted-foreground w-16">#{t.ticket}</span>
+                            <span className="font-display text-sm flex-1">{t.symbol}</span>
+                            <span className={`text-xs w-16 text-right ${isShort ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>{t.duration_seconds}s</span>
+                            <span className={`text-xs w-24 text-right font-medium ${t.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              {t.profit >= 0 ? "+" : ""}{formatNaira(t.profit)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-green-500/20" /> Green = profitable day</span>
