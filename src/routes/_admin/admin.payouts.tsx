@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/utils";
-import { Building, Copy } from "lucide-react";
+import { Building, Copy, Download } from "lucide-react";
 import { toast } from "sonner";
+import { generatePayoutCertificate } from "@/components/certificates/certificateGenerator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -93,6 +94,11 @@ function PayoutsPage() {
             <div className="flex gap-2">
               {p.status === "pending" && <Button size="sm" onClick={() => updatePayout(p, "approved")}>Approve</Button>}
               {p.status === "approved" && <Button size="sm" onClick={() => updatePayout(p, "paid")}>Mark Paid</Button>}
+              {(p.status === "paid" || p.status === "approved") && (
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => generatePayoutCertificate({ traderName: p.profiles?.full_name ?? "Trader", amount: p.amount_naira, date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), method: p.payment_method === "usdt" ? "USDT" : "Bank Transfer", payoutId: p.id })}>
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               {p.status === "pending" && <Button size="sm" variant="outline" onClick={() => openPayoutRejectDialog(p)}>Reject</Button>}
             </div>
           </div>

@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/utils";
-import { Eye } from "lucide-react";
+import { Eye, Download } from "lucide-react";
+import { generateFundedCertificate } from "@/components/certificates/certificateGenerator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -163,6 +164,11 @@ function AccountsPage() {
               </Button>
               {a.status === "funded" && payoutAccountIds.has(a.id) && (
                 <Button size="sm" variant="outline" onClick={() => resetAccountBalance(a)}>Reset Balance</Button>
+              )}
+              {a.status === "funded" && (
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => generateFundedCertificate({ traderName: a.profiles?.full_name ?? "Trader", date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), accountSize: a.starting_balance })}>
+                  <Download className="h-4 w-4" />
+                </Button>
               )}
             </div>
           </div>

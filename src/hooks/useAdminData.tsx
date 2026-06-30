@@ -6,7 +6,7 @@ import { formatNaira } from "@/lib/utils";
 import { verifyKycServer } from "@/server/kyc.functions";
 import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
-import { generateFundedCertificate, generatePayoutCertificate } from "@/components/certificates/certificateGenerator";
+
 
 const blankChallenge = {
   id: "", name: "", account_size: 200000, price_naira: 12000, profit_target_percent: 10, max_drawdown_percent: 20,
@@ -290,7 +290,6 @@ function useAdminDataHook() {
     if (status === "approved") notifyEmail({ type: "payout_approved", payoutId: p.id });
     if (status === "paid") {
       notifyEmail({ type: "payout_paid", payoutId: p.id });
-      generatePayoutCertificate({ traderName: p.profiles?.full_name ?? "Trader", amount: p.amount_naira, date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), method: p.payment_method === "usdt" ? "USDT" : "Bank Transfer", payoutId: p.id });
       const { data: account } = await supabase.from("trader_accounts").select("id, starting_balance").eq("id", p.trader_account_id).maybeSingle();
       if (account) {
         await supabase.from("trader_accounts").update({ current_equity: account.starting_balance, peak_equity: account.starting_balance, daily_peak_equity: account.starting_balance, daily_peak_date: new Date().toISOString().slice(0, 10), trading_days: 0 } as never).eq("id", account.id);
@@ -343,7 +342,7 @@ function useAdminDataHook() {
     if (error) return toast.error(error.message);
     await supabase.from("account_snapshots").insert({ trader_account_id: a.id, equity: a.starting_balance, balance: a.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: resetSnapshotAt } as never);
     await supabase.from("notifications").insert({ user_id: a.user_id, title: "🏆 You're Funded!", message: "Congratulations — your account is now funded.", type: "success" } as never);
-    toast.success("Account funded"); notifyEmail({ type: "funded", accountId: a.id }); generateFundedCertificate({ traderName: a.profiles?.full_name ?? "Trader", date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), accountSize: a.starting_balance }); load();
+    toast.success("Account funded"); notifyEmail({ type: "funded", accountId: a.id }); load();
   };
 
   const submitEquity = async (account: any) => {
