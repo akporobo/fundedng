@@ -81,6 +81,9 @@ function useAdminDataHook() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [rejectType, setRejectType] = useState<"phase2" | "funded" | null>(null);
+  const [payoutRejectTarget, setPayoutRejectTarget] = useState<any | null>(null);
+  const [payoutRejectReason, setPayoutRejectReason] = useState("");
+  const [payoutRejecting, setPayoutRejecting] = useState(false);
   const [poolAccounts, setPoolAccounts] = useState<any[]>([]);
   const [poolInventory, setPoolInventory] = useState<Record<string, number>>({});
   const [poolLoading, setPoolLoading] = useState(false);
@@ -386,6 +389,20 @@ function useAdminDataHook() {
     setWarnReason(`Hi ${name}, your FundedNG challenge account is at risk of being closed due to inactivity. Our rules require at least 1 trade every calendar week to keep your account active. Please place a trade to keep your account active.\n— FundedNG Team`);
   };
   const openRejectDialog = (account: any, type: "phase2" | "funded") => { setRejectTarget(account); setRejectType(type); setRejectReason(""); };
+  const openPayoutRejectDialog = (payout: any) => { setPayoutRejectTarget(payout); setPayoutRejectReason(""); };
+  const submitPayoutReject = async () => {
+    if (!payoutRejectTarget) return;
+    const reason = payoutRejectReason.trim();
+    if (reason.length < 3) { toast.error("Please write a reason (min 3 chars)."); return; }
+    setPayoutRejecting(true);
+    try {
+      const { error } = await supabase.from("payouts").update({ status: "rejected", processed_at: new Date().toISOString(), admin_note: reason }).eq("id", payoutRejectTarget.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Payout rejected");
+      notifyEmail({ type: "payout_rejected", payoutId: payoutRejectTarget.id, reason });
+      setPayoutRejectTarget(null); setPayoutRejectReason(""); load();
+    } finally { setPayoutRejecting(false); }
+  };
 
   const submitRejectPhase = async () => {
     if (!rejectTarget || !rejectType) return;
@@ -655,6 +672,8 @@ function useAdminDataHook() {
     setWarnTarget, setWarnReason, openWarningDialog, submitWarning,
     rejectTarget, rejectReason, rejecting, rejectType, setRejectTarget, setRejectReason, setRejectType,
     openRejectDialog, submitRejectPhase,
+    payoutRejectTarget, payoutRejectReason, payoutRejecting,
+    setPayoutRejectTarget, setPayoutRejectReason, openPayoutRejectDialog, submitPayoutReject,
     poolAccounts, poolInventory, poolLoading, poolFormOpen, poolSaving, poolForm, viewCredsFor,
     setPoolFormOpen, setPoolForm, setPoolSaving, setViewCredsFor, loadPool,
     socialItems, uploadFile, uploadPreview, uploadLabel, uploadCategory, uploadOrder, uploading,

@@ -2,9 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { formatNaira } from "@/lib/utils";
 import { Building, Copy } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_admin/admin/payouts")({
   component: PayoutsPage,
@@ -47,7 +52,11 @@ function BankDetails({ details }: { details: Record<string, string> | null }) {
 }
 
 function PayoutsPage() {
-  const { payouts, updatePayout } = useAdminData();
+  const {
+    payouts, updatePayout,
+    payoutRejectTarget, payoutRejectReason, payoutRejecting,
+    setPayoutRejectTarget, setPayoutRejectReason, openPayoutRejectDialog, submitPayoutReject,
+  } = useAdminData();
 
   return (
     <div className="mt-6 space-y-3">
@@ -84,11 +93,39 @@ function PayoutsPage() {
             <div className="flex gap-2">
               {p.status === "pending" && <Button size="sm" onClick={() => updatePayout(p, "approved")}>Approve</Button>}
               {p.status === "approved" && <Button size="sm" onClick={() => updatePayout(p, "paid")}>Mark Paid</Button>}
-              {p.status === "pending" && <Button size="sm" variant="outline" onClick={() => updatePayout(p, "rejected")}>Reject</Button>}
+              {p.status === "pending" && <Button size="sm" variant="outline" onClick={() => openPayoutRejectDialog(p)}>Reject</Button>}
             </div>
           </div>
         </div>
       ))}
+
+      {/* Payout Reject dialog */}
+      <Dialog open={!!payoutRejectTarget} onOpenChange={(o) => !payoutRejecting && !o && setPayoutRejectTarget(null)}>
+        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Payout</DialogTitle>
+            <DialogDescription>
+              Rejecting payout for {payoutRejectTarget?.profiles?.full_name ?? "trader"} ({formatNaira(payoutRejectTarget?.amount_naira ?? 0)}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="payout-reject-reason">Reason for breach</Label>
+              <Textarea
+                id="payout-reject-reason"
+                placeholder="State the reason for breach..."
+                value={payoutRejectReason}
+                onChange={(e) => setPayoutRejectReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPayoutRejectTarget(null); setPayoutRejectReason(""); }} disabled={payoutRejecting}>Cancel</Button>
+            <Button variant="destructive" onClick={submitPayoutReject} disabled={payoutRejecting || !payoutRejectReason.trim()}>{payoutRejecting ? "Rejecting…" : "Reject Payout"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
