@@ -28,6 +28,7 @@ import { Route as ApiSendEmailRouteImport } from './routes/api.send-email'
 import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
 import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-new-purchase'
 import { Route as ApiInitializePaymentRouteImport } from './routes/api.initialize-payment'
+import { Route as ApiExchangeRateRouteImport } from './routes/api.exchange-rate'
 import { Route as ApiDeliverAccountRouteImport } from './routes/api.deliver-account'
 import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
@@ -40,11 +41,13 @@ import { Route as AdminAdminRouteImport } from './routes/_admin/admin'
 import { Route as AuthenticatedCommunityIndexRouteImport } from './routes/_authenticated/community.index'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin.index'
 import { Route as ApiPublicPushEventRouteImport } from './routes/api.public.push-event'
+import { Route as ApiAdminSetExchangeRateRouteImport } from './routes/api.admin.set-exchange-rate'
 import { Route as ApiAdminPoolRouteImport } from './routes/api.admin.pool'
 import { Route as ApiAdminDeleteRequestRouteImport } from './routes/api.admin.delete-request'
 import { Route as AuthenticatedCommunitySlugRouteImport } from './routes/_authenticated/community.$slug'
 import { Route as AdminAdminTicketsRouteImport } from './routes/_admin/admin.tickets'
 import { Route as AdminAdminSocialRouteImport } from './routes/_admin/admin.social'
+import { Route as AdminAdminSettingsRouteImport } from './routes/_admin/admin.settings'
 import { Route as AdminAdminPoolRouteImport } from './routes/_admin/admin.pool'
 import { Route as AdminAdminPendingRouteImport } from './routes/_admin/admin.pending'
 import { Route as AdminAdminPayoutsRouteImport } from './routes/_admin/admin.payouts'
@@ -153,6 +156,11 @@ const ApiInitializePaymentRoute = ApiInitializePaymentRouteImport.update({
   path: '/api/initialize-payment',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExchangeRateRoute = ApiExchangeRateRouteImport.update({
+  id: '/api/exchange-rate',
+  path: '/api/exchange-rate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDeliverAccountRoute = ApiDeliverAccountRouteImport.update({
   id: '/api/deliver-account',
   path: '/api/deliver-account',
@@ -214,6 +222,11 @@ const ApiPublicPushEventRoute = ApiPublicPushEventRouteImport.update({
   path: '/api/public/push-event',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminSetExchangeRateRoute = ApiAdminSetExchangeRateRouteImport.update({
+  id: '/api/admin/set-exchange-rate',
+  path: '/api/admin/set-exchange-rate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminPoolRoute = ApiAdminPoolRouteImport.update({
   id: '/api/admin/pool',
   path: '/api/admin/pool',
@@ -238,6 +251,11 @@ const AdminAdminTicketsRoute = AdminAdminTicketsRouteImport.update({
 const AdminAdminSocialRoute = AdminAdminSocialRouteImport.update({
   id: '/social',
   path: '/social',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminSettingsRoute = AdminAdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AdminAdminRoute,
 } as any)
 const AdminAdminPoolRoute = AdminAdminPoolRouteImport.update({
@@ -331,6 +349,7 @@ export interface FileRoutesByFullPath {
   '/stats': typeof AuthenticatedStatsRoute
   '/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/exchange-rate': typeof ApiExchangeRateRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
@@ -351,11 +370,13 @@ export interface FileRoutesByFullPath {
   '/admin/payouts': typeof AdminAdminPayoutsRoute
   '/admin/pending': typeof AdminAdminPendingRoute
   '/admin/pool': typeof AdminAdminPoolRoute
+  '/admin/settings': typeof AdminAdminSettingsRoute
   '/admin/social': typeof AdminAdminSocialRoute
   '/admin/tickets': typeof AdminAdminTicketsRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
+  '/api/admin/set-exchange-rate': typeof ApiAdminSetExchangeRateRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/admin/': typeof AdminAdminIndexRoute
   '/community/': typeof AuthenticatedCommunityIndexRoute
@@ -379,6 +400,7 @@ export interface FileRoutesByTo {
   '/stats': typeof AuthenticatedStatsRoute
   '/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/exchange-rate': typeof ApiExchangeRateRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
@@ -399,11 +421,13 @@ export interface FileRoutesByTo {
   '/admin/payouts': typeof AdminAdminPayoutsRoute
   '/admin/pending': typeof AdminAdminPendingRoute
   '/admin/pool': typeof AdminAdminPoolRoute
+  '/admin/settings': typeof AdminAdminSettingsRoute
   '/admin/social': typeof AdminAdminSocialRoute
   '/admin/tickets': typeof AdminAdminTicketsRoute
   '/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
+  '/api/admin/set-exchange-rate': typeof ApiAdminSetExchangeRateRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/admin': typeof AdminAdminIndexRoute
   '/community': typeof AuthenticatedCommunityIndexRoute
@@ -432,6 +456,7 @@ export interface FileRoutesById {
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/api/deliver-account': typeof ApiDeliverAccountRoute
+  '/api/exchange-rate': typeof ApiExchangeRateRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
@@ -452,11 +477,13 @@ export interface FileRoutesById {
   '/_admin/admin/payouts': typeof AdminAdminPayoutsRoute
   '/_admin/admin/pending': typeof AdminAdminPendingRoute
   '/_admin/admin/pool': typeof AdminAdminPoolRoute
+  '/_admin/admin/settings': typeof AdminAdminSettingsRoute
   '/_admin/admin/social': typeof AdminAdminSocialRoute
   '/_admin/admin/tickets': typeof AdminAdminTicketsRoute
   '/_authenticated/community/$slug': typeof AuthenticatedCommunitySlugRoute
   '/api/admin/delete-request': typeof ApiAdminDeleteRequestRoute
   '/api/admin/pool': typeof ApiAdminPoolRoute
+  '/api/admin/set-exchange-rate': typeof ApiAdminSetExchangeRateRoute
   '/api/public/push-event': typeof ApiPublicPushEventRoute
   '/_admin/admin/': typeof AdminAdminIndexRoute
   '/_authenticated/community/': typeof AuthenticatedCommunityIndexRoute
@@ -484,6 +511,7 @@ export interface FileRouteTypes {
     | '/stats'
     | '/support'
     | '/api/deliver-account'
+    | '/api/exchange-rate'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
@@ -504,11 +532,13 @@ export interface FileRouteTypes {
     | '/admin/payouts'
     | '/admin/pending'
     | '/admin/pool'
+    | '/admin/settings'
     | '/admin/social'
     | '/admin/tickets'
     | '/community/$slug'
     | '/api/admin/delete-request'
     | '/api/admin/pool'
+    | '/api/admin/set-exchange-rate'
     | '/api/public/push-event'
     | '/admin/'
     | '/community/'
@@ -532,6 +562,7 @@ export interface FileRouteTypes {
     | '/stats'
     | '/support'
     | '/api/deliver-account'
+    | '/api/exchange-rate'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
@@ -552,11 +583,13 @@ export interface FileRouteTypes {
     | '/admin/payouts'
     | '/admin/pending'
     | '/admin/pool'
+    | '/admin/settings'
     | '/admin/social'
     | '/admin/tickets'
     | '/community/$slug'
     | '/api/admin/delete-request'
     | '/api/admin/pool'
+    | '/api/admin/set-exchange-rate'
     | '/api/public/push-event'
     | '/admin'
     | '/community'
@@ -584,6 +617,7 @@ export interface FileRouteTypes {
     | '/_authenticated/stats'
     | '/_authenticated/support'
     | '/api/deliver-account'
+    | '/api/exchange-rate'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
     | '/api/provision-account'
@@ -604,11 +638,13 @@ export interface FileRouteTypes {
     | '/_admin/admin/payouts'
     | '/_admin/admin/pending'
     | '/_admin/admin/pool'
+    | '/_admin/admin/settings'
     | '/_admin/admin/social'
     | '/_admin/admin/tickets'
     | '/_authenticated/community/$slug'
     | '/api/admin/delete-request'
     | '/api/admin/pool'
+    | '/api/admin/set-exchange-rate'
     | '/api/public/push-event'
     | '/_admin/admin/'
     | '/_authenticated/community/'
@@ -629,6 +665,7 @@ export interface RootRouteChildren {
   DiscordRoute: typeof DiscordRoute
   RulesRoute: typeof RulesRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
+  ApiExchangeRateRoute: typeof ApiExchangeRateRoute
   ApiInitializePaymentRoute: typeof ApiInitializePaymentRoute
   ApiNotifyNewPurchaseRoute: typeof ApiNotifyNewPurchaseRoute
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
@@ -643,6 +680,7 @@ export interface RootRouteChildren {
   PaymentCallbackRoute: typeof PaymentCallbackRoute
   ApiAdminDeleteRequestRoute: typeof ApiAdminDeleteRequestRoute
   ApiAdminPoolRoute: typeof ApiAdminPoolRoute
+  ApiAdminSetExchangeRateRoute: typeof ApiAdminSetExchangeRateRoute
   ApiPublicPushEventRoute: typeof ApiPublicPushEventRoute
   ApiPublicCronHandleNewsViolationRoute: typeof ApiPublicCronHandleNewsViolationRoute
   ApiPublicCronHandleScalpingRoute: typeof ApiPublicCronHandleScalpingRoute
@@ -787,6 +825,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInitializePaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/exchange-rate': {
+      id: '/api/exchange-rate'
+      path: '/api/exchange-rate'
+      fullPath: '/api/exchange-rate'
+      preLoaderRoute: typeof ApiExchangeRateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/deliver-account': {
       id: '/api/deliver-account'
       path: '/api/deliver-account'
@@ -871,6 +916,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPushEventRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/set-exchange-rate': {
+      id: '/api/admin/set-exchange-rate'
+      path: '/api/admin/set-exchange-rate'
+      fullPath: '/api/admin/set-exchange-rate'
+      preLoaderRoute: typeof ApiAdminSetExchangeRateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/pool': {
       id: '/api/admin/pool'
       path: '/api/admin/pool'
@@ -904,6 +956,13 @@ declare module '@tanstack/react-router' {
       path: '/social'
       fullPath: '/admin/social'
       preLoaderRoute: typeof AdminAdminSocialRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/_admin/admin/settings': {
+      id: '/_admin/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminAdminSettingsRouteImport
       parentRoute: typeof AdminAdminRoute
     }
     '/_admin/admin/pool': {
@@ -1016,6 +1075,7 @@ interface AdminAdminRouteChildren {
   AdminAdminPayoutsRoute: typeof AdminAdminPayoutsRoute
   AdminAdminPendingRoute: typeof AdminAdminPendingRoute
   AdminAdminPoolRoute: typeof AdminAdminPoolRoute
+  AdminAdminSettingsRoute: typeof AdminAdminSettingsRoute
   AdminAdminSocialRoute: typeof AdminAdminSocialRoute
   AdminAdminTicketsRoute: typeof AdminAdminTicketsRoute
   AdminAdminIndexRoute: typeof AdminAdminIndexRoute
@@ -1030,6 +1090,7 @@ const AdminAdminRouteChildren: AdminAdminRouteChildren = {
   AdminAdminPayoutsRoute: AdminAdminPayoutsRoute,
   AdminAdminPendingRoute: AdminAdminPendingRoute,
   AdminAdminPoolRoute: AdminAdminPoolRoute,
+  AdminAdminSettingsRoute: AdminAdminSettingsRoute,
   AdminAdminSocialRoute: AdminAdminSocialRoute,
   AdminAdminTicketsRoute: AdminAdminTicketsRoute,
   AdminAdminIndexRoute: AdminAdminIndexRoute,
@@ -1098,6 +1159,7 @@ const rootRouteChildren: RootRouteChildren = {
   DiscordRoute: DiscordRoute,
   RulesRoute: RulesRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
+  ApiExchangeRateRoute: ApiExchangeRateRoute,
   ApiInitializePaymentRoute: ApiInitializePaymentRoute,
   ApiNotifyNewPurchaseRoute: ApiNotifyNewPurchaseRoute,
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
@@ -1112,6 +1174,7 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentCallbackRoute: PaymentCallbackRoute,
   ApiAdminDeleteRequestRoute: ApiAdminDeleteRequestRoute,
   ApiAdminPoolRoute: ApiAdminPoolRoute,
+  ApiAdminSetExchangeRateRoute: ApiAdminSetExchangeRateRoute,
   ApiPublicPushEventRoute: ApiPublicPushEventRoute,
   ApiPublicCronHandleNewsViolationRoute: ApiPublicCronHandleNewsViolationRoute,
   ApiPublicCronHandleScalpingRoute: ApiPublicCronHandleScalpingRoute,

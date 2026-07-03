@@ -180,11 +180,9 @@ function BuyPage() {
 
   const handleSizeSelect = (size: number) => {
     setSelectedSize(size);
-    if (currency === "NGN") {
-      const match = visibleChallenges.find((c) => Number(c.account_size) === size);
-      if (match) setSelected(match);
-      setError("");
-    }
+    setError("");
+    const match = visibleChallenges.find((c) => Number(c.account_size) === size);
+    if (match) setSelected(match);
   };
 
   const handleGetFunded = () => {
@@ -193,7 +191,6 @@ function BuyPage() {
       navigate({ to: "/auth/register" });
       return;
     }
-    setSelected(currency === "NGN" ? selected : null);
     setError("");
     setAgreed(false);
     setConfirmOpen(true);
@@ -263,8 +260,23 @@ function BuyPage() {
   const discountAmount = selected ? Math.floor(Number(selected.price_naira) * discountPercent / 100) : 0;
   const payable = selected ? Math.max(0, Number(selected.price_naira) - discountAmount) : 0;
 
+  const findUsdChallenge = async (size: number): Promise<string | null> => {
+    try {
+      const { data } = await supabase
+        .from("challenges")
+        .select("id")
+        .eq("currency", "USD")
+        .eq("account_size", size)
+        .eq("is_active", true)
+        .maybeSingle();
+      return data?.id ?? null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleBuy = async () => {
-    if (!selected) return;
+    if (!selected && currency !== "USD") return;
     if (!user?.email) {
       setError("You need to be signed in with an email.");
       return;
@@ -278,8 +290,15 @@ function BuyPage() {
     setError("");
 
     try {
-      // Initialize the transaction server-side and redirect to Paystack's
-      // hosted checkout page. After payment, Paystack redirects the user to
+      // For USD we need a challenge_id — find one from the DB or show error
+      const challengeId = selected?.id || (currency === "USD" ? await findUsdChallenge(selectedSize!) : null);
+      if (!challengeId) {
+        setLoading(false);
+        setError("USD challenge not available. Please contact support.");
+        return;
+      }
+      // Initialize the transaction server-side and redirect to Squad's
+      // hosted checkout page. After payment, Squad redirects the user to
       // /payment/callback, which calls /api/verify-payment to finalize.
       const res = await fetch("/api/initialize-payment", {
         method: "POST",
@@ -287,7 +306,7 @@ function BuyPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-          body: JSON.stringify({ challenge_id: selected.id, discount_code: promoDiscount?.code, partner_promo_code: partnerCode, currency, exchange_rate: exchangeRate }),
+          body: JSON.stringify({ challenge_id: challengeId, discount_code: promoDiscount?.code, partner_promo_code: partnerCode, currency, exchange_rate: exchangeRate }),
       });
       const result = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -677,6 +696,7 @@ function BuyPage() {
                   </DialogDescription>
                 </DialogHeader>
 
+                {selected !== null && (
                 <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
                   {(currency === "USD"
                     ? [
@@ -691,17 +711,17 @@ function BuyPage() {
                       ]
                     : selected?.challenge_type === "instant"
                       ? [
-                          { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
-                          { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
-                          { icon: AlertTriangle, label: "Daily drawdown", value: `${selected.max_daily_drawdown_percent ?? 5}%` },
-                          { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
+                          { icon: ShieldCheck, label: "Profit target", value: `${selected?.profit_target_percent ?? 0}%` },
+                          { icon: Zap, label: "Max total drawdown", value: `${selected?.max_drawdown_percent ?? 0}%` },
+                          { icon: AlertTriangle, label: "Daily drawdown", value: `${selected?.max_daily_drawdown_percent ?? 5}%` },
+                          { icon: Clock, label: "Trading window", value: `5 – ${selected?.max_trading_days ?? 45} days` },
                           { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
                           { icon: Wallet, label: "Profit split", value: "80%" },
                         ]
                       : [
-                          { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
-                          { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
-                          { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
+                          { icon: ShieldCheck, label: "Profit target / phase", value: `${selected?.profit_target_percent ?? 0}%` },
+                          { icon: Zap, label: "Max drawdown", value: `${selected?.max_drawdown_percent ?? 0}%` },
+                          { icon: Layers, label: "Phases to funded", value: `${selected?.phases ?? 2}` },
                           { icon: Clock, label: "Min trading days", value: `${selected?.min_trading_days ?? 3}` },
                           { icon: Wallet, label: "Profit split", value: "80%" },
                           { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
@@ -715,6 +735,7 @@ function BuyPage() {
                     </div>
                   ))}
                 </div>
+                )}
 
                 <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
                   <span className="font-display block font-semibold text-warning">Rules reminder</span>
