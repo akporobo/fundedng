@@ -41,9 +41,11 @@ function useAdminDataHook() {
   const [partnerSaving, setPartnerSaving] = useState<string | null>(null);
   const [newPartnerEmail, setNewPartnerEmail] = useState("");
   const [newPartnerRate, setNewPartnerRate] = useState("20");
+  const [newPartnerChallengeId, setNewPartnerChallengeId] = useState("");
   const [addingPartner, setAddingPartner] = useState(false);
   const [editingPartner, setEditingPartner] = useState<any | null>(null);
   const [editRateValue, setEditRateValue] = useState("");
+  const [editChallengeId, setEditChallengeId] = useState("");
   const [partnerFreeAccounts, setPartnerFreeAccounts] = useState<any[]>([]);
   const [deliverClaimFor, setDeliverClaimFor] = useState<any | null>(null);
   const [claimForm, setClaimForm] = useState({ login: "", password: "", investor: "", server: "" });
@@ -493,13 +495,16 @@ function useAdminDataHook() {
       const [pRes, payRes, freeRes] = await Promise.all([
         supabase.from("partner_profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("partner_payouts").select("*").order("requested_at", { ascending: false }),
-        (supabase as any).from("partner_free_accounts").select("*, challenges(name, account_size, profit_target_percent, max_drawdown_percent, phases)").order("requested_at", { ascending: false }),
+        (supabase as any).from("partner_free_accounts").select("*, challenges(name, account_size, profit_target_percent, max_drawdown_percent, phases, currency)").order("requested_at", { ascending: false }),
       ]);
       const partnerRows = (pRes.data ?? []) as any[]; const payRows = (payRes.data ?? []) as any[]; const freeRows = (freeRes.data ?? []) as any[];
       const userIds = Array.from(new Set([...partnerRows.map((r) => r.user_id), ...payRows.map((r) => r.partner_id), ...freeRows.map((r) => r.partner_id)]));
+      const challengeIds = Array.from(new Set(partnerRows.map((r) => r.free_account_challenge_id).filter(Boolean)));
       const profMap = new Map<string, any>();
       if (userIds.length) { const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", userIds); (profs ?? []).forEach((p: any) => profMap.set(p.id, p)); }
-      setPartners(partnerRows.map((r: any) => ({ ...r, profiles: profMap.get(r.user_id) ?? null })));
+      const chMap = new Map<string, any>();
+      if (challengeIds.length) { const { data: chs } = await supabase.from("challenges").select("id, name, account_size, currency").in("id", challengeIds); (chs ?? []).forEach((c: any) => chMap.set(c.id, c)); }
+      setPartners(partnerRows.map((r: any) => ({ ...r, profiles: profMap.get(r.user_id) ?? null, free_challenge: r.free_account_challenge_id ? (chMap.get(r.free_account_challenge_id) ?? null) : null })));
       setPartnerPayouts(payRows.map((r: any) => ({ ...r, profiles: profMap.get(r.partner_id) ?? null })));
       setPartnerFreeAccounts(freeRows.map((r: any) => ({ ...r, profiles: profMap.get(r.partner_id) ?? null })));
     })();
@@ -532,10 +537,14 @@ function useAdminDataHook() {
     if (!email) return toast.error("Email is required");
     if (!Number.isFinite(rate) || rate < 0 || rate > 100) return toast.error("Commission must be 0-100");
     setAddingPartner(true);
-    const { error } = await supabase.rpc("assign_partner_role", { _email: email, _commission_rate: rate });
+    const { data: userId, error } = await supabase.rpc("assign_partner_role", { _email: email, _commission_rate: rate });
+    if (error) { setAddingPartner(false); return toast.error(error.message); }
+    const challengeVal = newPartnerChallengeId === "__none__" ? null : newPartnerChallengeId;
+    if (userId) {
+      await supabase.from("partner_profiles").update({ free_account_challenge_id: challengeVal || null } as never).eq("user_id", userId);
+    }
     setAddingPartner(false);
-    if (error) return toast.error(error.message);
-    toast.success("Partner added"); setNewPartnerEmail(""); setNewPartnerRate("20"); loadPartners();
+    toast.success("Partner added"); setNewPartnerEmail(""); setNewPartnerRate("20"); setNewPartnerChallengeId(""); loadChallenges(); loadPartners();
   };
 
   const saveCommissionRate = async () => {
@@ -543,9 +552,13 @@ function useAdminDataHook() {
     const rate = Number(editRateValue);
     if (!Number.isFinite(rate) || rate < 0 || rate > 100) return toast.error("Commission must be 0-100");
     setPartnerSaving(editingPartner.id);
-    const { error } = await supabase.from("partner_profiles").update({ commission_rate: rate } as never).eq("id", editingPartner.id);
+    const updates: any = { commission_rate: rate };
+    if (editChallengeId !== editingPartner.free_account_challenge_id) {
+      updates.free_account_challenge_id = editChallengeId || null;
+    }
+    const { error } = await supabase.from("partner_profiles").update(updates as never).eq("id", editingPartner.id);
     setPartnerSaving(null);
-    if (error) return toast.error(error.message); toast.success("Commission rate updated"); setEditingPartner(null); loadPartners();
+    if (error) return toast.error(error.message); toast.success("Partner updated"); setEditingPartner(null); loadPartners();
   };
 
   const togglePartnerActive = async (p: any) => {
@@ -578,12 +591,14 @@ function useAdminDataHook() {
     setDeliveringPartnerFree(true);
     const challengeId = deliverPartnerFreeFor.challenge_id;
     if (!challengeId) { setDeliveringPartnerFree(false); return toast.error("No challenge linked to this request."); }
+    const accountSize = Number(deliverPartnerFreeFor.challenges?.account_size ?? deliverPartnerFreeFor.account_size ?? 1000000);
     const { error } = await (supabase as any).from("partner_free_accounts").update({ status: "fulfilled", mt5_login: partnerFreeForm.login.trim(), mt5_password: partnerFreeForm.password.trim(), investor_password: partnerFreeForm.investor.trim() || null, mt5_server: partnerFreeForm.server.trim(), fulfilled_at: new Date().toISOString() }).eq("id", deliverPartnerFreeFor.id);
     if (error) { setDeliveringPartnerFree(false); return toast.error(error.message); }
-    const { error: taError } = await (supabase as any).from("trader_accounts").insert({ user_id: deliverPartnerFreeFor.partner_id, challenge_id, order_id: null, mt5_login: partnerFreeForm.login.trim(), mt5_password: partnerFreeForm.password.trim(), investor_password: partnerFreeForm.investor.trim() || null, mt5_server: partnerFreeForm.server.trim(), starting_balance: 1000000, current_equity: 1000000, current_phase: 1, status: "active" });
+    const { error: taError } = await (supabase as any).from("trader_accounts").insert({ user_id: deliverPartnerFreeFor.partner_id, challenge_id, order_id: null, mt5_login: partnerFreeForm.login.trim(), mt5_password: partnerFreeForm.password.trim(), investor_password: partnerFreeForm.investor.trim() || null, mt5_server: partnerFreeForm.server.trim(), starting_balance: accountSize, current_equity: accountSize, current_phase: 1, status: "active" });
     setDeliveringPartnerFree(false);
     if (taError) return toast.error(taError.message);
-    toast.success(`Delivered 1M Elite partner account: login ${partnerFreeForm.login}`); setDeliverPartnerFreeFor(null); load(); loadPartners();
+    const chName = deliverPartnerFreeFor.challenges?.name ?? "Partner";
+    toast.success(`Delivered ${chName} partner account: login ${partnerFreeForm.login}`); setDeliverPartnerFreeFor(null); load(); loadPartners();
   };
 
   const saveDiscountCode = async () => {
@@ -655,9 +670,9 @@ function useAdminDataHook() {
     affPayouts, freeClaims, affSaving, affiliateStats, affiliateSummary,
     setAffPayoutStatus, setFreeClaimStatus, openDeliverClaim, submitDeliverClaim,
     deliverClaimFor, claimForm, deliveringClaim, setDeliverClaimFor, setClaimForm,
-    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, addingPartner,
-    editingPartner, editRateValue, partnerFreeAccounts, setEditingPartner, setEditRateValue,
-    setNewPartnerEmail, setNewPartnerRate, addPartner, saveCommissionRate, togglePartnerActive, deletePartner,
+    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, newPartnerChallengeId, addingPartner,
+    editingPartner, editRateValue, editChallengeId, partnerFreeAccounts, setEditingPartner, setEditRateValue,
+    setEditChallengeId, setNewPartnerEmail, setNewPartnerRate, setNewPartnerChallengeId, addPartner, saveCommissionRate, togglePartnerActive, deletePartner,
     setPartnerPayoutStatus, deliverPartnerFreeFor, partnerFreeForm, deliveringPartnerFree,
     setDeliverPartnerFreeFor, setPartnerFreeForm, openDeliverPartnerFree, submitDeliverPartnerFree,
     discountCodes, discountForm, discountSaving, setDiscountForm, saveDiscountCode, toggleDiscountActive,

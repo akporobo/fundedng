@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatNaira } from "@/lib/utils";
+import { formatNaira, formatUSD } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_admin/admin/partners")({
   component: PartnersPage,
@@ -15,12 +16,12 @@ export const Route = createFileRoute("/_admin/admin/partners")({
 
 function PartnersPage() {
   const {
-    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, addingPartner,
-    editingPartner, editRateValue, partnerFreeAccounts, deliverPartnerFreeFor, partnerFreeForm, deliveringPartnerFree,
-    setEditingPartner, setEditRateValue, setNewPartnerEmail, setNewPartnerRate,
+    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, newPartnerChallengeId, addingPartner,
+    editingPartner, editRateValue, editChallengeId, partnerFreeAccounts, deliverPartnerFreeFor, partnerFreeForm, deliveringPartnerFree,
+    setEditingPartner, setEditRateValue, setEditChallengeId, setNewPartnerEmail, setNewPartnerRate, setNewPartnerChallengeId,
     addPartner, saveCommissionRate, togglePartnerActive, deletePartner, setPartnerPayoutStatus,
     setDeliverPartnerFreeFor, setPartnerFreeForm, openDeliverPartnerFree, submitDeliverPartnerFree,
-    loadPartners,
+    challengeList, loadPartners,
   } = useAdminData();
 
   return (
@@ -31,9 +32,18 @@ function PartnersPage() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="font-display text-base font-bold">Assign Partner Role</div>
         <p className="mt-1 text-xs text-muted-foreground">Enter the user's email and commission rate. Promo code is auto-generated from their name.</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,140px,auto]">
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,140px,200px,auto]">
           <Input placeholder="user@example.com" value={newPartnerEmail} onChange={(e) => setNewPartnerEmail(e.target.value)} />
           <Input type="number" min={0} max={100} step={0.5} placeholder="Rate %" value={newPartnerRate} onChange={(e) => setNewPartnerRate(e.target.value)} />
+          <Select value={newPartnerChallengeId} onValueChange={setNewPartnerChallengeId}>
+            <SelectTrigger><SelectValue placeholder="Free account" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">No free account</SelectItem>
+              {challengeList.filter((c: any) => c.is_active).map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>{c.name} ({(c.currency === "USD" ? formatUSD : formatNaira)(c.account_size)})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button onClick={addPartner} disabled={addingPartner}>{addingPartner ? "Adding…" : "Add Partner"}</Button>
         </div>
       </div>
@@ -60,9 +70,12 @@ function PartnersPage() {
                         Available: <span className="font-bold text-foreground">{formatNaira(balance)}</span>
                         {pendingForThis > 0 && <span className="ml-2 rounded-full bg-warning/20 px-2 py-0.5 text-[10px] text-warning">{pendingForThis} pending payout</span>}
                       </div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground/70">
+                        Free account: {p.free_challenge ? <span className="font-medium text-foreground/80">{p.free_challenge.name} ({(p.free_challenge.currency === "USD" ? formatUSD : formatNaira)(p.free_challenge.account_size)})</span> : <span className="italic">None</span>}
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => { setEditingPartner(p); setEditRateValue(String(p.commission_rate)); }}>Edit Rate</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingPartner(p); setEditRateValue(String(p.commission_rate)); setEditChallengeId(p.free_account_challenge_id ?? ""); }}>Edit</Button>
                       <Button size="sm" variant={p.is_active ? "outline" : "default"} onClick={() => togglePartnerActive(p)} disabled={partnerSaving === p.id}>{p.is_active ? "Deactivate" : "Activate"}</Button>
                       <Button size="sm" variant="destructive" onClick={() => deletePartner(p)} disabled={partnerSaving === p.id}>Delete</Button>
                     </div>
@@ -76,7 +89,7 @@ function PartnersPage() {
 
       {/* Partner free-account requests */}
       <div>
-        <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Partner Free 1M Account Requests</div>
+        <div className="font-display mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Partner Free Account Requests</div>
         {partnerFreeAccounts.length === 0 ? (
           <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">No partner free-account requests yet.</div>
         ) : (
@@ -86,7 +99,7 @@ function PartnersPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold">{c.profiles?.full_name ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground">Free ₦1,000,000 Elite Challenge · Requested {new Date(c.requested_at).toLocaleString()}{c.mt5_login && <> · Login <span className="font-mono">{c.mt5_login}</span></>}</div>
+                    <div className="text-xs text-muted-foreground">Free {c.challenges ? <>{c.challenges.name} ({(c.challenges.currency === "USD" ? formatUSD : formatNaira)(c.challenges.account_size)})</> : <>{c.challenge_name ?? "Challenge"} ({formatNaira(c.account_size)})</>} · Requested {new Date(c.requested_at).toLocaleString()}{c.mt5_login && <> · Login <span className="font-mono">{c.mt5_login}</span></>}</div>
                   </div>
                   <Badge variant="outline" className="capitalize">{c.status}</Badge>
                 </div>
@@ -144,15 +157,29 @@ function PartnersPage() {
       </div>
 
       {/* Edit partner commission rate dialog */}
-      <Dialog open={!!editingPartner} onOpenChange={(o) => !o && setEditingPartner(null)}>
+      <Dialog open={!!editingPartner} onOpenChange={(o) => { if (!o) setEditingPartner(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Commission Rate</DialogTitle>
+            <DialogTitle>Edit Partner</DialogTitle>
             <DialogDescription>{editingPartner?.profiles?.full_name} · {editingPartner?.promo_code}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="edit-rate">Commission %</Label>
-            <Input id="edit-rate" type="number" min={0} max={100} step={0.5} value={editRateValue} onChange={(e) => setEditRateValue(e.target.value)} />
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-rate">Commission %</Label>
+              <Input id="edit-rate" type="number" min={0} max={100} step={0.5} value={editRateValue} onChange={(e) => setEditRateValue(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Free Account Challenge</Label>
+              <Select value={editChallengeId || "__none__"} onValueChange={(v) => setEditChallengeId(v === "__none__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select free account" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No free account</SelectItem>
+                  {challengeList.filter((c: any) => c.is_active).map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name} ({(c.currency === "USD" ? formatUSD : formatNaira)(c.account_size)})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingPartner(null)}>Cancel</Button>
@@ -165,8 +192,8 @@ function PartnersPage() {
       <Dialog open={!!deliverPartnerFreeFor} onOpenChange={(o) => !o && setDeliverPartnerFreeFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Deliver free 1M Elite partner account</DialogTitle>
-            <DialogDescription>{deliverPartnerFreeFor && <>Partner: <span className="font-medium">{deliverPartnerFreeFor.profiles?.full_name ?? "—"}</span> · Free ₦1,000,000 Elite Challenge</>}</DialogDescription>
+            <DialogTitle>Deliver free partner account</DialogTitle>
+            <DialogDescription>{deliverPartnerFreeFor && <>Partner: <span className="font-medium">{deliverPartnerFreeFor.profiles?.full_name ?? "—"}</span> · Free {(() => { const ch = deliverPartnerFreeFor.challenges; return ch ? <>{ch.name} ({(ch.currency === "USD" ? formatUSD : formatNaira)(ch.account_size)})</> : <>{(deliverPartnerFreeFor as any).challenge_name ?? "Challenge"} ({(deliverPartnerFreeFor as any).account_size ? formatNaira((deliverPartnerFreeFor as any).account_size) : "—"})</> })}</>}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
             <div className="grid gap-1.5"><Label htmlFor="partner-free-login">MT5 Login</Label><Input id="partner-free-login" value={partnerFreeForm.login} onChange={(e) => setPartnerFreeForm({ ...partnerFreeForm, login: e.target.value })} placeholder="e.g. 12345678" /></div>

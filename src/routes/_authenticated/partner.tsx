@@ -24,6 +24,7 @@ interface PartnerProfile {
   total_earned_naira: number;
   total_paid_naira: number;
   is_active: boolean;
+  free_account_challenge_id: string | null;
 }
 interface Referral { id: string; referred_user_id: string; commission_amount_naira: number; amount_paid_naira: number; order_id: string | null; created_at: string; }
 interface Payout { id: string; amount_naira: number; status: string; requested_at: string; admin_note: string | null; }
@@ -36,6 +37,7 @@ function PartnerPage() {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [freeAccounts, setFreeAccounts] = useState<FreeAccount[]>([]);
+  const [freeChallenge, setFreeChallenge] = useState<any | null>(null);
   const [clicks, setClicks] = useState(0);
   const [signups, setSignups] = useState(0);
   const [buyerEmails, setBuyerEmails] = useState<Record<string, string>>({});
@@ -56,15 +58,16 @@ function PartnerPage() {
   const load = async () => {
     if (!user) return;
     const [profRes, refRes, payRes, clickRes, signupRes, freeRes] = await Promise.all([
-      supabase.from("partner_profiles").select("promo_code,commission_rate,total_earned_naira,total_paid_naira,is_active").eq("user_id", user.id).maybeSingle(),
+      supabase.from("partner_profiles").select("promo_code,commission_rate,total_earned_naira,total_paid_naira,is_active,free_account_challenge_id").eq("user_id", user.id).maybeSingle(),
       supabase.from("partner_referrals").select("*").eq("partner_id", user.id).order("created_at", { ascending: false }),
       supabase.from("partner_payouts").select("*").eq("partner_id", user.id).order("requested_at", { ascending: false }),
       supabase.from("partner_clicks").select("*", { count: "exact", head: true }).eq("partner_id", user.id),
       supabase.from("profiles").select("*", { count: "exact", head: true }).eq("partner_referred_by", user.id),
-      (supabase as any).from("partner_free_accounts").select("*").eq("partner_id", user.id).order("requested_at", { ascending: false }),
+      (supabase as any).from("partner_free_accounts").select("*, challenges(name, account_size, currency)").eq("partner_id", user.id).order("requested_at", { ascending: false }),
     ]);
     const refList = (refRes.data as Referral[]) ?? [];
-    setPp((profRes.data as PartnerProfile | null) ?? null);
+    const partnerData = (profRes.data as PartnerProfile | null) ?? null;
+    setPp(partnerData);
     setReferrals(refList);
     const list = (payRes.data as Payout[]) ?? [];
     setPayouts(list);
@@ -72,6 +75,12 @@ function PartnerPage() {
     setFreeAccounts((freeRes.data as FreeAccount[]) ?? []);
     setClicks(clickRes.count ?? 0);
     setSignups(signupRes.count ?? 0);
+    if (partnerData?.free_account_challenge_id) {
+      const { data: ch } = await supabase.from("challenges").select("id, name, account_size, currency").eq("id", partnerData.free_account_challenge_id).maybeSingle();
+      setFreeChallenge(ch ?? null);
+    } else {
+      setFreeChallenge(null);
+    }
 
     const { data: sess } = await supabase.auth.getSession();
     if (sess.session && refList.length > 0) {
@@ -158,12 +167,12 @@ function PartnerPage() {
   const purchases = referrals.length;
 
   const claimFreeAccount = async () => {
-    if (freeAccounts.length > 0) return toast.error("You've already requested your free 1M Elite partnership account.");
+    if (freeAccounts.length > 0) return toast.error("You've already requested your free partnership account.");
     setClaiming(true);
     const { error } = await supabase.rpc("claim_partner_free_account" as any);
     setClaiming(false);
     if (error) return toast.error(error.message);
-    toast.success("Free 1M Elite partnership account requested. Admin will deliver your MT5 credentials.");
+    toast.success("Free partnership account requested. Admin will deliver your MT5 credentials.");
     load();
   };
 
@@ -211,47 +220,51 @@ function PartnerPage() {
       </div>
 
       {/* One-time free partnership account */}
-      <div className="mt-6 rounded-2xl border border-gold/40 bg-gold/5 p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="font-display text-base font-bold">🎁 Free 1M Elite Partnership Account</div>
-            <p className="mt-1 text-sm text-muted-foreground">After 5 referral purchases, you unlock a free ₦1,000,000 Elite challenge account. You have <span className="font-semibold text-foreground">{purchases}/5</span> purchases.</p>
-          </div>
-          {freeAccounts.length === 0 ? (
-            purchases >= 5 ? (
-              <Button onClick={claimFreeAccount} disabled={claiming} className="font-display">
-                <Gift className="mr-1 h-4 w-4" />{claiming ? "Requesting..." : "Request 1M Account"}
-              </Button>
-            ) : (
-              <div className="text-right">
-                <Button disabled className="font-display opacity-50">
-                  <Gift className="mr-1 h-4 w-4" />Request 1M Account
+      {(freeChallenge || freeAccounts.length > 0) && (
+        <div className="mt-6 rounded-2xl border border-gold/40 bg-gold/5 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="font-display text-base font-bold">🎁 Free {freeChallenge?.name ?? "Partnership"} Account</div>
+              <p className="mt-1 text-sm text-muted-foreground">After 5 referral purchases, you unlock a free {freeChallenge ? <>{freeChallenge.name} ({(freeChallenge.currency === "USD" ? "$" : "₦")}{Number(freeChallenge.account_size).toLocaleString()})</> : "partnership"} challenge account. You have <span className="font-semibold text-foreground">{purchases}/5</span> purchases.</p>
+            </div>
+            {freeAccounts.length === 0 ? (
+              purchases >= 5 ? (
+                <Button onClick={claimFreeAccount} disabled={claiming} className="font-display">
+                  <Gift className="mr-1 h-4 w-4" />{claiming ? "Requesting..." : "Request Account"}
                 </Button>
-                <p className="mt-1 text-xs text-muted-foreground">{5 - purchases} more purchase(s) needed</p>
-              </div>
-            )
-          ) : (
-            <Badge variant="outline" className="capitalize">{freeAccounts[0].status}</Badge>
-          )}
-        </div>
-        {freeAccounts.length > 0 && (
-          <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
-            {freeAccounts[0].status === "fulfilled" && freeAccounts[0].mt5_login ? (
-              <div>
-                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">₦1,000,000 Elite Challenge</div>
-                <div className="grid gap-1 font-mono text-xs">
-                  <div>Login: <span className="font-bold text-foreground">{freeAccounts[0].mt5_login}</span></div>
-                  <div>Server: <span className="font-bold text-foreground">{freeAccounts[0].mt5_server}</span></div>
-                  <div>Password: <span className="font-bold text-foreground">{freeAccounts[0].mt5_password}</span></div>
-                  {freeAccounts[0].investor_password && <div>Investor pw: <span className="font-bold text-foreground">{freeAccounts[0].investor_password}</span></div>}
+              ) : (
+                <div className="text-right">
+                  <Button disabled className="font-display opacity-50">
+                    <Gift className="mr-1 h-4 w-4" />Request Account
+                  </Button>
+                  <p className="mt-1 text-xs text-muted-foreground">{5 - purchases} more purchase(s) needed</p>
                 </div>
-              </div>
+              )
             ) : (
-              <p className="text-xs text-muted-foreground">Your request for a free 1M Elite account is with admin. MT5 credentials will appear here after delivery.</p>
+              <Badge variant="outline" className="capitalize">{freeAccounts[0].status}</Badge>
             )}
           </div>
-        )}
-      </div>
+          {freeAccounts.length > 0 && (
+            <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm">
+              {freeAccounts[0].status === "fulfilled" && freeAccounts[0].mt5_login ? (
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {freeAccounts[0].challenges?.name ?? freeAccounts[0].challenge_name ?? "Challenge"} ({(freeAccounts[0].challenges?.currency === "USD" ? "$" : "₦")}{Number(freeAccounts[0].challenges?.account_size ?? freeAccounts[0].account_size).toLocaleString()})
+                  </div>
+                  <div className="grid gap-1 font-mono text-xs">
+                    <div>Login: <span className="font-bold text-foreground">{freeAccounts[0].mt5_login}</span></div>
+                    <div>Server: <span className="font-bold text-foreground">{freeAccounts[0].mt5_server}</span></div>
+                    <div>Password: <span className="font-bold text-foreground">{freeAccounts[0].mt5_password}</span></div>
+                    {freeAccounts[0].investor_password && <div>Investor pw: <span className="font-bold text-foreground">{freeAccounts[0].investor_password}</span></div>}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Your request for a free {freeAccounts[0]?.challenges?.name ?? freeAccounts[0]?.challenge_name ?? "partnership"} account is with admin. MT5 credentials will appear here after delivery.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KYC — Bank Account Verification */}
       <div className={`mt-6 rounded-2xl border p-6 ${kycVerified ? "border-primary/30 bg-primary/5" : "border-warning/40 bg-warning/5"}`}>
