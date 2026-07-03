@@ -3,7 +3,7 @@ import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { formatNaira } from "@/lib/utils";
+import { formatNaira, formatUSD } from "@/lib/utils";
 import { Building, Copy, Download } from "lucide-react";
 import { toast } from "sonner";
 import { generatePayoutCertificate } from "@/components/certificates/certificateGenerator";
@@ -70,7 +70,7 @@ function PayoutsPage() {
           <div className="flex flex-wrap items-start gap-4">
             <div className="flex-1 min-w-[200px]">
               <div className="font-semibold">{p.profiles?.full_name ?? "—"}</div>
-              <div className="text-xs text-muted-foreground">{p.trader_accounts?.mt5_login} · {p.payment_method}</div>
+              <div className="text-xs text-muted-foreground">{p.trader_accounts?.mt5_login} · {p.payment_method} {p.trader_accounts?.currency === "USD" && <Badge variant="outline" className="ml-1 border-blue-400/40 text-blue-500 text-[10px]">USD</Badge>}</div>
               {p.payment_method === "usdt" && p.wallet_address && (
                 <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground/70 break-all">
                   <span className="font-mono">{p.wallet_address}</span>

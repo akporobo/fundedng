@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { formatNaira, formatPercent } from "@/lib/utils";
+import { formatNaira, formatPercent, formatUSD, calculateBusinessDays, addBusinessDays } from "@/lib/utils";
 import { toast } from "sonner";
 import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock, Trash2, XCircle, AlertTriangle } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
@@ -45,7 +45,9 @@ interface Account {
   phase_rejected_at?: string | null;
   deleted_at?: string | null;
   trading_days?: number;
-      challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number; min_trading_days?: number; max_daily_drawdown_percent?: number | null };
+  currency?: string;
+  last_payout_date?: string | null;
+  challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number; min_trading_days?: number; max_daily_drawdown_percent?: number | null };
 }
 
 interface PartnerFreeAccount {
@@ -62,7 +64,7 @@ interface PartnerFreeAccount {
 interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; trader_account_id?: string; }
 interface Notification { id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; }
 
-function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
+function PayoutCountdown({ nextPayoutDate, businessDays = 7 }: { nextPayoutDate: Date; businessDays?: number }) {
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
@@ -82,7 +84,7 @@ function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
       </div>
       {isReady ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Your 7-day window is open. Request your payout now — processed within 24hrs of approval.
+          Your payout window is open. Request your payout now — processed within 24hrs of approval.
         </p>
       ) : (
         <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-3">
@@ -102,7 +104,7 @@ function PayoutCountdown({ nextPayoutDate }: { nextPayoutDate: Date }) {
         </div>
       )}
       <p className="mt-4 text-[11px] text-muted-foreground">
-        Payout rules: min 10% / max 50% per cycle · 80/20 split · first payout capped at 10% of the 50% cap · processed within 24hrs of approval
+        Payout rules: {businessDays === 10 ? "10 business days" : "7 calendar days"} between requests · 80/20 split · first payout capped at 10% · processed within 24hrs of approval
       </p>
     </div>
   );
@@ -722,22 +724,28 @@ function DashboardPage() {
                     </Alert>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                    {[
-                      { label: "Account Size", value: formatNaira(start) },
-                      { label: "Equity", value: formatNaira(equity), color: "text-primary" },
-                      { label: "P/L", value: formatNaira(equity - start), color: equity-start >= 0 ? "text-primary" : "text-destructive" },
-                      { label: "Drawdown Limit", value: formatNaira(Math.floor(peakEquity * (1 - maxDD / 100))), color: "text-red-500" },
-                      ...(maxDailyDD ? [{ label: "Daily DD Limit", value: `${maxDailyDD}%`, color: "text-red-500" }] : []),
-                       { label: "Phase", value: selected.status === "funded" ? "FUNDED" : `${selected.current_phase}/${selected.challenges?.phases ?? 2}`, color: "text-gold" },
-                      { label: "Status", value: <Badge className={`${statusVariant[selected.status]} font-display`}>{selected.status.toUpperCase()}</Badge> },
-                    ].map((m, i) => (
-                      <div key={i} className="rounded-xl border border-border bg-card p-5">
-                        <div className="text-xs text-muted-foreground">{m.label}</div>
-                        <div className={`font-display mt-2 text-lg font-bold ${m.color ?? ""}`}>{m.value}</div>
+                  {(() => {
+                    const isUSD = selected.currency === "USD";
+                    const fmt = isUSD ? formatUSD : formatNaira;
+                    return (
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                        {[
+                          { label: "Account Size", value: fmt(start) },
+                          { label: "Equity", value: fmt(equity), color: "text-primary" },
+                          { label: "P/L", value: fmt(equity - start), color: equity-start >= 0 ? "text-primary" : "text-destructive" },
+                          { label: "Drawdown Limit", value: fmt(Math.floor(peakEquity * (1 - maxDD / 100))), color: "text-red-500" },
+                          ...(maxDailyDD ? [{ label: "Daily DD Limit", value: `${maxDailyDD}%`, color: "text-red-500" }] : []),
+                           { label: "Phase", value: selected.status === "funded" ? "FUNDED" : `${selected.current_phase}/${selected.challenges?.phases ?? 2}`, color: "text-gold" },
+                          { label: "Status", value: <Badge className={`${statusVariant[selected.status]} font-display`}>{selected.status.toUpperCase()}</Badge> },
+                        ].map((m, i) => (
+                          <div key={i} className="rounded-xl border border-border bg-card p-5">
+                            <div className="text-xs text-muted-foreground">{m.label}</div>
+                            <div className={`font-display mt-2 text-lg font-bold ${m.color ?? ""}`}>{m.value}</div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
 
                   <div className="rounded-xl border border-border bg-card p-6">
                      <h3 className="font-display flex items-center gap-2 text-base font-semibold"><TrendingUp className="h-4 w-4 text-primary"/>{selected.status === "funded" ? "Funded Progress" : `Phase ${selected.current_phase} Progress`}</h3>
@@ -756,6 +764,40 @@ function DashboardPage() {
                           <Progress value={Math.min(100, (dailyDrawdownPercent/maxDailyDD)*100)} />
                        </div>
                        ) : null}
+                       {(() => {
+                         const isUSD = selected.currency === "USD";
+                         if (!isUSD) return null;
+                         const daysTraded = selected.trading_days ?? 0;
+                         const minProfitableDays = 5;
+                         const profitableDayThreshold = 0.005;
+                         return (
+                           <div className="mt-4 space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                             <div className="font-display text-sm font-semibold text-primary">USD Compliance Checklist</div>
+                             <div className="space-y-1.5 text-xs">
+                               <div className="flex items-center gap-2">
+                                 <span className={ddPct <= 5 ? "text-green-500" : "text-red-500"}>{ddPct <= 5 ? "✅" : "❌"}</span>
+                                 <span className="text-muted-foreground">Daily Drawdown ≤ 5% — Current: {formatPercent(ddPct)}</span>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className={ddPct <= 10 ? "text-green-500" : "text-red-500"}>{ddPct <= 10 ? "✅" : "❌"}</span>
+                                 <span className="text-muted-foreground">Total Drawdown ≤ 10% — Current: {formatPercent(ddPct)}</span>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className={daysTraded >= minProfitableDays ? "text-green-500" : "text-red-500"}>{daysTraded >= minProfitableDays ? "✅" : "❌"}</span>
+                                 <span className="text-muted-foreground">Profitable Days: {daysTraded} of {minProfitableDays} required (≥0.5% profit each)</span>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className="text-amber-500">⚠️</span>
+                                 <span className="text-muted-foreground">News Trading: profits within 5 mins of red-folder events are voided</span>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className="text-amber-500">⚠️</span>
+                                 <span className="text-muted-foreground">Inactivity: last trade X days ago — breach at 15 days</span>
+                               </div>
+                             </div>
+                           </div>
+                         );
+                       })()}
                      </div>
                      {selected.status !== "funded" && selected.current_phase < 2 && selected.status === "active" && (
                       <div className="mt-5 rounded-md border border-primary/30 bg-primary/5 p-4">
@@ -994,24 +1036,30 @@ function DashboardPage() {
                    {selected.status === "funded" && (
                     <>
                       {(() => {
-                        // Account-scoped: only count payouts for THIS funded account.
+                        const isUSD = selected.currency === "USD";
+                        const cooldownDays = isUSD ? 10 : 7;
                         const lastPayout = payouts.find(
                           (p) => ["approved", "paid"].includes(p.status) &&
                                  (p as Payout & { trader_account_id?: string }).trader_account_id === selected.id
                         );
-                        // Cooldown only kicks in AFTER the first approved/paid payout.
-                        // Before that, the trader can request immediately (assuming KYC verified + profit).
-                        const next = lastPayout
-                          ? new Date(new Date(lastPayout.created_at).getTime() + 7 * 86400000)
+                        const lastPayoutDate = lastPayout?.created_at
+                          ? new Date(lastPayout.created_at)
+                          : selected.last_payout_date
+                            ? new Date(selected.last_payout_date)
+                            : null;
+                        const next = lastPayoutDate
+                          ? isUSD
+                            ? addBusinessDays(lastPayoutDate, 10)
+                            : new Date(lastPayoutDate.getTime() + 7 * 86400000)
                           : null;
                         const ready = !next || next.getTime() <= Date.now();
                         return (
                           <>
-                            {next && <PayoutCountdown nextPayoutDate={next} />}
+                            {next && <PayoutCountdown nextPayoutDate={next} businessDays={cooldownDays} />}
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
                                <p className="mt-1 text-sm text-muted-foreground">
-                                 80% of profits paid to your verified bank account, processed within 24hrs of approval. You can request once every 7 days · min 10% / max 50% of account size.
+                                 80% of profits paid to your verified bank account, processed within 24hrs of approval. {isUSD ? "10 business days" : "7 calendar days"} between requests · min 10% / max 50% of account size.
                                </p>
                                <p className="mt-1 text-[11px] text-muted-foreground">
                                  <span className="font-display text-foreground">First payout:</span> capped at 10% of account size (you receive 80% of profit). Subsequent payouts use the full 50% cap.

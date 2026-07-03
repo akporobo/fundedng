@@ -30,6 +30,27 @@ export const formatUSD = (amount: number | string | null | undefined): string =>
   }).format(n);
 };
 
+export function calculateBusinessDays(startDate: Date, endDate: Date): number {
+  let count = 0;
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) count++;
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+export function addBusinessDays(date: Date, businessDays: number): Date {
+  const result = new Date(date);
+  let added = 0;
+  while (added < businessDays) {
+    result.setDate(result.getDate() + 1);
+    if (result.getDay() !== 0 && result.getDay() !== 6) added++;
+  }
+  return result;
+}
+
 export const formatCompactSize = (size: number, currency: "NGN" | "USD"): string => {
   if (currency === "USD") {
     if (size >= 1000) return `$${size / 1000}k`;

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
+import { getUSDRate } from "@/lib/exchange-rate.server";
 
 /**
  * Server-side Squad initialization for the redirect checkout flow.
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
           }
           const user = userData.user;
 
-          const body = (await request.json().catch(() => ({}))) as { challenge_id?: string; discount_code?: string; partner_promo_code?: string };
+          const body = (await request.json().catch(() => ({}))) as { challenge_id?: string; discount_code?: string; partner_promo_code?: string; currency?: string; exchange_rate?: number };
           const challengeId = body.challenge_id?.trim();
           if (!challengeId) {
             return Response.json({ error: "challenge_id is required" }, { status: 400 });
@@ -37,11 +38,21 @@ export const Route = createFileRoute("/api/initialize-payment")({
 
           const { data: challenge, error: chErr } = await supabaseAdmin
             .from("challenges")
-            .select("id, name, price_naira, is_active, account_size")
+            .select("id, name, price_naira, usd_price, currency, is_active, account_size")
             .eq("id", challengeId)
             .maybeSingle();
           if (chErr || !challenge || !challenge.is_active) {
             return Response.json({ error: "Challenge not available" }, { status: 404 });
+          }
+
+          const orderCurrency = body.currency || challenge.currency || "NGN";
+          let effectivePriceNaira: number;
+          if (orderCurrency === "USD") {
+            const usdPrice = Number(challenge.usd_price || 0);
+            const rate = body.exchange_rate || await getUSDRate();
+            effectivePriceNaira = Math.ceil(usdPrice * rate);
+          } else {
+            effectivePriceNaira = Number(challenge.price_naira);
           }
 
           // Prefer an explicit public site URL (set PUBLIC_SITE_URL secret to
@@ -60,7 +71,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
             origin = process.env.PUBLIC_SITE_URL?.trim() || origin;
           }
           const reference = `FNG-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-          const originalAmountNaira = Number(challenge.price_naira);
+          const originalAmountNaira = effectivePriceNaira;
           let discountCode: string | null = null;
           let partnerPromoCode: string | null = null;
           let promoPercent = 0;
@@ -129,6 +140,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
                 amount_paid: 0,
                 status: "paid",
                 paystack_reference: reference,
+                currency: orderCurrency,
               })
               .select("id")
               .single();
@@ -161,10 +173,11 @@ export const Route = createFileRoute("/api/initialize-payment")({
               .maybeSingle();
             const traderName = prof?.full_name || user.email || "A trader";
 
+            const currencySymbol = orderCurrency === "USD" ? "$" : "₦";
             if (poolResult?.ok) {
               try {
                 await supabaseAdmin.rpc("send_telegram" as never, {
-                  p_message: `✅ <b>Free Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
+                  p_message: `✅ <b>Free Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ${currencySymbol}${challenge.account_size?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
                 } as never);
               } catch (e) {
                 console.error("[initialize-payment] telegram send failed", e);
@@ -172,7 +185,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
             } else {
               try {
                 await supabaseAdmin.rpc("send_telegram" as never, {
-                  p_message: `⏳ <b>Free Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ₦${challenge.account_size?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
+                  p_message: `⏳ <b>Free Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${challenge.name}\nSize: ${currencySymbol}${challenge.account_size?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
                 } as never);
               } catch (e) {
                 console.error("[initialize-payment] telegram send failed", e);

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
+import { getUSDRate } from "@/lib/exchange-rate.server";
 
 /**
  * Server-side Squad verification.
@@ -103,16 +104,25 @@ export const Route = createFileRoute("/api/verify-payment")({
           // ---- 5. Confirm amount matches challenge price ----
           const { data: challenge, error: chErr } = await supabaseAdmin
             .from("challenges")
-              .select("id, name, price_naira, is_active, account_size")
+              .select("id, name, price_naira, usd_price, currency, is_active, account_size")
             .eq("id", challengeId)
             .maybeSingle();
           if (chErr || !challenge) {
             return Response.json({ error: "Challenge not found" }, { status: 404 });
           }
+          const orderCurrency = challenge.currency || "NGN";
+          let effectivePriceNaira: number;
+          if (orderCurrency === "USD") {
+            const usdPrice = Number(challenge.usd_price || 0);
+            const rate = await getUSDRate();
+            effectivePriceNaira = Math.ceil(usdPrice * rate);
+          } else {
+            effectivePriceNaira = Number(challenge.price_naira);
+          }
           const discountPercent = Math.max(0, Math.min(100, Number(body.discount_percent ?? 0) || 0));
           const discountCode = body.discount_code?.trim() || null;
           const partnerPromoCode = body.partner_promo_code?.trim() || null;
-          const originalKobo = Number(challenge.price_naira) * 100;
+          const originalKobo = effectivePriceNaira * 100;
           const discountKobo = Math.floor(originalKobo * discountPercent / 100);
           const expectedKobo = Math.max(0, originalKobo - discountKobo);
           const paidKobo = Number(squadJson.data?.transaction_amount ?? 0);
@@ -131,6 +141,7 @@ export const Route = createFileRoute("/api/verify-payment")({
             .insert({
               user_id: userId,
               challenge_id: challengeId,
+              currency: orderCurrency,
               original_amount: originalKobo,
               discount_amount: discountKobo,
               discount_code: discountCode,
@@ -198,9 +209,10 @@ export const Route = createFileRoute("/api/verify-payment")({
                   mt5Server: poolResult.mt5Server,
                 }).catch((e) => console.error("[verify-payment] delivery email failed", e));
 
-                try {
+                const currencySymbol = orderCurrency === "USD" ? "$" : "₦";
+            try {
                   await supabaseAdmin.rpc("send_telegram" as never, {
-                    p_message: `✅ <b>New Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ₦${chSize?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
+                    p_message: `✅ <b>New Purchase — Auto-Delivered</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ${currencySymbol}${chSize?.toLocaleString("en-NG")}\nLogin: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}`,
                   } as never);
                 } catch (e) {
                   console.error("[verify-payment] telegram send failed", e);
@@ -211,10 +223,10 @@ export const Route = createFileRoute("/api/verify-payment")({
              // claimPoolAccount already notified admins. Still send purchase receipt.
              console.warn("[verify-payment] pool claim failed", poolResult?.error ?? "unexpected");
 
-             try {
-               await supabaseAdmin.rpc("send_telegram" as never, {
-                 p_message: `⏳ <b>New Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ₦${chSize?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
-               } as never);
+              try {
+                await supabaseAdmin.rpc("send_telegram" as never, {
+                  p_message: `⏳ <b>New Purchase — Manual Delivery Needed</b>\nTrader: ${traderName}\nChallenge: ${chName}\nSize: ${currencySymbol}${chSize?.toLocaleString("en-NG")}\nReason: ${poolResult?.error ?? "Pool unavailable"}`,
+                } as never);
              } catch (e) {
                console.error("[verify-payment] telegram send failed", e);
              }

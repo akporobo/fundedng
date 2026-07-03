@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatNaira } from "@/lib/utils";
+import { formatNaira, formatUSD } from "@/lib/utils";
 import { Eye, Download } from "lucide-react";
 import { generateFundedCertificate } from "@/components/certificates/certificateGenerator";
 import {
@@ -112,8 +112,8 @@ function AccountsPage() {
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex-1 min-w-[180px]">
-                <div className="font-semibold">{a.profiles?.full_name ?? "—"}</div>
-                <div className="text-xs text-muted-foreground">{a.challenges?.name} · login {a.mt5_login}</div>
+              <div className="font-semibold">{a.profiles?.full_name ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">{a.challenges?.name} · login {a.mt5_login} {a.currency === "USD" && <Badge variant="outline" className="ml-1 border-blue-400/40 text-blue-500 text-[10px]">USD</Badge>}</div>
               </div>
               <div className="text-sm">{formatNaira(a.starting_balance)}</div>
               <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>

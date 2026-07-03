@@ -23,6 +23,7 @@ const ADMIN_NAV = [
   { label: "Partners",     to: "/admin/partners",  icon: Handshake },
   { label: "Account Pool", to: "/admin/pool",      icon: Database },
   { label: "Social Proof", to: "/admin/social",    icon: ImageIcon },
+  { label: "Settings",     to: "/admin/settings",  icon: ShieldCheck },
 ] as const;
 
 function AdminSidebarNav({ onNavClick }: { onNavClick?: () => void }) {

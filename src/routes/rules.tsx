@@ -155,6 +155,68 @@ function RulesPage() {
         </div>
       </section>
 
+      {/* USD Challenge Rules */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-5xl px-4 py-20 md:px-6">
+          <div className="text-center">
+            <Badge variant="outline" className="font-display border-blue-400/40 text-blue-500">USD CHALLENGE RULES</Badge>
+            <h2 className="font-display mt-4 text-4xl font-bold">Tighter rules for USD challenges</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+              USD challenges are a 2-step evaluation with tighter drawdown limits and higher profit requirements — designed for experienced traders who want access to international pricing.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            <div className="rounded-xl border-2 border-blue-400/40 bg-card p-8">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-blue-400/30">01</div>
+                <TrendingUp className="h-8 w-8 text-blue-400" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">8% / 5% Profit Targets</h3>
+              <p className="mt-3 text-muted-foreground">
+                Phase 1 requires an 8% profit target. Phase 2 requires 5%. Once both phases are complete, the account is funded. Lower profit targets than NGN challenges but with tighter drawdown limits.
+              </p>
+            </div>
+
+            <div className="rounded-xl border-2 border-blue-400/40 bg-card p-8">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-blue-400/30">02</div>
+                <ShieldCheck className="h-8 w-8 text-blue-400" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">10% Max Drawdown (Trailing)</h3>
+              <p className="mt-3 text-muted-foreground">
+                Your equity must never drop more than 10% from the highest equity peak reached. This is a trailing drawdown — the threshold moves up as your equity peaks higher.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> Tighter than the 20% NGN rule — half the room for error.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> Combined with a 5% daily drawdown limit.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border-2 border-blue-400/40 bg-card p-8">
+              <div className="flex items-start justify-between">
+                <div className="font-display text-6xl font-bold text-blue-400/30">03</div>
+                <Clock className="h-8 w-8 text-blue-400" />
+              </div>
+              <h3 className="font-display mt-4 text-2xl font-bold">5% Daily Drawdown</h3>
+              <p className="mt-3 text-muted-foreground">
+                Your equity must not drop more than 5% in a single trading day, measured from the start-of-day equity. This applies during both evaluation phases and after funding.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> Resets each trading day based on starting equity.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> Combined with the 10% trailing max drawdown.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              USD challenges also require a minimum of <strong>5 trading days</strong> per phase (profits spread across them). Payouts can be requested once every <strong>10 business days</strong>. Accounts inactive for <strong>15 consecutive days</strong> are closed. News trading is restricted 5 minutes before/after high-impact events.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Detailed rules */}
       <section className="border-b border-border bg-surface">
         <div className="mx-auto max-w-4xl px-4 py-20 md:px-6">
@@ -188,7 +250,7 @@ function RulesPage() {
               {
                 icon: Wallet,
                 title: "Profit Split & Payouts",
-                body: "Funded traders keep 80% of profits. Payouts are processed within 24 hours of admin approval to your verified Nigerian bank account or USDT wallet. You can request a payout once every 7 days.",
+                  body: "Funded traders keep 80% of profits. Payouts are processed within 24 hours of admin approval to your verified Nigerian bank account or USDT wallet. NGN challenges can request a payout once every 7 calendar days. USD challenges can request a payout once every 10 business days.",
               },
               {
                 icon: AlertTriangle,

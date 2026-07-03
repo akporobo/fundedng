@@ -52,9 +52,9 @@ function BuyPage() {
   const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
   const [challengeType, setChallengeType] = useState<"instant" | "1-step" | "2-step">("2-step");
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
-  const [waitlistOpen, setWaitlistOpen] = useState(false);
-  const [waitlistEmail, setWaitlistEmail] = useState("");
-  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [rateUpdatedAt, setRateUpdatedAt] = useState<string | null>(null);
+  const [rateLoading, setRateLoading] = useState(false);
 
   useEffect(() => {
     supabase.from("challenges").select("*").eq("is_active", true).order("account_size")
@@ -105,6 +105,29 @@ function BuyPage() {
     if (typeof window === "undefined") return;
     try { setPartnerCode(localStorage.getItem("fng-partner-ref")); } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    if (currency !== "USD") return;
+    let cancelled = false;
+    const fetchRate = async () => {
+      setRateLoading(true);
+      try {
+        const res = await fetch("/api/exchange-rate");
+        const data = await res.json();
+        if (!cancelled && data?.rate) {
+          setExchangeRate(data.rate);
+          setRateUpdatedAt(data.updatedAt ?? null);
+        }
+      } catch {
+        if (!cancelled) setExchangeRate(1550);
+      } finally {
+        if (!cancelled) setRateLoading(false);
+      }
+    };
+    fetchRate();
+    const interval = setInterval(fetchRate, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [currency]);
 
   useEffect(() => {
     if (profile?.partner_referred_by) setPartnerCode("attached");
@@ -170,13 +193,10 @@ function BuyPage() {
       navigate({ to: "/auth/register" });
       return;
     }
-    if (currency === "NGN") {
-      setError("");
-      setAgreed(false);
-      setConfirmOpen(true);
-    } else {
-      setWaitlistOpen(true);
-    }
+    setSelected(currency === "NGN" ? selected : null);
+    setError("");
+    setAgreed(false);
+    setConfirmOpen(true);
   };
 
   const handleWaitlistSubmit = async () => {
@@ -267,7 +287,7 @@ function BuyPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-          body: JSON.stringify({ challenge_id: selected.id, discount_code: promoDiscount?.code, partner_promo_code: partnerCode }),
+          body: JSON.stringify({ challenge_id: selected.id, discount_code: promoDiscount?.code, partner_promo_code: partnerCode, currency, exchange_rate: exchangeRate }),
       });
       const result = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -466,6 +486,39 @@ function BuyPage() {
                   </div>
                 )}
 
+                {currency === "USD" && selectedSize && (
+                  <div className="rounded-xl border border-primary/30 bg-card p-6 animate-fade-in">
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Challenge Fee (USD)</span>
+                        <span className="font-medium">{formatUSD(selectedUsdPrice)}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-border pt-3">
+                        <span className="text-muted-foreground">Exchange Rate</span>
+                        <span className="font-display text-sm">
+                          {rateLoading ? "Loading..." : exchangeRate ? `₦${exchangeRate.toLocaleString()}/$` : "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t border-border pt-3">
+                        <span className="text-muted-foreground">Total (NGN equivalent)</span>
+                        <span className="font-display text-xl font-bold text-primary">
+                          {exchangeRate ? formatNaira(Math.ceil(selectedUsdPrice * exchangeRate)) : "—"}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                      Price shown in Naira equivalent at today's live USD/NGN rate. Paid via Squad.
+                    </p>
+                    {error && <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>}
+                    <Button className="font-display mt-4 w-full" size="lg" onClick={handleGetFunded} disabled={loading || rateLoading}>
+                      {loading ? "Processing..." : <>Continue <ArrowRight className="ml-2 h-4 w-4" /></>}
+                    </Button>
+                    <p className="mt-3 text-center text-xs text-muted-foreground">
+                      By continuing you agree to our <Link to="/agreement" className="text-primary hover:underline">trader agreement</Link> and acknowledge the risk disclosure.
+                    </p>
+                  </div>
+                )}
+
                 {currency === "NGN" && !selected && visibleChallenges.length === 0 && (
                   <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
                     No {effectivePlanType === "instant" ? "Instant" : "Standard"} challenges available right now.
@@ -584,9 +637,7 @@ function BuyPage() {
                       </Button>
 
                       <p className="text-center text-xs text-muted-foreground">
-                        {currency === "NGN"
-                          ? "You will be redirected to complete payment."
-                          : "USD accounts are coming soon. Join the waitlist."}
+                        You will be redirected to complete payment via Squad.
                       </p>
                     </div>
                   )}
@@ -599,143 +650,115 @@ function BuyPage() {
 
       {isAuthenticated && <MobileBottomNav />}
 
-      {/* USD Waitlist Dialog */}
-      <Dialog open={waitlistOpen} onOpenChange={(o) => !waitlistSubmitting && setWaitlistOpen(o)}>
-        <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-2xl">USD Accounts Coming Soon</DialogTitle>
-            <DialogDescription>
-              <span className="mt-2 block text-sm text-muted-foreground">
-                USD-denominated challenges are not yet available. Join the waitlist and we'll notify you when they launch.
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedSize && (
-            <div className="rounded-lg border border-border bg-background/50 p-4 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Account Size</span>
-                <span className="font-display font-semibold">{formatUSD(selectedSize)}</span>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-muted-foreground">Challenge Fee</span>
-                <span className="font-display font-semibold text-primary">{formatUSD(selectedUsdPrice)}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-foreground">Email Address</label>
-            <Input
-              type="email"
-              value={waitlistEmail}
-              onChange={(e) => setWaitlistEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="h-10"
-            />
-            <Button
-              className="font-display w-full"
-              size="lg"
-              onClick={handleWaitlistSubmit}
-              disabled={waitlistSubmitting || !waitlistEmail}
-            >
-              {waitlistSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</> : "Join Waitlist"}
-            </Button>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => { setWaitlistOpen(false); setWaitlistEmail(""); }} disabled={waitlistSubmitting}>
-              Not now
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={confirmOpen} onOpenChange={(o) => !loading && setConfirmOpen(o)}>
         <DialogContent className="mx-4 w-[calc(100%-2rem)] max-w-lg">
-          {selected && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-display text-2xl">{selected.name}</DialogTitle>
-                <DialogDescription>
-                  <span className="font-display block text-3xl font-bold text-primary">
-                    {formatNaira(selected.account_size)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">account size</span>
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
-                  {(selected.challenge_type === "instant"
-                    ? [
-                        { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
-                        { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
-                        { icon: AlertTriangle, label: "Daily drawdown", value: `${selected.max_daily_drawdown_percent ?? 5}%` },
-                        { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
-                        { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
-                        { icon: Wallet, label: "Profit split", value: "80%" },
-                      ]
-                  : [
-                      { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
-                      { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
-                      { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
-                      { icon: Clock, label: "Min trading days", value: `${selected?.min_trading_days ?? 3}` },
-                      { icon: Wallet, label: "Profit split", value: "80%" },
-                      { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
-                    ]
-                ).map((r) => (
-                  <div key={r.label} className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <r.icon className="h-4 w-4 text-primary" /> {r.label}
+          {(() => {
+            const confirmCurrency = currency;
+            const confirmSize = selectedSize;
+            const confirmPrice = currency === "NGN"
+              ? payable
+              : exchangeRate
+                ? Math.ceil(selectedUsdPrice * exchangeRate)
+                : 0;
+            const confirmLabel = currency === "NGN"
+              ? formatNaira(confirmSize ?? 0)
+              : formatUSD(confirmSize ?? 0);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="font-display text-2xl">
+                    {currency === "NGN" ? (selected?.name ?? "Challenge") : formatUSD(selectedSize ?? 0)}
+                  </DialogTitle>
+                  <DialogDescription>
+                    <span className="font-display block text-3xl font-bold text-primary">
+                      {confirmLabel}
                     </span>
-                    <span className="font-display font-semibold">{r.value}</span>
-                  </div>
-                ))}
-              </div>
+                    <span className="text-xs text-muted-foreground">account size</span>
+                  </DialogDescription>
+                </DialogHeader>
 
-              <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
-                <span className="font-display block font-semibold text-warning">Rules reminder</span>
-                Trade only on your FundedNG MT5 evaluation account. No automated
-                trading. No copy trading. All trades must be held at least 3 minutes
-                (manual, SL, and TP closes all count). 20% trailing drawdown from
-                highest equity peak.
-              </div>
+                <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
+                  {(currency === "USD"
+                    ? [
+                        { icon: ShieldCheck, label: "Profit target Phase 1", value: "8%" },
+                        { icon: ShieldCheck, label: "Profit target Phase 2", value: "5%" },
+                        { icon: Zap, label: "Max drawdown", value: "10%" },
+                        { icon: AlertTriangle, label: "Daily drawdown", value: "5%" },
+                        { icon: Clock, label: "Min trading days", value: "5" },
+                        { icon: Layers, label: "Phases to funded", value: "2" },
+                        { icon: Wallet, label: "Profit split", value: "80%" },
+                        { icon: Clock, label: "Payout cooldown", value: "10 business days" },
+                      ]
+                    : selected?.challenge_type === "instant"
+                      ? [
+                          { icon: ShieldCheck, label: "Profit target", value: `${selected.profit_target_percent}%` },
+                          { icon: Zap, label: "Max total drawdown", value: `${selected.max_drawdown_percent}%` },
+                          { icon: AlertTriangle, label: "Daily drawdown", value: `${selected.max_daily_drawdown_percent ?? 5}%` },
+                          { icon: Clock, label: "Trading window", value: `5 – ${selected.max_trading_days ?? 45} days` },
+                          { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
+                          { icon: Wallet, label: "Profit split", value: "80%" },
+                        ]
+                      : [
+                          { icon: ShieldCheck, label: "Profit target / phase", value: `${selected.profit_target_percent}%` },
+                          { icon: Zap, label: "Max drawdown", value: `${selected.max_drawdown_percent}%` },
+                          { icon: Layers, label: "Phases to funded", value: `${selected.phases}` },
+                          { icon: Clock, label: "Min trading days", value: `${selected?.min_trading_days ?? 3}` },
+                          { icon: Wallet, label: "Profit split", value: "80%" },
+                          { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
+                        ]
+                  ).map((r) => (
+                    <div key={r.label} className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <r.icon className="h-4 w-4 text-primary" /> {r.label}
+                      </span>
+                      <span className="font-display font-semibold">{r.value}</span>
+                    </div>
+                  ))}
+                </div>
 
-              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background/50 p-3 text-xs">
-                <input
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-primary"
-                />
-                <span className="text-muted-foreground">
-                  I have read and agree to the{" "}
-                  <Link to="/agreement" className="text-primary hover:underline" target="_blank">
-                    FundedNG trader agreement & risk disclosure
-                  </Link>
-                  .
-                </span>
-              </label>
+                <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
+                  <span className="font-display block font-semibold text-warning">Rules reminder</span>
+                  {currency === "USD"
+                    ? "Trade only on your USD MT5 evaluation account. No automated trading. No copy trading. Min 3-minute hold. 10% trailing drawdown. 5% daily drawdown (resets midnight UTC+1). News trading restriction: 5 mins. Inactivity: 15 days."
+                    : "Trade only on your FundedNG MT5 evaluation account. No automated trading. No copy trading. All trades must be held at least 3 minutes (manual, SL, and TP closes all count). 20% trailing drawdown from highest equity peak."}
+                </div>
 
-              <div className="flex items-center justify-between border-t border-border pt-4">
-                <span className="text-sm text-muted-foreground">Total due</span>
-                <span className="font-display text-2xl font-bold text-primary">
-                  {formatNaira(payable)}
-                </span>
-              </div>
+                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background/50 p-3 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                  />
+                  <span className="text-muted-foreground">
+                    I have read and agree to the{" "}
+                    <Link to="/agreement" className="text-primary hover:underline" target="_blank">
+                      FundedNG trader agreement & risk disclosure
+                    </Link>
+                    .
+                  </span>
+                </label>
 
-              {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+                <div className="flex items-center justify-between border-t border-border pt-4">
+                  <span className="text-sm text-muted-foreground">Total due</span>
+                  <span className="font-display text-2xl font-bold text-primary">
+                    {currency === "NGN" ? formatNaira(confirmPrice) : `${formatUSD(selectedUsdPrice)} (${formatNaira(confirmPrice)})`}
+                  </span>
+                </div>
 
-              <DialogFooter className="gap-2 sm:gap-2">
-                <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={loading}>
-                  Cancel
-                </Button>
-                <Button className="font-display" onClick={handleBuy} disabled={loading || !agreed}>
-                  {loading ? "Processing…" : <>Confirm & Pay {formatNaira(payable)} <ArrowRight className="ml-2 h-4 w-4" /></>}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
+                {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+
+                <DialogFooter className="gap-2 sm:gap-2">
+                  <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={loading}>
+                    Cancel
+                  </Button>
+                  <Button className="font-display" onClick={handleBuy} disabled={loading || !agreed}>
+                    {loading ? "Processing…" : <>Confirm & Pay {currency === "NGN" ? formatNaira(confirmPrice) : formatNaira(confirmPrice)} <ArrowRight className="ml-2 h-4 w-4" /></>}
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
