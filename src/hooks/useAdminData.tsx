@@ -9,7 +9,8 @@ import { notifyEmail } from "@/lib/notify-email";
 
 
 const blankChallenge = {
-  id: "", name: "", account_size: 200000, price_naira: 12000, profit_target_percent: 10, max_drawdown_percent: 20,
+  id: "", name: "", account_size: 200000, price_naira: 12000, usd_price: "", currency: "NGN",
+  profit_target_percent: 10, max_drawdown_percent: 20,
   phases: 2, is_active: true, challenge_type: "standard", max_daily_drawdown_percent: 10, max_trading_days: 45, discount_percent: 0,
 };
 
@@ -90,7 +91,7 @@ function useAdminDataHook() {
   const [poolFormOpen, setPoolFormOpen] = useState(false);
   const [poolSaving, setPoolSaving] = useState(false);
   const [viewCredsFor, setViewCredsFor] = useState<any | null>(null);
-  const [poolForm, setPoolForm] = useState({ mt5_login: "", mt5_password: "", investor_password: "", mt5_server: "Exness-MT5Trial9", account_size_ngn: "", notes: "" });
+  const [poolForm, setPoolForm] = useState({ mt5_login: "", mt5_password: "", investor_password: "", mt5_server: "Exness-MT5Trial9", account_size_ngn: "", account_size_usd: "", currency: "NGN", notes: "" });
   const [socialItems, setSocialItems] = useState<any[]>([]);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState("");
@@ -120,6 +121,8 @@ function useAdminDataHook() {
     setSavingChallenge(true);
     const payload: any = {
       name: challengeForm.name.trim(), account_size: Number(challengeForm.account_size), price_naira: Number(challengeForm.price_naira),
+      usd_price: challengeForm.currency === "USD" ? Number(challengeForm.usd_price) || 0 : null,
+      currency: challengeForm.currency || "NGN",
       profit_target_percent: Number(challengeForm.profit_target_percent), max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
       phases: Number(challengeForm.phases), is_active: !!challengeForm.is_active,
       challenge_type: challengeForm.challenge_type === "instant" ? "instant" : "standard",

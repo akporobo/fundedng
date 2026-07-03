@@ -158,7 +158,9 @@ export const Route = createFileRoute("/api/initialize-payment")({
             // Auto-deliver from pool for free orders too
             const poolResult = await claimPoolAccount({
               orderId: order.id,
-              accountSizeNgn: challenge.account_size,
+              accountSizeNgn: orderCurrency === "USD" ? 0 : challenge.account_size,
+              accountSizeUsd: orderCurrency === "USD" ? challenge.account_size : undefined,
+              currency: orderCurrency,
               challengeId: challenge.id,
               userId: user.id,
             }).catch((e) => {

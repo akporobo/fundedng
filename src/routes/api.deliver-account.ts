@@ -113,6 +113,7 @@ export const Route = createFileRoute("/api/deliver-account")({
             mt5_server: mt5_server.trim(),
             metaapi_account_id: null,
             provider: "manual",
+            currency: ch.currency || "NGN",
             starting_balance: ch.account_size,
             current_equity: ch.account_size,
             current_phase: 1,

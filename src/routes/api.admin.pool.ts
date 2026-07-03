@@ -40,10 +40,23 @@ export const Route = createFileRoute("/api/admin/pool")({
           };
 
           if (body.action === "add") {
-            const { mt5_login, mt5_password, investor_password, mt5_server, account_size_ngn, notes } = body;
-            if (!mt5_login || !mt5_password || !investor_password || !account_size_ngn) {
+            const { mt5_login, mt5_password, investor_password, mt5_server, account_size_ngn, account_size_usd, currency, notes } = body;
+            const poolCurrency = currency || "NGN";
+            if (!mt5_login || !mt5_password || !investor_password) {
               return Response.json(
-                { error: "mt5_login, mt5_password, investor_password, and account_size_ngn are required" },
+                { error: "mt5_login, mt5_password, and investor_password are required" },
+                { status: 400 },
+              );
+            }
+            if (poolCurrency === "USD" && !account_size_usd) {
+              return Response.json(
+                { error: "account_size_usd is required for USD accounts" },
+                { status: 400 },
+              );
+            }
+            if (poolCurrency !== "USD" && !account_size_ngn) {
+              return Response.json(
+                { error: "account_size_ngn is required for NGN accounts" },
                 { status: 400 },
               );
             }
@@ -55,7 +68,9 @@ export const Route = createFileRoute("/api/admin/pool")({
                 mt5_password: mt5_password.trim(),
                 investor_password: investor_password.trim(),
                 mt5_server: (mt5_server ?? "Exness-MT5Trial9").trim(),
-                account_size_ngn,
+                account_size_ngn: poolCurrency === "USD" ? null : (account_size_ngn ?? null),
+                account_size_usd: poolCurrency === "USD" ? (account_size_usd ?? null) : null,
+                currency: poolCurrency,
                 notes: notes?.trim() ?? null,
               })
               .select("id")
@@ -123,17 +138,19 @@ export const Route = createFileRoute("/api/admin/pool")({
           const variant = url.searchParams.get("variant");
 
           if (variant === "stats") {
-            // Group available accounts by size
+            // Group available accounts by size (both NGN and USD)
             const { data: available, error: availErr } = await supabaseAdmin
               .from("account_pool")
-              .select("account_size_ngn")
+              .select("account_size_ngn, account_size_usd, currency")
               .eq("status", "available");
 
             if (availErr) return Response.json({ error: availErr.message }, { status: 500 });
 
             const inventory: Record<string, number> = {};
             for (const row of available ?? []) {
-              const key = String(row.account_size_ngn);
+              const key = row.currency === "USD"
+                ? `usd_${row.account_size_usd}`
+                : `ngn_${row.account_size_ngn}`;
               inventory[key] = (inventory[key] ?? 0) + 1;
             }
 

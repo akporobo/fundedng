@@ -33,6 +33,7 @@ interface Challenge {
   max_daily_drawdown_percent?: number | null;
   max_trading_days?: number | null;
   min_trading_days?: number;
+  currency?: string; usd_price?: number; discount_percent?: number;
 }
 
 function BuyPage() {
@@ -83,18 +84,19 @@ function BuyPage() {
           if (search.size) {
             const size = Number(search.size);
             setSelectedSize(size);
-            if (search.currency !== "USD") {
-              const match = list.find((c) => Number(c.account_size) === size && (search.type === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"));
-              if (match) setSelected(match);
-            }
+            const cur = search.currency || "NGN";
+            const match = list.find((c) => c.currency === cur && Number(c.account_size) === size && (search.type === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"));
+            if (match) setSelected(match);
           }
           return;
         }
 
-        // Priority 3: default pre-selection (NGN / 2-step / first or 400k)
-        const std = list.filter((c) => c.challenge_type !== "instant");
+        // Priority 3: default pre-selection (2-step / first or 400k for NGN, first for USD)
+        const std = list.filter((c) => c.currency === currency && c.challenge_type !== "instant");
         if (std.length > 0) {
-          const target = std.find((c) => Number(c.account_size) === 400000) || std[0];
+          const target = currency === "NGN"
+            ? (std.find((c) => Number(c.account_size) === 400000) || std[0])
+            : std[0];
           setSelectedSize(Number(target.account_size));
           setSelected(target);
         }
@@ -153,30 +155,10 @@ function BuyPage() {
     setError("");
   };
 
-  const usdSizeOptions: Record<string, number[]> = {
-    instant: [5000, 10000, 25000, 50000],
-    "1-step": [5000, 10000, 25000, 50000],
-    "2-step": [5000, 10000, 25000, 50000, 100000],
-  };
-
-  const usdPrices: Record<number, number> = {
-    5000: 19, 10000: 45, 25000: 99, 50000: 199, 100000: 349,
-  };
-
-  const usdRules = {
-    profitTargetPhase1: 8,
-    profitTargetPhase2: 5,
-    maxTotalDrawdown: 10,
-    minTradingDays: 3,
-    profitSplit: 80,
-    payouts: "Weekly",
-  };
-
   const visibleChallenges = challenges.filter((c) =>
-    effectivePlanType === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant"
+    c.currency === currency &&
+    (effectivePlanType === "instant" ? c.challenge_type === "instant" : c.challenge_type !== "instant")
   );
-
-  const selectedUsdPrice = selectedSize ? usdPrices[selectedSize] ?? 0 : 0;
 
   const handleSizeSelect = (size: number) => {
     setSelectedSize(size);
@@ -194,25 +176,6 @@ function BuyPage() {
     setError("");
     setAgreed(false);
     setConfirmOpen(true);
-  };
-
-  const handleWaitlistSubmit = async () => {
-    if (!waitlistEmail || !selectedSize) return;
-    setWaitlistSubmitting(true);
-    try {
-      const { error } = await supabase.from("usd_waitlist").insert({
-        email: waitlistEmail,
-        account_size: selectedSize,
-      });
-      if (error) throw error;
-      toast.success("You're on the waitlist! We'll notify you when USD accounts are ready.");
-      setWaitlistOpen(false);
-      setWaitlistEmail("");
-    } catch {
-      toast.error("Could not join waitlist. Please try again.");
-    } finally {
-      setWaitlistSubmitting(false);
-    }
   };
 
   const openConfirm = () => {
@@ -253,30 +216,16 @@ function BuyPage() {
     toast.error("Promo code is invalid or expired");
   };
 
+  const effectivePrice = currency === "USD" ? (selected?.usd_price ?? 0) : (selected?.price_naira ?? 0);
   const partnerDiscountPercent = partnerCode ? 15 : 0;
   const promoDiscountPercent = promoDiscount?.percent ?? 0;
   const challengeDiscountPercent = selected?.discount_percent ?? 0;
   const discountPercent = promoDiscountPercent > 0 ? promoDiscountPercent : (partnerDiscountPercent > 0 ? partnerDiscountPercent : challengeDiscountPercent);
-  const discountAmount = selected ? Math.floor(Number(selected.price_naira) * discountPercent / 100) : 0;
-  const payable = selected ? Math.max(0, Number(selected.price_naira) - discountAmount) : 0;
-
-  const findUsdChallenge = async (size: number): Promise<string | null> => {
-    try {
-      const { data } = await supabase
-        .from("challenges")
-        .select("id")
-        .eq("currency", "USD")
-        .eq("account_size", size)
-        .eq("is_active", true)
-        .maybeSingle();
-      return data?.id ?? null;
-    } catch {
-      return null;
-    }
-  };
+  const discountAmount = selected ? Math.floor(Number(effectivePrice) * discountPercent / 100) : 0;
+  const payable = selected ? Math.max(0, Number(effectivePrice) - discountAmount) : 0;
 
   const handleBuy = async () => {
-    if (!selected && currency !== "USD") return;
+    if (!selected) return;
     if (!user?.email) {
       setError("You need to be signed in with an email.");
       return;
@@ -290,13 +239,7 @@ function BuyPage() {
     setError("");
 
     try {
-      // For USD we need a challenge_id — find one from the DB or show error
-      const challengeId = selected?.id || (currency === "USD" ? await findUsdChallenge(selectedSize!) : null);
-      if (!challengeId) {
-        setLoading(false);
-        setError("USD challenge not available. Please contact support.");
-        return;
-      }
+      const challengeId = selected!.id;
       // Initialize the transaction server-side and redirect to Squad's
       // hosted checkout page. After payment, Squad redirects the user to
       // /payment/callback, which calls /api/verify-payment to finalize.
@@ -434,37 +377,35 @@ function BuyPage() {
                 <div>
                   <label className="font-display mb-3 block text-xs tracking-widest text-muted-foreground">ACCOUNT SIZE</label>
                   <div className="flex flex-wrap gap-2">
-                    {(currency === "NGN" ? visibleChallenges : []).map((c) => (
+                    {visibleChallenges.map((c) => (
                       <button
                         key={c.id}
                         type="button"
                         onClick={() => handleSizeSelect(Number(c.account_size))}
                         className={`font-display rounded-full border px-5 py-2 text-xs tracking-wider transition-all ${selectedSize === Number(c.account_size) ? "border-primary bg-primary text-primary-foreground shadow" : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
                       >
-                        {formatCompactSize(Number(c.account_size), "NGN")}
-                      </button>
-                    ))}
-                    {currency === "USD" && (usdSizeOptions[challengeType] ?? []).map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => handleSizeSelect(size)}
-                        className={`font-display rounded-full border px-5 py-2 text-xs tracking-wider transition-all ${selectedSize === size ? "border-primary bg-primary text-primary-foreground shadow" : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
-                      >
-                        {formatCompactSize(size, "USD")}
+                        {formatCompactSize(Number(c.account_size), currency)}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* --- NGN Promo & Pricing (inline) --- */}
-                {currency === "NGN" && selected && (
+                {/* --- Promo & Pricing (inline) --- */}
+                {selected && (
                   <div className="rounded-xl border border-primary/30 bg-card p-6 animate-fade-in">
                     <div className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Challenge</span>
-                        <span className="font-medium">{selected.name} — {formatNaira(selected.account_size)}</span>
+                        <span className="font-medium">{selected.name} — {currency === "NGN" ? formatNaira(selected.account_size) : formatUSD(selected.account_size)}</span>
                       </div>
+                      {currency === "USD" && (
+                        <div className="flex justify-between border-t border-border pt-3">
+                          <span className="text-muted-foreground">Exchange Rate</span>
+                          <span className="font-display text-sm">
+                            {rateLoading ? "Loading..." : exchangeRate ? `₦${exchangeRate.toLocaleString()}/$` : "—"}
+                          </span>
+                        </div>
+                      )}
                       {partnerCode && (
                         <div className="flex justify-between border-t border-border pt-3 text-sm">
                           <span className="text-muted-foreground">Partner link discount</span>
@@ -487,17 +428,28 @@ function BuyPage() {
                       {discountAmount > 0 && (
                         <div className="flex justify-between border-t border-border pt-3">
                           <span className="text-muted-foreground">Discount</span>
-                          <span className="font-display text-primary">-{formatNaira(discountAmount)}</span>
+                          <span className="font-display text-primary">{currency === "NGN" ? `-${formatNaira(discountAmount)}` : `-${formatUSD(discountAmount)}`}</span>
                         </div>
                       )}
                       <div className="flex justify-between border-t border-border pt-3">
-                        <span className="text-muted-foreground">Total</span>
-                        <span className="font-display text-xl font-bold text-primary">{formatNaira(payable)}</span>
+                        <span className="text-muted-foreground">{currency === "USD" ? "Total (USD)" : "Total"}</span>
+                        <span className="font-display text-xl font-bold text-primary">{currency === "NGN" ? formatNaira(payable) : formatUSD(payable)}</span>
                       </div>
+                      {currency === "USD" && exchangeRate && (
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>NGN equivalent</span>
+                          <span>{formatNaira(Math.ceil(payable * exchangeRate))}</span>
+                        </div>
+                      )}
                     </div>
+                    {currency === "USD" && (
+                      <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                        Price shown in Naira equivalent at today's live USD/NGN rate. Paid via Squad.
+                      </p>
+                    )}
                     {error && <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>}
-                    <Button className="font-display mt-5 w-full" size="lg" onClick={handleGetFunded} disabled={loading}>
-                      {loading ? "Processing..." : <>Pay {formatNaira(payable)} Now <ArrowRight className="ml-2 h-4 w-4" /></>}
+                    <Button className="font-display mt-5 w-full" size="lg" onClick={handleGetFunded} disabled={loading || (currency === "USD" && rateLoading)}>
+                      {loading ? "Processing..." : <>{currency === "NGN" ? `Pay ${formatNaira(payable)} Now` : "Continue"} <ArrowRight className="ml-2 h-4 w-4" /></>}
                     </Button>
                     <p className="mt-3 text-center text-xs text-muted-foreground">
                       By continuing you agree to our <Link to="/agreement" className="text-primary hover:underline">trader agreement</Link> and acknowledge the risk disclosure.
@@ -505,42 +457,9 @@ function BuyPage() {
                   </div>
                 )}
 
-                {currency === "USD" && selectedSize && (
-                  <div className="rounded-xl border border-primary/30 bg-card p-6 animate-fade-in">
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Challenge Fee (USD)</span>
-                        <span className="font-medium">{formatUSD(selectedUsdPrice)}</span>
-                      </div>
-                      <div className="flex justify-between border-t border-border pt-3">
-                        <span className="text-muted-foreground">Exchange Rate</span>
-                        <span className="font-display text-sm">
-                          {rateLoading ? "Loading..." : exchangeRate ? `₦${exchangeRate.toLocaleString()}/$` : "—"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-t border-border pt-3">
-                        <span className="text-muted-foreground">Total (NGN equivalent)</span>
-                        <span className="font-display text-xl font-bold text-primary">
-                          {exchangeRate ? formatNaira(Math.ceil(selectedUsdPrice * exchangeRate)) : "—"}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                      Price shown in Naira equivalent at today's live USD/NGN rate. Paid via Squad.
-                    </p>
-                    {error && <Alert variant="destructive" className="mt-4"><AlertDescription>{error}</AlertDescription></Alert>}
-                    <Button className="font-display mt-4 w-full" size="lg" onClick={handleGetFunded} disabled={loading || rateLoading}>
-                      {loading ? "Processing..." : <>Continue <ArrowRight className="ml-2 h-4 w-4" /></>}
-                    </Button>
-                    <p className="mt-3 text-center text-xs text-muted-foreground">
-                      By continuing you agree to our <Link to="/agreement" className="text-primary hover:underline">trader agreement</Link> and acknowledge the risk disclosure.
-                    </p>
-                  </div>
-                )}
-
-                {currency === "NGN" && !selected && visibleChallenges.length === 0 && (
+                {!selected && visibleChallenges.length === 0 && (
                   <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                    No {effectivePlanType === "instant" ? "Instant" : "Standard"} challenges available right now.
+                    No {currency} {effectivePlanType === "instant" ? "Instant" : "Standard"} challenges available right now.
                   </div>
                 )}
               </div>
@@ -569,9 +488,7 @@ function BuyPage() {
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Challenge Fee</span>
                         <span className="font-display font-semibold text-primary">
-                          {currency === "NGN"
-                            ? (selected ? formatNaira(payable) : formatNaira(0))
-                            : formatUSD(selectedUsdPrice)}
+                          {selected ? (currency === "NGN" ? formatNaira(payable) : formatUSD(payable)) : (currency === "NGN" ? formatNaira(0) : formatUSD(0))}
                         </span>
                       </div>
 
@@ -579,9 +496,7 @@ function BuyPage() {
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Profit Target Phase 1</span>
                         <span className="font-display font-semibold">
-                          {currency === "NGN"
-                            ? `${selected?.profit_target_percent ?? 0}%`
-                            : `${usdRules.profitTargetPhase1}%`}
+                          {`${selected?.profit_target_percent ?? 0}%`}
                         </span>
                       </div>
 
@@ -589,9 +504,7 @@ function BuyPage() {
                         <div className="flex items-center justify-between border-b border-border pb-2">
                           <span className="text-muted-foreground">Profit Target Phase 2</span>
                           <span className="font-display font-semibold">
-                            {currency === "NGN"
-                              ? `${selected?.profit_target_percent ?? 0}%`
-                              : `${usdRules.profitTargetPhase2}%`}
+                            {`${selected?.profit_target_percent ?? 0}%`}
                           </span>
                         </div>
                       )}
@@ -600,9 +513,7 @@ function BuyPage() {
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Max Drawdown (Trailing)</span>
                         <span className="font-display font-semibold">
-                          {currency === "NGN"
-                            ? `${selected?.max_drawdown_percent ?? 0}%`
-                            : `${usdRules.maxTotalDrawdown}%`}
+                          {`${selected?.max_drawdown_percent ?? 0}%`}
                         </span>
                       </div>
 
@@ -611,9 +522,7 @@ function BuyPage() {
                         <div className="flex items-center justify-between border-b border-border pb-2">
                           <span className="text-muted-foreground">Daily Drawdown</span>
                           <span className="font-display font-semibold">
-                            {currency === "NGN"
-                              ? `${selected?.max_daily_drawdown_percent ?? 5}%`
-                              : "5%"}
+                            {`${selected?.max_daily_drawdown_percent ?? 5}%`}
                           </span>
                         </div>
                       )}
@@ -622,25 +531,21 @@ function BuyPage() {
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Min Trading Days</span>
                         <span className="font-display font-semibold">
-                          {currency === "NGN"
-                            ? `${selected?.min_trading_days ?? 3}`
-                            : `${usdRules.minTradingDays}`}
+                          {`${selected?.min_trading_days ?? 3}`}
                         </span>
                       </div>
 
                       {/* Profit Split */}
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Profit Split</span>
-                        <span className="font-display font-semibold">
-                          {currency === "NGN" ? "80%" : `${usdRules.profitSplit}%`}
-                        </span>
+                        <span className="font-display font-semibold">80%</span>
                       </div>
 
                       {/* Payouts */}
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Payouts</span>
                         <span className="font-display font-semibold">
-                          {currency === "NGN" ? "Within 24 hrs" : usdRules.payouts}
+                          {currency === "USD" ? "Weekly" : "Within 24 hrs"}
                         </span>
                       </div>
 
@@ -677,7 +582,7 @@ function BuyPage() {
             const confirmPrice = currency === "NGN"
               ? payable
               : exchangeRate
-                ? Math.ceil(selectedUsdPrice * exchangeRate)
+                ? Math.ceil(payable * exchangeRate)
                 : 0;
             const confirmLabel = currency === "NGN"
               ? formatNaira(confirmSize ?? 0)
@@ -686,7 +591,7 @@ function BuyPage() {
               <>
                 <DialogHeader>
                   <DialogTitle className="font-display text-2xl">
-                    {currency === "NGN" ? (selected?.name ?? "Challenge") : formatUSD(selectedSize ?? 0)}
+                    {selected?.name ?? "Challenge"}
                   </DialogTitle>
                   <DialogDescription>
                     <span className="font-display block text-3xl font-bold text-primary">
@@ -698,18 +603,7 @@ function BuyPage() {
 
                 {selected !== null && (
                 <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
-                  {(currency === "USD"
-                    ? [
-                        { icon: ShieldCheck, label: "Profit target Phase 1", value: "8%" },
-                        { icon: ShieldCheck, label: "Profit target Phase 2", value: "5%" },
-                        { icon: Zap, label: "Max drawdown", value: "10%" },
-                        { icon: AlertTriangle, label: "Daily drawdown", value: "5%" },
-                        { icon: Clock, label: "Min trading days", value: "5" },
-                        { icon: Layers, label: "Phases to funded", value: "2" },
-                        { icon: Wallet, label: "Profit split", value: "80%" },
-                        { icon: Clock, label: "Payout cooldown", value: "10 business days" },
-                      ]
-                    : selected?.challenge_type === "instant"
+                  {selected?.challenge_type === "instant"
                       ? [
                           { icon: ShieldCheck, label: "Profit target", value: `${selected?.profit_target_percent ?? 0}%` },
                           { icon: Zap, label: "Max total drawdown", value: `${selected?.max_drawdown_percent ?? 0}%` },
@@ -763,7 +657,7 @@ function BuyPage() {
                 <div className="flex items-center justify-between border-t border-border pt-4">
                   <span className="text-sm text-muted-foreground">Total due</span>
                   <span className="font-display text-2xl font-bold text-primary">
-                    {currency === "NGN" ? formatNaira(confirmPrice) : `${formatUSD(selectedUsdPrice)} (${formatNaira(confirmPrice)})`}
+                    {currency === "NGN" ? formatNaira(confirmPrice) : `${formatUSD(payable)} (${formatNaira(confirmPrice)})`}
                   </span>
                 </div>
 
