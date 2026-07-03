@@ -531,7 +531,7 @@ function BuyPage() {
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Min Trading Days</span>
                         <span className="font-display font-semibold">
-                          {`${selected?.min_trading_days ?? 3}`}
+                          {currency === "USD" ? "4" : `${selected?.min_trading_days ?? 3}`}
                         </span>
                       </div>
 
@@ -603,7 +603,7 @@ function BuyPage() {
 
                 {selected !== null && (
                 <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4 text-sm">
-                  {selected?.challenge_type === "instant"
+                  {(selected?.challenge_type === "instant"
                       ? [
                           { icon: ShieldCheck, label: "Profit target", value: `${selected?.profit_target_percent ?? 0}%` },
                           { icon: Zap, label: "Max total drawdown", value: `${selected?.max_drawdown_percent ?? 0}%` },
@@ -616,7 +616,7 @@ function BuyPage() {
                           { icon: ShieldCheck, label: "Profit target / phase", value: `${selected?.profit_target_percent ?? 0}%` },
                           { icon: Zap, label: "Max drawdown", value: `${selected?.max_drawdown_percent ?? 0}%` },
                           { icon: Layers, label: "Phases to funded", value: `${selected?.phases ?? 2}` },
-                          { icon: Clock, label: "Min trading days", value: `${selected?.min_trading_days ?? 3}` },
+                          { icon: Clock, label: "Min trading days", value: currency === "USD" ? "4" : `${selected?.min_trading_days ?? 3}` },
                           { icon: Wallet, label: "Profit split", value: "80%" },
                           { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
                         ]
@@ -633,9 +633,9 @@ function BuyPage() {
 
                 <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
                   <span className="font-display block font-semibold text-warning">Rules reminder</span>
-                  {currency === "USD"
-                    ? "Trade only on your USD MT5 evaluation account. No automated trading. No copy trading. Min 3-minute hold. 10% trailing drawdown. 5% daily drawdown (resets midnight UTC+1). News trading restriction: 5 mins. Inactivity: 15 days."
-                    : "Trade only on your FundedNG MT5 evaluation account. No automated trading. No copy trading. All trades must be held at least 3 minutes (manual, SL, and TP closes all count). 20% trailing drawdown from highest equity peak."}
+                    {currency === "USD"
+                      ? "Trade only on your USD MT5 evaluation account. No automated trading. No copy trading. Min 3-minute hold. At least 3 days with closed profit ≥0.5% of account size. 10% trailing drawdown. 5% daily drawdown (resets midnight UTC+1). News trading restriction: 5 mins. Inactivity: 15 days."
+                      : "Trade only on your FundedNG MT5 evaluation account. No automated trading. No copy trading. All trades must be held at least 3 minutes (manual, SL, and TP closes all count). 20% trailing drawdown from highest equity peak."}
                 </div>
 
                 <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background/50 p-3 text-xs">

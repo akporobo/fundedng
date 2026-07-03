@@ -476,7 +476,7 @@ function DashboardPage() {
     : start * (1 + target / 100);
   const currentBalance = equity;
 
-  const minDays = selected?.challenges?.min_trading_days ?? 3;
+  const minDays = selected?.currency === "USD" ? 4 : (selected?.challenges?.min_trading_days ?? 3);
 
   const canRequestPhase2 =
     !!selected &&
@@ -957,7 +957,7 @@ function DashboardPage() {
                       currentEquity={equity}
                       maxDrawdownPercent={maxDD}
                       profitTargetPercent={target}
-                      minTradingDays={selected.challenges?.min_trading_days ?? 3}
+                      minTradingDays={selected.currency === "USD" ? 4 : (selected.challenges?.min_trading_days ?? 3)}
                       currentPhase={selected.current_phase}
                       status={selected.status}
                       tradingDays={selected.trading_days ?? 0}

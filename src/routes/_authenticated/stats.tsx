@@ -306,7 +306,7 @@ function StatsPage() {
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><Target className="h-3 w-3" /> Min Required</div>
-                <div className="font-display mt-1 text-lg font-bold">{selected.challenges?.min_trading_days ?? 3}</div>
+                <div className="font-display mt-1 text-lg font-bold">{selected.currency === "USD" ? "4" : (selected.challenges?.min_trading_days ?? 3)}</div>
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Closed Trades</div>

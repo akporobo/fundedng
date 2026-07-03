@@ -15,7 +15,7 @@ async function refreshTradingDays(accountId: string) {
   try {
     const { data: acct } = await supabaseAdmin
       .from("trader_accounts")
-      .select("current_phase, phase1_passed_at, created_at")
+      .select("current_phase, phase1_passed_at, created_at, starting_balance, currency")
       .eq("id", accountId)
       .single();
 
@@ -25,16 +25,35 @@ async function refreshTradingDays(accountId: string) {
       ? acct.phase1_passed_at
       : acct.created_at;
 
+    const isUSD = acct.currency === "USD";
+    const startingBalance = Number(acct.starting_balance ?? 0);
+    const minProfit = isUSD ? Math.ceil(startingBalance * 0.005) : 0;
+
     const { data: closeData } = await supabaseAdmin
       .from("closed_trades")
-      .select("close_time")
+      .select("close_time, profit")
       .eq("account_id", accountId)
       .gte("close_time", phaseStart)
       .limit(10000);
 
-    const uniqueDays = new Set(
-      (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
-    );
+    let uniqueDays: Set<string>;
+    if (isUSD) {
+      const dayProfits = new Map<string, number[]>();
+      for (const r of closeData ?? []) {
+        const day = r.close_time.slice(0, 10);
+        if (!dayProfits.has(day)) dayProfits.set(day, []);
+        dayProfits.get(day)!.push(r.profit);
+      }
+      uniqueDays = new Set(
+        [...dayProfits.entries()]
+          .filter(([_, profits]) => profits.some(p => p >= minProfit))
+          .map(([day]) => day)
+      );
+    } else {
+      uniqueDays = new Set(
+        (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
+      );
+    }
 
     const { error: updateErr } = await supabaseAdmin
       .from("trader_accounts")
