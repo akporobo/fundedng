@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_admin/admin/accounts")({
 function AccountsPage() {
   const {
     accounts, payouts, equityDraft, equitySaving, setEquityDraft, submitEquity,
-    kycTarget, kycVerifying, setKycTarget, openKycVerify, submitKycVerify,
+    kycTarget, kycVerifying, kycRejectReason, kycRejecting, setKycTarget, setKycRejectReason, openKycVerify, submitKycVerify, submitKycReject,
     breachTarget, breachReason, breaching,
     breachType, setBreachType, breachPair, setBreachPair,
     breachOpenTime, setBreachOpenTime, breachCloseTime, setBreachCloseTime, breachDuration, setBreachDuration,
@@ -184,9 +184,11 @@ function AccountsPage() {
           {a.profiles && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background p-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">KYC:</span>
-                <Badge variant="outline" className={`font-display text-[10px] ${a.profiles.kyc_verified ? "border-green-500/50 text-green-500" : "border-amber-500/50 text-amber-500"}`}>{a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}</Badge>
-                {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && <Button size="sm" onClick={() => openKycVerify(a)}>Verify bank matches MT5</Button>}
+      <span className="text-xs text-muted-foreground">KYC:</span>
+      <Badge variant="outline" className={`font-display text-[10px] ${a.profiles.kyc_verified ? "border-green-500/50 text-green-500" : "border-amber-500/50 text-amber-500"}`}>{a.profiles?.kyc_verified ? "VERIFIED" : "PENDING"}</Badge>
+      {!a.profiles?.kyc_verified && a.profiles?.bank_account_number && <Button size="sm" variant="outline" onClick={() => openKycVerify(a)}>Verify bank</Button>}
+      {!a.profiles?.kyc_verified && a.profiles?.kyc_document_url && <Button size="sm" variant="outline" onClick={() => openKycVerify(a)}>Review document</Button>}
+      {a.profiles?.kyc_document_url && !a.profiles?.kyc_verified && <Badge variant="outline" className="border-blue-500/50 text-blue-500 text-[10px]">DOCUMENT SUBMITTED</Badge>}
               </div>
             </div>
           )}
@@ -237,26 +239,60 @@ function AccountsPage() {
       </Dialog>
 
       {/* KYC dialog */}
-      <Dialog open={!!kycTarget} onOpenChange={(o) => !o && !kycVerifying && setKycTarget(null)}>
+      <Dialog open={!!kycTarget} onOpenChange={(o) => { if (!o && !kycVerifying && !kycRejecting) { setKycTarget(null); setKycRejectReason(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Verify trader KYC</DialogTitle>
-            <DialogDescription>Confirm the bank details below match what the trader sent for KYC.</DialogDescription>
+            <DialogDescription>Review the trader's KYC information below.</DialogDescription>
           </DialogHeader>
           {kycTarget && (
             <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
               <div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">Trader</div><div className="font-display font-semibold">{kycTarget.profiles?.full_name ?? "—"}</div></div>
-              <div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account number</div><div className="font-mono text-base text-primary">{kycTarget.profiles?.bank_account_number ?? "—"}</div></div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">Bank</div><div>{kycTarget.profiles?.bank_name ?? "—"}</div></div>
-                <div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account name</div><div>{kycTarget.profiles?.bank_account_name ?? "—"}</div></div>
-              </div>
+              {kycTarget.profiles?.kyc_document_url ? (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">KYC Document</div>
+                  <div className="mt-1">
+                    {kycTarget.profiles.kyc_document_type && <div className="text-xs text-muted-foreground mb-1">Type: {kycTarget.profiles.kyc_document_type}</div>}
+                    {kycTarget.profiles.kyc_document_url.match(/\.(png|jpe?g|webp)$/i) ? (
+                      <img src={kycTarget.profiles.kyc_document_url} alt="KYC document" className="max-h-64 rounded border border-border object-contain" />
+                    ) : (
+                      <a href={kycTarget.profiles.kyc_document_url} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 text-xs">View document (PDF)</a>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account number</div><div className="font-mono text-base text-primary">{kycTarget.profiles?.bank_account_number ?? "—"}</div></div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">Bank</div><div>{kycTarget.profiles?.bank_name ?? "—"}</div></div>
+                    <div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">Account name</div><div>{kycTarget.profiles?.bank_account_name ?? "—"}</div></div>
+                  </div>
+                </>
+              )}
               <div className="text-xs text-muted-foreground">MT5 login: <span className="font-mono">{kycTarget.mt5_login}</span></div>
+              {kycTarget.profiles?.kyc_document_url && (
+                <div className="mt-2 space-y-2">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Rejection reason</div>
+                  <Textarea placeholder="Reason for rejection (required to reject)" value={kycRejectReason} onChange={(e) => setKycRejectReason(e.target.value)} rows={2} />
+                </div>
+              )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setKycTarget(null)} disabled={kycVerifying}>Cancel</Button>
-            <Button onClick={submitKycVerify} disabled={kycVerifying}>{kycVerifying ? "Verifying…" : "Verify KYC"}</Button>
+          <DialogFooter className={kycTarget?.profiles?.kyc_document_url ? "justify-between" : ""}>
+            {kycTarget?.profiles?.kyc_document_url ? (
+              <>
+                <Button variant="destructive" onClick={submitKycReject} disabled={kycRejecting || !kycRejectReason.trim()}>{kycRejecting ? "Rejecting…" : "Reject"}</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => { setKycTarget(null); setKycRejectReason(""); }} disabled={kycVerifying || kycRejecting}>Cancel</Button>
+                  <Button onClick={submitKycVerify} disabled={kycVerifying}>{kycVerifying ? "Verifying…" : "Verify KYC"}</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setKycTarget(null)} disabled={kycVerifying}>Cancel</Button>
+                <Button onClick={submitKycVerify} disabled={kycVerifying}>{kycVerifying ? "Verifying…" : "Verify KYC"}</Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

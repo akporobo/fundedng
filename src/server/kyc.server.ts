@@ -26,7 +26,7 @@ export async function runVerifyKycAdmin(input: {
     const [profileRes, accountsRes] = await Promise.all([
       supabaseAdmin
         .from("profiles")
-        .select("id, bank_account_number, bank_name, bank_account_name")
+        .select("id, bank_account_number, bank_name, bank_account_name, kyc_document_url, kyc_document_type")
         .eq("id", input.userId)
         .maybeSingle(),
       supabaseAdmin
@@ -56,7 +56,7 @@ export async function runVerifyKycAdmin(input: {
 
     const { error: updErr } = await supabaseAdmin
       .from("profiles")
-      .update({ kyc_verified: true })
+      .update({ kyc_verified: true, kyc_document_url: null, kyc_document_type: null })
       .eq("id", input.userId);
     if (updErr) return { ok: false as const, error: updErr.message };
 
@@ -75,6 +75,97 @@ export async function runVerifyKycAdmin(input: {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Verification failed";
     console.error("[runVerifyKycAdmin] unexpected", msg);
+    return { ok: false as const, error: msg };
+  }
+}
+
+export async function runVerifyKycDocumentAdmin(input: {
+  userId: string;
+  accessToken: string;
+}) {
+  try {
+    const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(
+      input.accessToken,
+    );
+    if (authErr || !authData.user)
+      return { ok: false as const, error: "Please sign in again" };
+    const callerId = authData.user.id;
+
+    const { data: roles, error: roleErr } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    if (roleErr) return { ok: false as const, error: roleErr.message };
+    if (!roles?.some((r) => r.role === "admin")) {
+      return { ok: false as const, error: "Forbidden: admin role required" };
+    }
+
+    const { error: updErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ kyc_verified: true, kyc_document_url: null, kyc_document_type: null })
+      .eq("id", input.userId);
+    if (updErr) return { ok: false as const, error: updErr.message };
+
+    await supabaseAdmin.from("notifications").insert({
+      user_id: input.userId,
+      title: "KYC verified",
+      message: "Your identity document has been verified. You can now request payouts.",
+      type: "success",
+    });
+
+    await sendEventEmail({ type: "kyc_approved", userId: input.userId }).catch((e) =>
+      console.error("[runVerifyKycDocumentAdmin] email send failed", e),
+    );
+
+    return { ok: true as const };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Verification failed";
+    console.error("[runVerifyKycDocumentAdmin] unexpected", msg);
+    return { ok: false as const, error: msg };
+  }
+}
+
+export async function runRejectKycDocument(input: {
+  userId: string;
+  reason: string;
+  accessToken: string;
+}) {
+  try {
+    const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(
+      input.accessToken,
+    );
+    if (authErr || !authData.user)
+      return { ok: false as const, error: "Please sign in again" };
+    const callerId = authData.user.id;
+
+    const { data: roles, error: roleErr } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    if (roleErr) return { ok: false as const, error: roleErr.message };
+    if (!roles?.some((r) => r.role === "admin")) {
+      return { ok: false as const, error: "Forbidden: admin role required" };
+    }
+
+    const { error: updErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ kyc_document_url: null, kyc_document_type: null })
+      .eq("id", input.userId);
+    if (updErr) return { ok: false as const, error: updErr.message };
+
+    await supabaseAdmin.from("notifications").insert({
+      user_id: input.userId,
+      title: "KYC document rejected",
+      message: input.reason
+        ? `Your KYC document was rejected: ${input.reason}. Please upload a valid document.`
+        : "Your KYC document was rejected. Please upload a valid document.",
+      type: "warning",
+    });
+
+    return { ok: true as const };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Rejection failed";
+    console.error("[runRejectKycDocument] unexpected", msg);
     return { ok: false as const, error: msg };
   }
 }

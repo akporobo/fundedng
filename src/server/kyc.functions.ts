@@ -4,6 +4,8 @@ import {
   runVerifyKycAdmin,
   runVerifyKycPaystack,
   runListNigerianBanks,
+  runVerifyKycDocumentAdmin,
+  runRejectKycDocument,
 } from "@/server/kyc.server";
 
 const VerifyInput = z.object({
@@ -15,6 +17,25 @@ const VerifyInput = z.object({
 export const verifyKycServer = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => VerifyInput.parse(input))
   .handler(async ({ data }) => runVerifyKycAdmin(data));
+
+const VerifyDocumentInput = z.object({
+  userId: z.string().uuid(),
+  accessToken: z.string().min(1),
+});
+
+export const verifyKycDocumentServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => VerifyDocumentInput.parse(input))
+  .handler(async ({ data }) => runVerifyKycDocumentAdmin(data));
+
+const RejectDocumentInput = z.object({
+  userId: z.string().uuid(),
+  reason: z.string().max(500),
+  accessToken: z.string().min(1),
+});
+
+export const rejectKycDocumentServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => RejectDocumentInput.parse(input))
+  .handler(async ({ data }) => runRejectKycDocument(data));
 
 export const listNigerianBanks = createServerFn({ method: "GET" }).handler(
   async () => runListNigerianBanks(),

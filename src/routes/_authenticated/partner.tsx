@@ -48,6 +48,8 @@ function PartnerPage() {
   const [claiming, setClaiming] = useState(false);
   const [banks, setBanks] = useState<Array<{ name: string; code: string; slug: string }>>([]);
   const [kycVerified, setKycVerified] = useState(!!profile?.kyc_verified);
+  const [kycDocUploading, setKycDocUploading] = useState(false);
+  const [kycDocFile, setKycDocFile] = useState<File | null>(null);
   const [bankAccountNumber, setBankAccountNumber] = useState(profile?.bank_account_number ?? "");
   const [bankName, setBankName] = useState(profile?.bank_name ?? "");
   const [bankAccountName, setBankAccountName] = useState(profile?.bank_account_name ?? "");
@@ -165,6 +167,29 @@ function PartnerPage() {
 
   const balance = pp ? pp.total_earned_naira - pp.total_paid_naira - pendingReserved : 0;
   const purchases = referrals.length;
+
+  const uploadKycDocument = async () => {
+    if (!kycDocFile) return toast.error("Select a file first");
+    if (kycDocFile.size > 5 * 1024 * 1024) return toast.error("File must be under 5MB");
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session) return toast.error("Please sign in again.");
+    setKycDocUploading(true);
+    try {
+      const ext = kycDocFile.name.split(".").pop() ?? "jpg";
+      const path = `${sess.session.user.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("kyc-documents").upload(path, kycDocFile, { contentType: kycDocFile.type });
+      if (uploadErr) { toast.error(uploadErr.message); return; }
+      const { data: urlData } = await supabase.storage.from("kyc-documents").createSignedUrl(path, 604800);
+      if (!urlData?.signedUrl) { toast.error("Failed to get document URL"); return; }
+      const docType = kycDocFile.type.startsWith("image/") ? "Image" : "PDF";
+      const { error: updErr } = await supabase.from("profiles").update({ kyc_document_url: urlData.signedUrl, kyc_document_type: docType }).eq("id", sess.session.user.id);
+      if (updErr) { toast.error(updErr.message); return; }
+      toast.success("KYC document uploaded. Admin will review it.");
+      setKycDocFile(null);
+      await load();
+    } catch (e: any) { toast.error(e?.message ?? "Upload failed"); }
+    finally { setKycDocUploading(false); }
+  };
 
   const claimFreeAccount = async () => {
     if (freeAccounts.length > 0) return toast.error("You've already requested your free partnership account.");
@@ -318,6 +343,28 @@ function PartnerPage() {
         <Button size="sm" className="mt-4 font-display" onClick={verifyBankWithPaystack} disabled={verifyingKyc || !bankCode || bankAccountNumber.length !== 10}>
           <Landmark className="mr-1 h-4 w-4" />{verifyingKyc ? "Verifying…" : kycVerified ? "Re-verify bank" : "Verify bank account"}
         </Button>
+      </div>
+
+      {/* KYC document upload (alternative to bank verification) */}
+      <div className="mt-4 rounded-xl border border-border bg-card p-4">
+        <div className="font-display text-sm font-semibold">KYC Document Upload</div>
+        <p className="mt-1 text-xs text-muted-foreground">For USD accounts or as an alternative to bank verification, upload a valid government-issued ID or passport. Max 5MB (PNG, JPG, PDF).</p>
+        {profile?.kyc_document_url && !kycVerified ? (
+          <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+            <span className="font-semibold text-amber-500">Document submitted — </span>
+            <span className="text-muted-foreground">awaiting admin review. Check back later.</span>
+          </div>
+        ) : null}
+        {!kycVerified && (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <Input type="file" accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf" onChange={(e) => setKycDocFile(e.target.files?.[0] ?? null)} className="file:mr-2 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-primary" />
+            </div>
+            <Button size="sm" variant="outline" onClick={uploadKycDocument} disabled={kycDocUploading || !kycDocFile}>
+              {kycDocUploading ? "Uploading…" : "Upload document"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Stats */}

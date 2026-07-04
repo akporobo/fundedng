@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatNaira } from "@/lib/utils";
-import { verifyKycServer } from "@/server/kyc.functions";
+import { verifyKycServer, verifyKycDocumentServer, rejectKycDocumentServer } from "@/server/kyc.functions";
 import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
 
@@ -64,6 +64,8 @@ function useAdminDataHook() {
   const [equitySaving, setEquitySaving] = useState<string | null>(null);
   const [kycTarget, setKycTarget] = useState<any | null>(null);
   const [kycVerifying, setKycVerifying] = useState(false);
+  const [kycRejectReason, setKycRejectReason] = useState("");
+  const [kycRejecting, setKycRejecting] = useState(false);
   const [breachTarget, setBreachTarget] = useState<any | null>(null);
   const [breachReason, setBreachReason] = useState("");
   const [breaching, setBreaching] = useState(false);
@@ -365,17 +367,33 @@ function useAdminDataHook() {
     if (error) return toast.error(error.message); setEquityDraft((d) => ({ ...d, [account.id]: "" })); toast.success("Equity recorded — rules evaluated"); load();
   };
 
-  const openKycVerify = (account: any) => setKycTarget(account);
+  const openKycVerify = (account: any) => { setKycTarget(account); setKycRejectReason(""); };
   const submitKycVerify = async () => {
     if (!kycTarget) return; if (!session?.access_token) return toast.error("Please sign in again");
-    const accountNumber = (kycTarget.profiles?.bank_account_number ?? "").trim();
-    if (!accountNumber) return toast.error("Trader hasn't submitted bank details");
     setKycVerifying(true);
     try {
-      const res = await verifyKycServer({ data: { userId: kycTarget.user_id, accountNumber, accessToken: session.access_token } });
-      if (!res?.ok) { toast.error(res?.error ?? "Verification failed"); return; }
+      const hasDoc = kycTarget.profiles?.kyc_document_url;
+      if (hasDoc) {
+        const res = await verifyKycDocumentServer({ data: { userId: kycTarget.user_id, accessToken: session.access_token } });
+        if (!res?.ok) { toast.error(res?.error ?? "Verification failed"); return; }
+      } else {
+        const accountNumber = (kycTarget.profiles?.bank_account_number ?? "").trim();
+        if (!accountNumber) { toast.error("Trader hasn't submitted bank details or KYC document"); setKycVerifying(false); return; }
+        const res = await verifyKycServer({ data: { userId: kycTarget.user_id, accountNumber, accessToken: session.access_token } });
+        if (!res?.ok) { toast.error(res?.error ?? "Verification failed"); return; }
+      }
       toast.success("KYC verified"); setKycTarget(null); load();
     } catch (e: any) { toast.error(e?.message ?? "Verification failed"); } finally { setKycVerifying(false); }
+  };
+  const submitKycReject = async () => {
+    if (!kycTarget) return; if (!session?.access_token) return toast.error("Please sign in again");
+    if (!kycRejectReason.trim()) return toast.error("Enter a reason for rejection");
+    setKycRejecting(true);
+    try {
+      const res = await rejectKycDocumentServer({ data: { userId: kycTarget.user_id, reason: kycRejectReason.trim(), accessToken: session.access_token } });
+      if (!res?.ok) { toast.error(res?.error ?? "Rejection failed"); return; }
+      toast.success("KYC document rejected"); setKycTarget(null); setKycRejectReason(""); load();
+    } catch (e: any) { toast.error(e?.message ?? "Rejection failed"); } finally { setKycRejecting(false); }
   };
 
   const openBreachDialog = (account: any) => {
@@ -678,7 +696,7 @@ function useAdminDataHook() {
     discountCodes, discountForm, discountSaving, setDiscountForm, saveDiscountCode, toggleDiscountActive,
     tgBotToken, tgChatId, tgSaving, tgTesting, setTgBotToken, setTgChatId, saveTelegram, testTelegram,
     equityDraft, equitySaving, setEquityDraft, submitEquity,
-    kycTarget, kycVerifying, setKycTarget, openKycVerify, submitKycVerify,
+    kycTarget, kycVerifying, kycRejectReason, kycRejecting, setKycTarget, setKycRejectReason, openKycVerify, submitKycVerify, submitKycReject,
     breachTarget, breachReason, breaching,
     breachType, setBreachType, breachPair, setBreachPair,
     breachOpenTime, setBreachOpenTime, breachCloseTime, setBreachCloseTime, breachDuration, setBreachDuration,
