@@ -16,9 +16,9 @@ export const Route = createFileRoute("/_admin/admin/partners")({
 
 function PartnersPage() {
   const {
-    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, newPartnerChallengeId, addingPartner,
-    editingPartner, editRateValue, editChallengeId, partnerFreeAccounts, deliverPartnerFreeFor, partnerFreeForm, deliveringPartnerFree,
-    setEditingPartner, setEditRateValue, setEditChallengeId, setNewPartnerEmail, setNewPartnerRate, setNewPartnerChallengeId,
+    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, newPartnerChallengeId, newPartnerPromoCode, addingPartner,
+    editingPartner, editRateValue, editChallengeId, editPromoCode, partnerFreeAccounts, deliverPartnerFreeFor, partnerFreeForm, deliveringPartnerFree,
+    setEditingPartner, setEditRateValue, setEditChallengeId, setEditPromoCode, setNewPartnerEmail, setNewPartnerRate, setNewPartnerChallengeId, setNewPartnerPromoCode,
     addPartner, saveCommissionRate, togglePartnerActive, deletePartner, setPartnerPayoutStatus,
     setDeliverPartnerFreeFor, setPartnerFreeForm, openDeliverPartnerFree, submitDeliverPartnerFree,
     challengeList, loadPartners,
@@ -31,8 +31,8 @@ function PartnersPage() {
       {/* Add new partner */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="font-display text-base font-bold">Assign Partner Role</div>
-        <p className="mt-1 text-xs text-muted-foreground">Enter the user's email and commission rate. Promo code is auto-generated from their name.</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,140px,200px,auto]">
+        <p className="mt-1 text-xs text-muted-foreground">Enter the user's email and commission rate. Promo code is auto-generated from their name if left blank.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,140px,200px,160px,auto]">
           <Input placeholder="user@example.com" value={newPartnerEmail} onChange={(e) => setNewPartnerEmail(e.target.value)} />
           <Input type="number" min={0} max={100} step={0.5} placeholder="Rate %" value={newPartnerRate} onChange={(e) => setNewPartnerRate(e.target.value)} />
           <Select value={newPartnerChallengeId} onValueChange={setNewPartnerChallengeId}>
@@ -44,6 +44,7 @@ function PartnersPage() {
               ))}
             </SelectContent>
           </Select>
+          <Input placeholder="Promo code (optional)" value={newPartnerPromoCode} onChange={(e) => setNewPartnerPromoCode(e.target.value)} />
           <Button onClick={addPartner} disabled={addingPartner}>{addingPartner ? "Adding…" : "Add Partner"}</Button>
         </div>
       </div>
@@ -75,7 +76,7 @@ function PartnersPage() {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => { setEditingPartner(p); setEditRateValue(String(p.commission_rate)); setEditChallengeId(p.free_account_challenge_id ?? ""); }}>Edit</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingPartner(p); setEditRateValue(String(p.commission_rate)); setEditChallengeId(p.free_account_challenge_id ?? ""); setEditPromoCode(p.promo_code ?? ""); }}>Edit</Button>
                       <Button size="sm" variant={p.is_active ? "outline" : "default"} onClick={() => togglePartnerActive(p)} disabled={partnerSaving === p.id}>{p.is_active ? "Deactivate" : "Activate"}</Button>
                       <Button size="sm" variant="destructive" onClick={() => deletePartner(p)} disabled={partnerSaving === p.id}>Delete</Button>
                     </div>
@@ -164,12 +165,16 @@ function PartnersPage() {
             <DialogDescription>{editingPartner?.profiles?.full_name} · {editingPartner?.promo_code}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="edit-rate">Commission %</Label>
-              <Input id="edit-rate" type="number" min={0} max={100} step={0.5} value={editRateValue} onChange={(e) => setEditRateValue(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Free Account Challenge</Label>
+          <div className="grid gap-1.5">
+            <Label htmlFor="edit-rate">Commission %</Label>
+            <Input id="edit-rate" type="number" min={0} max={100} step={0.5} value={editRateValue} onChange={(e) => setEditRateValue(e.target.value)} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="edit-promo">Promo Code</Label>
+            <Input id="edit-promo" value={editPromoCode} onChange={(e) => setEditPromoCode(e.target.value)} placeholder="e.g. JOHN4F3A" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Free Account Challenge</Label>
               <Select value={editChallengeId || "__none__"} onValueChange={(v) => setEditChallengeId(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Select free account" /></SelectTrigger>
                 <SelectContent>

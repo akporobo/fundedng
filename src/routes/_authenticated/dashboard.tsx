@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatNaira, formatPercent, formatUSD, calculateBusinessDays, addBusinessDays } from "@/lib/utils";
 import { toast } from "sonner";
-import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock, Trash2, XCircle, AlertTriangle } from "lucide-react";
+import { LogOut, Plus, Trophy, TrendingUp, Activity, Bell, ShieldCheck, ShieldAlert, Landmark, Sparkles, Check, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import { subscribeToPush } from "@/lib/push";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
@@ -43,7 +43,7 @@ interface Account {
   funded_requested_at: string | null;
   phase_rejected_reason?: string | null;
   phase_rejected_at?: string | null;
-  deleted_at?: string | null;
+
   trading_days?: number;
   currency?: string;
   last_payout_date?: string | null;
@@ -123,6 +123,7 @@ function DashboardPage() {
   const [partnerFreeAccount, setPartnerFreeAccount] = useState<PartnerFreeAccount | null>(null);
   const [selected, setSelected] = useState<Account | null>(null);
   const [snapshots, setSnapshots] = useState<{ snapshot_time: string; equity: number; balance: number }[]>([]);
+  const [selectedPhase, setSelectedPhase] = useState<"phase1" | "phase2" | "funded">("phase1");
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -146,6 +147,28 @@ function DashboardPage() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+
+  const phaseInfo = useMemo(() => {
+    if (!selected) return [];
+    const info: { key: "phase1" | "phase2" | "funded"; label: string; start: string; end: string | null }[] = [];
+    info.push({ key: "phase1", label: "Phase 1", start: selected.created_at, end: selected.phase1_passed_at ?? null });
+    if (selected.phase1_passed_at) {
+      info.push({ key: "phase2", label: "Phase 2", start: selected.phase1_passed_at, end: selected.phase2_passed_at ?? selected.funded_at ?? null });
+    }
+    if (selected.phase2_passed_at || selected.funded_at) {
+      info.push({ key: "funded", label: "Funded", start: selected.phase2_passed_at ?? selected.funded_at, end: null });
+    }
+    return info;
+  }, [selected]);
+
+  const phaseSnapshots = useMemo(() => {
+    const active = phaseInfo.find(p => p.key === selectedPhase);
+    if (!active || !snapshots.length) return snapshots;
+    return snapshots.filter(s => {
+      const t = s.snapshot_time;
+      return t >= active.start && (!active.end || t < active.end);
+    });
+  }, [snapshots, phaseInfo, selectedPhase]);
 
   useEffect(() => {
     setBankAccountNumber(profile?.bank_account_number ?? "");
@@ -300,35 +323,24 @@ function DashboardPage() {
     const list = await load();
     const fresh = list?.find((a) => a.id === selected?.id) ?? selected;
     if (fresh) {
-      const phaseStart = fresh.status === "funded"
-        ? fresh.phase2_passed_at ?? fresh.funded_at
-        : fresh.current_phase >= 2
-          ? fresh.phase1_passed_at
-          : fresh.created_at;
-      let query = supabase
+      supabase
         .from("account_snapshots")
         .select("snapshot_time, equity, balance")
-        .eq("trader_account_id", fresh.id);
-      if (phaseStart) query = query.gte("snapshot_time", phaseStart);
-      query.order("snapshot_time", { ascending: false }).limit(2000).then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[])?.reverse() ?? []));
+        .eq("trader_account_id", fresh.id)
+        .order("snapshot_time", { ascending: false }).limit(2000).then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[])?.reverse() ?? []));
       if (fresh.id !== selected?.id) setSelected(fresh);
     }
     toast.success("Dashboard updated");
   };
   useEffect(() => {
     if (!selected) return;
-    const phaseStart = selected.status === "funded"
-      ? selected.phase2_passed_at ?? selected.funded_at
-      : selected.current_phase >= 2
-        ? selected.phase1_passed_at
-        : selected.created_at;
-    let query = supabase
+    supabase
       .from("account_snapshots")
       .select("snapshot_time, equity, balance")
-      .eq("trader_account_id", selected.id);
-    if (phaseStart) query = query.gte("snapshot_time", phaseStart);
-    query.order("snapshot_time", { ascending: false }).limit(2000).then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[])?.reverse() ?? []));
-
+      .eq("trader_account_id", selected.id)
+      .order("snapshot_time", { ascending: false }).limit(2000).then(({ data }) => setSnapshots((data as { snapshot_time: string; equity: number; balance: number }[])?.reverse() ?? []));
+    const last = phaseInfo[phaseInfo.length - 1];
+    if (last) setSelectedPhase(last.key);
   }, [selected]);
 
   useEffect(() => {
@@ -493,6 +505,8 @@ function DashboardPage() {
     const dailyPeak = Math.max(...todaySnaps.map((s) => Number(s.equity)), equity);
     return dailyPeak > 0 ? ((dailyPeak - equity) / dailyPeak) * 100 : 0;
   })();
+  const phaseEquity = phaseSnapshots.length > 0 ? Number(phaseSnapshots[phaseSnapshots.length - 1].equity) : equity;
+  const phasePeak = phaseSnapshots.length > 0 ? Math.max(...phaseSnapshots.map(s => Number(s.equity))) : peakEquity;
   const unread = notifications.filter((n) => !n.is_read).length;
 
   const drawdownLimit = peakEquity * (1 - maxDD / 100);
@@ -564,16 +578,6 @@ function DashboardPage() {
     load();
   };
 
-  const deleteBreachedAccount = async (account: Account) => {
-    if (account.status !== "breached") return;
-    if (!confirm("Permanently delete this breached account? This action cannot be undone.")) return;
-    const { error } = await supabase.from("trader_accounts").delete().eq("id", account.id);
-    if (error) return toast.error(error.message);
-    toast.success("Account deleted");
-    if (selected?.id === account.id) setSelected(null);
-    load();
-  };
-
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
@@ -603,30 +607,6 @@ function DashboardPage() {
         </div>
 
         {user && <PendingAccounts userId={user.id} />}
-
-        {(() => {
-          const dismissed = typeof window !== "undefined" && localStorage.getItem("flash_challenge_dd_notice_dismissed") === "1";
-          const has1MAccount = accounts.some((a) => a.starting_balance === 1000000);
-          if (!dismissed && has1MAccount) {
-            return (
-              <div className="relative mt-4 overflow-hidden rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 pr-10">
-                <button
-                  type="button"
-                  onClick={() => localStorage.setItem("flash_challenge_dd_notice_dismissed", "1")}
-                  className="absolute right-3 top-3 text-amber-600/60 hover:text-amber-600 transition-colors"
-                  aria-label="Dismiss"
-                >
-                  <XCircle className="h-4 w-4" />
-                </button>
-                <div className="font-display text-sm font-bold text-amber-700 dark:text-amber-400">Flash Challenge Rule Update</div>
-                <p className="mt-1 text-xs text-amber-600/80 dark:text-amber-300/80 leading-relaxed">
-                  A 10% daily drawdown limit now applies to all accounts purchased during the 48-hour promo. Your overall drawdown limit remains at 20%. This rule applies to the discounted challenge only — regular challenge rules are unchanged.
-                </p>
-              </div>
-            );
-          }
-          return null;
-        })()}
 
         {accounts.length === 0 ? (
           <div className="mt-10 overflow-hidden rounded-2xl border border-primary/40 bg-card p-8 md:p-12">
@@ -695,8 +675,8 @@ function DashboardPage() {
                 <div className="flex flex-wrap gap-2">
                   {accounts.map((a) => (
                     <button key={a.id} onClick={() => setSelected(a)}
-                      className={`font-display rounded-md border px-3 py-1.5 text-xs ${selected?.id === a.id ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"} ${a.deleted_at ? "opacity-60" : ""}`}>
-                      {a.mt5_login} · {a.challenges?.name}{a.deleted_at ? " (deleted)" : ""}
+                      className={`font-display rounded-md border px-3 py-1.5 text-xs ${selected?.id === a.id ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"}`}>
+                      {a.mt5_login} · {a.challenges?.name}
                     </button>
                   ))}
                 </div>
@@ -710,14 +690,6 @@ function DashboardPage() {
                       <AlertDescription>
                         <span className="font-display font-semibold">Account Breached</span>
                         <p className="mt-1 text-sm">{selected.breach_reason}</p>
-                        {selected.deleted_at && (
-                          <div className="mt-3 flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">This account has been removed from the admin panel.</span>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => deleteBreachedAccount(selected)}>
-                              <Trash2 className="mr-1 h-3 w-3" />Delete permanently
-                            </Button>
-                          </div>
-                        )}
                       </AlertDescription>
                     </Alert>
                   )}
@@ -975,16 +947,26 @@ function DashboardPage() {
                     </div>
                   )}
 
+                  {phaseInfo.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {phaseInfo.map((p) => (
+                        <button key={p.key} onClick={() => setSelectedPhase(p.key)}
+                          className={`font-display rounded-md border px-3 py-1.5 text-xs ${selectedPhase === p.key ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"}`}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {snapshots.length > 0 && (
                     <TradingAnalytics
-                      snapshots={snapshots}
+                      snapshots={phaseSnapshots}
                       startingBalance={start}
-                      currentEquity={equity}
+                      currentEquity={phaseEquity}
                       maxDrawdownPercent={maxDD}
                       profitTargetPercent={target}
                       minTradingDays={selected.currency === "USD" ? 4 : (selected.challenges?.min_trading_days ?? 3)}
-                      currentPhase={selected.current_phase}
-                      status={selected.status}
+                      currentPhase={selectedPhase === "phase1" ? 1 : selectedPhase === "phase2" ? 2 : selected.current_phase}
+                      status={selectedPhase === "funded" ? "funded" : "active"}
                       tradingDays={selected.trading_days ?? 0}
                       maxDailyDrawdownPercent={maxDailyDD ?? undefined}
                       dailyDrawdownPercent={dailyDrawdownPercent}
@@ -1145,7 +1127,7 @@ function DashboardPage() {
 
             <TabsContent value="accounts" className="mt-6 space-y-3">
               {accounts.map((a) => (
-                <div key={a.id} className={`flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-5 ${a.deleted_at ? "opacity-70" : ""}`}>
+                <div key={a.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-5">
                   <div className="flex-1 min-w-[160px]">
                     <div className="font-display text-primary">{a.mt5_login}</div>
                     <div className="text-xs text-muted-foreground">{a.challenges?.name}</div>
@@ -1155,11 +1137,6 @@ function DashboardPage() {
                     <Badge className={`${statusVariant[a.status]} font-display`}>{a.status.toUpperCase()}</Badge>
                   {a.status === "breached" && a.breach_reason && (
                     <p className="w-full text-xs text-destructive">{a.breach_reason}</p>
-                  )}
-                  {a.deleted_at && (
-                    <Button size="sm" variant="outline" className="text-xs" onClick={() => deleteBreachedAccount(a)}>
-                      <Trash2 className="mr-1 h-3 w-3" />Delete
-                    </Button>
                   )}
                 </div>
               ))}

@@ -42,10 +42,12 @@ function useAdminDataHook() {
   const [newPartnerEmail, setNewPartnerEmail] = useState("");
   const [newPartnerRate, setNewPartnerRate] = useState("20");
   const [newPartnerChallengeId, setNewPartnerChallengeId] = useState("");
+  const [newPartnerPromoCode, setNewPartnerPromoCode] = useState("");
   const [addingPartner, setAddingPartner] = useState(false);
   const [editingPartner, setEditingPartner] = useState<any | null>(null);
   const [editRateValue, setEditRateValue] = useState("");
   const [editChallengeId, setEditChallengeId] = useState("");
+  const [editPromoCode, setEditPromoCode] = useState("");
   const [partnerFreeAccounts, setPartnerFreeAccounts] = useState<any[]>([]);
   const [deliverClaimFor, setDeliverClaimFor] = useState<any | null>(null);
   const [claimForm, setClaimForm] = useState({ login: "", password: "", investor: "", server: "" });
@@ -454,7 +456,7 @@ function useAdminDataHook() {
       const adminName = (profile?.full_name && profile.full_name.trim()) || (user?.email ?? null);
       await supabase.from("breach_audit_log").insert({ trader_account_id: breachTarget.id, user_id: breachTarget.user_id, admin_id: user?.id ?? null, admin_name: adminName, admin_email: user?.email ?? null, reason, mt5_login: breachTarget.mt5_login ?? null } as never).then(({ error: e }) => { if (e) console.error("[breach audit log] insert failed", e.message); });
       await supabase.from("notifications").insert({ user_id: breachTarget.user_id, title: "❌ Account breached", message: `Your account ${breachTarget.mt5_login} has been marked as breached. Reason: ${reason}`, type: "error" } as never);
-      toast.success("Account breached. It will disappear from this list in 5 minutes."); notifyEmail({ type: "breached", accountId: breachTarget.id, reason });
+      toast.success("Account breached. It has been archived."); notifyEmail({ type: "breached", accountId: breachTarget.id, reason });
       setBreachTarget(null); setBreachReason(""); load();
     } finally { setBreaching(false); }
   };
@@ -559,10 +561,16 @@ function useAdminDataHook() {
     if (error) { setAddingPartner(false); return toast.error(error.message); }
     const challengeVal = newPartnerChallengeId === "__none__" ? null : newPartnerChallengeId;
     if (userId) {
-      await supabase.from("partner_profiles").update({ free_account_challenge_id: challengeVal || null } as never).eq("user_id", userId);
+      const updates: any = { free_account_challenge_id: challengeVal || null };
+      const customCode = newPartnerPromoCode.trim();
+      if (customCode) {
+        updates.promo_code = customCode.toUpperCase();
+      }
+      const { error: upErr } = await supabase.from("partner_profiles").update(updates as never).eq("user_id", userId);
+      if (upErr) toast.error("Partner created but promo code not saved: " + upErr.message);
     }
     setAddingPartner(false);
-    toast.success("Partner added"); setNewPartnerEmail(""); setNewPartnerRate("20"); setNewPartnerChallengeId(""); loadChallenges(); loadPartners();
+    toast.success("Partner added"); setNewPartnerEmail(""); setNewPartnerRate("20"); setNewPartnerChallengeId(""); setNewPartnerPromoCode(""); loadChallenges(); loadPartners();
   };
 
   const saveCommissionRate = async () => {
@@ -573,6 +581,13 @@ function useAdminDataHook() {
     const updates: any = { commission_rate: rate };
     if (editChallengeId !== editingPartner.free_account_challenge_id) {
       updates.free_account_challenge_id = editChallengeId || null;
+    }
+    const codeChanged = editPromoCode.trim().toUpperCase() !== editingPartner.promo_code;
+    if (codeChanged) {
+      const customCode = editPromoCode.trim().toUpperCase();
+      if (customCode.length < 3) { setPartnerSaving(null); return toast.error("Promo code must be at least 3 characters"); }
+      const { error: codeErr } = await supabase.rpc("update_partner_promo_code", { _partner_profile_id: editingPartner.id, _new_code: customCode });
+      if (codeErr) { setPartnerSaving(null); return toast.error(codeErr.message); }
     }
     const { error } = await supabase.from("partner_profiles").update(updates as never).eq("id", editingPartner.id);
     setPartnerSaving(null);
@@ -688,9 +703,9 @@ function useAdminDataHook() {
     affPayouts, freeClaims, affSaving, affiliateStats, affiliateSummary,
     setAffPayoutStatus, setFreeClaimStatus, openDeliverClaim, submitDeliverClaim,
     deliverClaimFor, claimForm, deliveringClaim, setDeliverClaimFor, setClaimForm,
-    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, newPartnerChallengeId, addingPartner,
-    editingPartner, editRateValue, editChallengeId, partnerFreeAccounts, setEditingPartner, setEditRateValue,
-    setEditChallengeId, setNewPartnerEmail, setNewPartnerRate, setNewPartnerChallengeId, addPartner, saveCommissionRate, togglePartnerActive, deletePartner,
+    partners, partnerPayouts, partnerSaving, newPartnerEmail, newPartnerRate, newPartnerChallengeId, newPartnerPromoCode, addingPartner,
+    editingPartner, editRateValue, editChallengeId, editPromoCode, partnerFreeAccounts, setEditingPartner, setEditRateValue,
+    setEditChallengeId, setEditPromoCode, setNewPartnerEmail, setNewPartnerRate, setNewPartnerChallengeId, setNewPartnerPromoCode, addPartner, saveCommissionRate, togglePartnerActive, deletePartner,
     setPartnerPayoutStatus, deliverPartnerFreeFor, partnerFreeForm, deliveringPartnerFree,
     setDeliverPartnerFreeFor, setPartnerFreeForm, openDeliverPartnerFree, submitDeliverPartnerFree,
     discountCodes, discountForm, discountSaving, setDiscountForm, saveDiscountCode, toggleDiscountActive,

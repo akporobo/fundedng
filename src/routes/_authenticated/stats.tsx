@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_authenticated/stats")({ component: Stats
 interface Account {
   id: string; mt5_login: string; starting_balance: number; current_phase: number;
   status: string; trading_days?: number; created_at: string; phase1_passed_at: string | null;
+  phase2_passed_at: string | null; funded_at: string | null;
   challenges?: { name: string; min_trading_days?: number; profit_target_percent: number; max_drawdown_percent: number; phases: number };
 }
 
@@ -28,6 +29,7 @@ function StatsPage() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedPhase, setSelectedPhase] = useState<"phase1" | "phase2" | "funded">("phase1");
 
   const todayLocal = useMemo(() => {
     const d = new Date();
@@ -52,27 +54,44 @@ function StatsPage() {
       });
   }, [user]);
 
-  const phaseStart = useMemo(() => {
-    if (!selected) return null;
-    if (selected.current_phase >= 2 && selected.phase1_passed_at) {
-      return selected.phase1_passed_at;
+  const phaseInfo = useMemo(() => {
+    if (!selected) return [];
+    const info: { key: "phase1" | "phase2" | "funded"; label: string; start: string; end: string | null }[] = [];
+    info.push({ key: "phase1", label: "Phase 1", start: selected.created_at, end: selected.phase1_passed_at ?? null });
+    if (selected.phase1_passed_at) {
+      info.push({ key: "phase2", label: "Phase 2", start: selected.phase1_passed_at, end: selected.phase2_passed_at ?? selected.funded_at ?? null });
     }
-    return selected.created_at;
+    if (selected.phase2_passed_at || selected.funded_at) {
+      info.push({ key: "funded", label: "Funded", start: selected.phase2_passed_at ?? selected.funded_at, end: null });
+    }
+    return info;
   }, [selected]);
 
+  const filteredTrades = useMemo(() => {
+    const active = phaseInfo.find(p => p.key === selectedPhase);
+    if (!active || !trades.length) return trades;
+    return trades.filter(t => {
+      const ct = t.close_time;
+      return ct >= active.start && (!active.end || ct < active.end);
+    });
+  }, [trades, phaseInfo, selectedPhase]);
+
+  const activePhase = phaseInfo.find(p => p.key === selectedPhase);
+
   useEffect(() => {
-    if (!selected || !phaseStart) return;
+    if (!selected) return;
     supabase
       .from("closed_trades")
       .select("ticket, symbol, profit, close_time, duration_seconds, volume")
       .eq("account_id", selected.id)
-      .gte("close_time", phaseStart)
       .order("close_time", { ascending: true })
       .then(({ data }) => setTrades((data as ClosedTrade[]) ?? []));
-  }, [selected, phaseStart]);
+    const last = phaseInfo[phaseInfo.length - 1];
+    if (last) setSelectedPhase(last.key);
+  }, [selected]);
 
   useEffect(() => {
-    if (!selected || !phaseStart) return;
+    if (!selected) return;
 
     // Fast path: append new closed_trades individually
     const tradesChannel = supabase
@@ -93,7 +112,6 @@ function StatsPage() {
 
     // Reliable fallback: sync-equity-v2 inserts an account_snapshot on every
     // sync.  When one arrives, refetch all trades for the current phase.
-    // This catches any trades missed by the upsert+ignoreDuplicates path.
     const snapChannel = supabase
       .channel(`stats-snapshots-${selected.id}`)
       .on(
@@ -109,7 +127,6 @@ function StatsPage() {
             .from("closed_trades")
             .select("ticket, symbol, profit, close_time, duration_seconds, volume")
             .eq("account_id", selected.id)
-            .gte("close_time", phaseStart)
             .order("close_time", { ascending: true })
             .then(({ data }) => setTrades((data as ClosedTrade[]) ?? []));
         },
@@ -120,17 +137,17 @@ function StatsPage() {
       supabase.removeChannel(tradesChannel);
       supabase.removeChannel(snapChannel);
     };
-  }, [selected?.id, phaseStart]);
+  }, [selected?.id]);
 
   const tradesByDay = useMemo(() => {
     const map = new Map<string, ClosedTrade[]>();
-    for (const t of trades) {
+    for (const t of filteredTrades) {
       const day = t.close_time.slice(0, 10);
       if (!map.has(day)) map.set(day, []);
       map.get(day)!.push(t);
     }
     return map;
-  }, [trades]);
+  }, [filteredTrades]);
 
   const dailyPnL = useMemo(() => {
     const map = new Map<string, number>();
@@ -141,7 +158,7 @@ function StatsPage() {
   }, [tradesByDay]);
 
   const calendarDays = useMemo(() => {
-    if (!phaseStart) return [];
+    if (!activePhase) return [];
     const days: { date: Date; key: string; pnl: number | null; trades: ClosedTrade[] }[] = [];
 
     const year = currentYear;
@@ -165,9 +182,9 @@ function StatsPage() {
     }
 
     return days;
-  }, [currentYear, currentMonth, phaseStart, dailyPnL, tradesByDay]);
+  }, [currentYear, currentMonth, activePhase, dailyPnL, tradesByDay]);
 
-  const phaseTrades = trades;
+  const phaseTrades = filteredTrades;
   const shortHeldTrades = phaseTrades.filter(t => t.duration_seconds < 180);
   const shortHeldCount = shortHeldTrades.length;
   const totalPnL = phaseTrades.reduce((sum, t) => sum + t.profit, 0);
@@ -206,8 +223,20 @@ function StatsPage() {
         </div>
       )}
 
-      {selected && phaseStart && (
+      {selected && (
         <>
+          {/* Phase selector */}
+          {phaseInfo.length > 1 && (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {phaseInfo.map((p) => (
+                <button key={p.key} onClick={() => setSelectedPhase(p.key)}
+                  className={`font-display rounded-md border px-3 py-1.5 text-xs ${selectedPhase === p.key ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Trading Calendar */}
           <div className="mt-6 rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between mb-4">
@@ -297,7 +326,7 @@ function StatsPage() {
           <div className="mt-6 rounded-xl border border-border bg-card p-6">
             <h2 className="font-display flex items-center gap-2 text-base font-semibold mb-5">
               <BarChart3 className="h-4 w-4 text-primary" />
-              Phase Summary
+              {activePhase?.label ?? "Phase"} Summary
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="rounded-lg border border-border bg-background p-4">
@@ -344,7 +373,7 @@ function StatsPage() {
 
             {shortHeldCount === 0 ? (
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                <span className="text-lg">✓</span> No scalping violations this phase
+                <span className="text-lg">✓</span> No scalping violations in {activePhase?.label ?? "this phase"}
               </div>
             ) : (
               <>
