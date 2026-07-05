@@ -47,7 +47,7 @@ interface Account {
   trading_days?: number;
   currency?: string;
   last_payout_date?: string | null;
-  challenges?: { name: string; profit_target_percent: number; max_drawdown_percent: number; phases: number; min_trading_days?: number; max_daily_drawdown_percent?: number | null };
+  challenges?: { name: string; profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number; min_trading_days?: number; max_daily_drawdown_percent?: number | null };
 }
 
 interface PartnerFreeAccount {
@@ -64,7 +64,7 @@ interface PartnerFreeAccount {
 interface Payout { id: string; amount_naira: number; status: string; payment_method: string; created_at: string; trader_account_id?: string; }
 interface Notification { id: string; title: string; message: string; type: string; is_read: boolean; created_at: string; }
 
-function PayoutCountdown({ nextPayoutDate, businessDays = 7 }: { nextPayoutDate: Date; businessDays?: number }) {
+function PayoutCountdown({ nextPayoutDate, businessDays = 7, isUsd }: { nextPayoutDate: Date; businessDays?: number; isUsd?: boolean }) {
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
@@ -104,7 +104,7 @@ function PayoutCountdown({ nextPayoutDate, businessDays = 7 }: { nextPayoutDate:
         </div>
       )}
       <p className="mt-4 text-[11px] text-muted-foreground">
-        Payout rules: {businessDays === 10 ? "10 business days" : "7 calendar days"} between requests · 80/20 split · first payout capped at 10% · processed within 24hrs of approval
+        Payout rules: {isUsd ? "10 business days" : "7 calendar days"} between requests · 80/20 split · {isUsd ? "first 2 payouts capped at 6%, subsequent at 10%" : "first payout capped at 10%, subsequent at 50%"} · processed within 24hrs of approval
       </p>
     </div>
   );
@@ -250,7 +250,7 @@ function DashboardPage() {
   const load = async (): Promise<Account[]> => {
     if (!user) return [];
     const [a, p, n, c, pf] = await Promise.all([
-      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases,min_trading_days,max_daily_drawdown_percent)").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases,min_trading_days,max_daily_drawdown_percent)").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("certificates").select("*").eq("user_id", user.id).order("issued_at", { ascending: false }),
@@ -271,7 +271,7 @@ function DashboardPage() {
         // Find the corresponding trader_accounts row (created during delivery)
         const { data: taData } = await supabase
           .from("trader_accounts")
-          .select("*, challenges(name,profit_target_percent,max_drawdown_percent,phases)")
+          .select("*, challenges(name,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases)")
           .eq("mt5_login", pfa.mt5_login)
           .eq("user_id", user.id)
           .maybeSingle();
@@ -289,7 +289,7 @@ function DashboardPage() {
           if (challengeId) {
             const { data } = await supabase
               .from("challenges")
-              .select("name, profit_target_percent, max_drawdown_percent, phases, min_trading_days, max_daily_drawdown_percent")
+              .select("name, profit_target_percent, phase2_profit_target_percent, max_drawdown_percent, phases, min_trading_days, max_daily_drawdown_percent")
               .eq("id", challengeId)
               .maybeSingle();
             chData = data;
@@ -441,25 +441,38 @@ function DashboardPage() {
     if (selected.status !== "funded") return toast.error("Account must be funded.");
     const equity = Number(selected.current_equity ?? selected.starting_balance);
     const profit = equity - selected.starting_balance;
-    const minProfit = selected.starting_balance * 0.1; // 10% min profit to request
-    const maxProfit = selected.starting_balance * 0.5; // 50% max profit for subsequent
+    const isUsdAccount = selected.currency === "USD";
+    const minProfit = isUsdAccount
+      ? selected.starting_balance * 0.06
+      : selected.starting_balance * 0.1;
     if (profit < minProfit) return toast.error(`You need at least ${formatNaira(minProfit)} in profit to request a payout.`);
 
-    // First payout: capped at 10% of account size. Subsequent: 50%.
+    // USD: first 2 payouts capped at 6%, subsequent at 10%. NGN: first capped at 10%, subsequent at 50%.
     // Trader receives 80% of the profit portion requested.
-    const hasPriorPayout = payouts.some(
+    const priorPayouts = payouts.filter(
       (p) =>
         ["approved", "paid"].includes(p.status) &&
         (p as Payout & { trader_account_id?: string }).trader_account_id === selected.id,
     );
-    const profitCap = hasPriorPayout ? maxProfit : minProfit; // first: 10%, subsequent: 50%
+    const priorCount = priorPayouts.length;
+    let profitCap: number;
+    if (isUsdAccount) {
+      const firstUsdCap = selected.starting_balance * 0.06;
+      const subsequentUsdCap = selected.starting_balance * 0.1;
+      profitCap = priorCount < 2 ? firstUsdCap : subsequentUsdCap;
+    } else {
+      const firstNgnCap = selected.starting_balance * 0.1;
+      const subsequentNgnCap = selected.starting_balance * 0.5;
+      profitCap = priorCount === 0 ? firstNgnCap : subsequentNgnCap;
+    }
     const requestedProfit = Math.min(profit, profitCap);
     const amount = Math.floor(requestedProfit * 0.8); // trader gets 80% of profit
 
-    if (!hasPriorPayout) {
-      toast.message(
-        `First payout capped at ${formatNaira(minProfit)} profit (you receive 80% = ${formatNaira(amount)}). Subsequent payouts use 50% cap.`,
-      );
+    if (priorCount === 0) {
+      const capText = isUsdAccount
+        ? `First payout capped at ${formatNaira(minProfit)} profit (6% of account, you receive 80% = ${formatNaira(amount)}). 2nd payout also capped at 6%. Subsequent payouts use 10% cap.`
+        : `First payout capped at ${formatNaira(minProfit)} profit (you receive 80% = ${formatNaira(amount)}). Subsequent payouts use 50% cap.`;
+      toast.message(capText);
     }
     setSubmitting(true);
     const { data: sess } = await supabase.auth.getSession();
@@ -494,7 +507,9 @@ function DashboardPage() {
     return dbPeak > 0 ? dbPeak : start;
   })();
   const ddPct = peakEquity > 0 ? Math.max(0, ((peakEquity - equity) / peakEquity) * 100) : 0;
-  const target = selected?.challenges?.profit_target_percent ?? 10;
+  const target = selected?.current_phase === 2
+    ? (selected?.challenges?.phase2_profit_target_percent ?? selected?.challenges?.profit_target_percent ?? 10)
+    : (selected?.challenges?.profit_target_percent ?? 10);
   const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
   const maxDailyDD = selected?.challenges?.max_daily_drawdown_percent ?? null;
   const dailyDrawdownPercent = (() => {
@@ -515,7 +530,7 @@ function DashboardPage() {
     : start * (1 + target / 100);
   const currentBalance = equity;
 
-  const minDays = selected?.currency === "USD" ? 4 : (selected?.challenges?.min_trading_days ?? 3);
+  const minDays = selected?.currency === "USD" ? 5 : (selected?.challenges?.min_trading_days ?? 3);
 
   const canRequestPhase2 =
     !!selected &&
@@ -964,7 +979,7 @@ function DashboardPage() {
                       currentEquity={phaseEquity}
                       maxDrawdownPercent={maxDD}
                       profitTargetPercent={target}
-                      minTradingDays={selected.currency === "USD" ? 4 : (selected.challenges?.min_trading_days ?? 3)}
+                      minTradingDays={selected.currency === "USD" ? 5 : (selected.challenges?.min_trading_days ?? 3)}
                       currentPhase={selectedPhase === "phase1" ? 1 : selectedPhase === "phase2" ? 2 : selected.current_phase}
                       status={selectedPhase === "funded" ? "funded" : "active"}
                       tradingDays={selected.trading_days ?? 0}
@@ -1084,14 +1099,17 @@ function DashboardPage() {
                         const ready = !next || next.getTime() <= Date.now();
                         return (
                           <>
-                            {next && <PayoutCountdown nextPayoutDate={next} businessDays={cooldownDays} />}
+                            {next && <PayoutCountdown nextPayoutDate={next} businessDays={cooldownDays} isUsd={isUSD} />}
                             <div className="rounded-xl border border-primary/40 bg-primary/5 p-6">
                               <h3 className="font-display text-lg font-bold text-primary">🎉 You're funded — request payout</h3>
                                <p className="mt-1 text-sm text-muted-foreground">
-                                 80% of profits paid to your verified bank account, processed within 24hrs of approval. {isUSD ? "10 business days" : "7 calendar days"} between requests · min 10% / max 50% of account size.
-                               </p>
-                               <p className="mt-1 text-[11px] text-muted-foreground">
-                                 <span className="font-display text-foreground">First payout:</span> capped at 10% of account size (you receive 80% of profit). Subsequent payouts use the full 50% cap.
+                                  80% of profits paid to your verified bank account, processed within 24hrs of approval. {isUSD ? "10 business days" : "7 calendar days"} between requests · {isUSD ? "first 2 payouts capped at 6%, subsequent at 10%" : "min 10% / max 50% of account size"}.
+                                </p>
+                                <p className="mt-1 text-[11px] text-muted-foreground">
+                                  {isUSD
+                                    ? <><span className="font-display text-foreground">First 2 payouts:</span> capped at 6% of account size each (you receive 80% of profit). Subsequent payouts use the 10% cap.</>
+                                    : <><span className="font-display text-foreground">First payout:</span> capped at 10% of account size (you receive 80% of profit). Subsequent payouts use the full 50% cap.</>
+                                  }
                                </p>
                                {!kycVerified && (
                                  <Alert variant="destructive" className="mt-3">

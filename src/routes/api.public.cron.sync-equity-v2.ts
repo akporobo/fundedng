@@ -27,37 +27,44 @@ async function refreshTradingDays(accountId: string) {
 
     const isUSD = acct.currency === "USD";
     const startingBalance = Number(acct.starting_balance ?? 0);
-    const minProfit = isUSD ? Math.ceil(startingBalance * 0.005) : 0;
+    const threshold = startingBalance * 0.005; // 0.5% of starting balance — fixed target
 
     const { data: closeData } = await supabaseAdmin
       .from("closed_trades")
       .select("close_time, profit")
       .eq("account_id", accountId)
       .gte("close_time", phaseStart)
-      .limit(10000);
+      .order("close_time", { ascending: true });
 
-    let uniqueDays: Set<string>;
+    if (!closeData || closeData.length === 0) {
+      const { error: updateErr } = await supabaseAdmin
+        .from("trader_accounts")
+        .update({ trading_days: 0 })
+        .eq("id", accountId);
+      if (updateErr) console.error(`[sync-equity-v2] refreshTradingDays update failed:`, updateErr);
+      return;
+    }
+
+    // Group trades by UTC date, sum profit per day
+    const dayMap = new Map<string, number>();
+    for (const t of closeData) {
+      const date = t.close_time.slice(0, 10);
+      dayMap.set(date, (dayMap.get(date) ?? 0) + Number(t.profit));
+    }
+
+    let profitableDays = 0;
     if (isUSD) {
-      const dayProfits = new Map<string, number[]>();
-      for (const r of closeData ?? []) {
-        const day = r.close_time.slice(0, 10);
-        if (!dayProfits.has(day)) dayProfits.set(day, []);
-        dayProfits.get(day)!.push(r.profit);
+      // Count days where net profit met or exceeded the 0.5% threshold
+      for (const dayProfit of dayMap.values()) {
+        if (dayProfit >= threshold) profitableDays++;
       }
-      uniqueDays = new Set(
-        [...dayProfits.entries()]
-          .filter(([_, profits]) => profits.some(p => p >= minProfit))
-          .map(([day]) => day)
-      );
     } else {
-      uniqueDays = new Set(
-        (closeData ?? []).map((r: any) => r.close_time.slice(0, 10))
-      );
+      profitableDays = dayMap.size;
     }
 
     const { error: updateErr } = await supabaseAdmin
       .from("trader_accounts")
-      .update({ trading_days: uniqueDays.size })
+      .update({ trading_days: profitableDays })
       .eq("id", accountId);
 
     if (updateErr) {

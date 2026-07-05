@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNaira, formatUSD, formatCompactSize } from "@/lib/utils";
-import { ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowRight, ShieldCheck, Zap, Wallet, Clock, Layers, Loader2, AlertTriangle, Ban, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Brand } from "@/components/site/Brand";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
@@ -28,13 +28,43 @@ export const Route = createFileRoute("/buy")({
 
 interface Challenge {
   id: string; name: string; account_size: number; price_naira: number;
-  profit_target_percent: number; max_drawdown_percent: number; phases: number;
+  profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number;
   challenge_type?: "standard" | "instant" | null;
   max_daily_drawdown_percent?: number | null;
   max_trading_days?: number | null;
   min_trading_days?: number;
   currency?: string; usd_price?: number; discount_percent?: number;
 }
+
+const usdPrices: Record<number, number> = {
+  5000: 34,
+  10000: 60,
+  20000: 90,
+  50000: 150,
+  100000: 350,
+};
+
+const usdSizeOptions: Record<string, number[]> = {
+  instant: [5000, 10000, 20000, 50000],
+  "1-step": [5000, 10000, 20000, 50000],
+  "2-step": [5000, 10000, 20000, 50000, 100000],
+};
+
+const usdRules = {
+  profitTargetPhase1: 10,
+  profitTargetPhase2: 5,
+  maxTotalDrawdown: 10,
+  dailyDrawdown: 5,
+  minProfitableDays: 5,
+  profitableDayThreshold: "0.5% of starting balance",
+  profitSplit: 80,
+  payoutCooldown: "10 business days",
+  maxPayouts: 5,
+  weekendHolding: false,
+  newsRestriction: "5 minutes before/after high-impact events",
+  minHoldTime: "3 minutes",
+  inactivity: "15 days",
+};
 
 function BuyPage() {
   const { isAuthenticated, user, session, profile } = useAuth();
@@ -441,6 +471,40 @@ function BuyPage() {
                           <span>{formatNaira(Math.ceil(payable * exchangeRate))}</span>
                         </div>
                       )}
+                      {selectedSize && currency === "USD" && (() => {
+                        const payout6 = Math.round(selectedSize * 0.06 * 0.8);
+                        const payout10 = Math.round(selectedSize * 0.10 * 0.8);
+                        return (
+                          <div className="border-t border-border pt-3">
+                            <p className="font-display text-xs font-semibold text-muted-foreground mb-2">PAYOUT STRUCTURE</p>
+                            <div className="space-y-1 text-xs text-muted-foreground">
+                              <div className="flex justify-between">
+                                <span>1st and 2nd payout</span>
+                                <span className="text-foreground font-medium">up to {formatUSD(payout6)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>3rd and 4th payout</span>
+                                <span className="text-foreground font-medium">up to {formatUSD(payout10)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>5th payout (final)</span>
+                                <span className="text-foreground font-medium">50% of remaining profit</span>
+                              </div>
+                              <div className="flex justify-between border-t border-border pt-1 mt-1">
+                                <span>Cooldown between payouts</span>
+                                <span className="text-foreground font-medium">10 business days</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Account lifecycle</span>
+                                <span className="text-foreground font-medium">Retired after 5th payout</span>
+                              </div>
+                            </div>
+                            <p className="mt-2 text-[11px] text-muted-foreground border-t border-border pt-2">
+                              Min profit before payout: 6% (payouts 1-2) · 10% (payouts 3-4). All amounts at 80% trader split.
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
                     {currency === "USD" && (
                       <p className="mt-3 text-center text-[11px] text-muted-foreground">
@@ -504,7 +568,7 @@ function BuyPage() {
                         <div className="flex items-center justify-between border-b border-border pb-2">
                           <span className="text-muted-foreground">Profit Target Phase 2</span>
                           <span className="font-display font-semibold">
-                            {`${selected?.profit_target_percent ?? 0}%`}
+                            {`${selected?.phase2_profit_target_percent ?? selected?.profit_target_percent ?? 0}%`}
                           </span>
                         </div>
                       )}
@@ -531,7 +595,7 @@ function BuyPage() {
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Min Trading Days</span>
                         <span className="font-display font-semibold">
-                          {currency === "USD" ? "4" : `${selected?.min_trading_days ?? 3}`}
+                          {currency === "USD" ? "5" : `${selected?.min_trading_days ?? 3}`}
                         </span>
                       </div>
 
@@ -545,7 +609,7 @@ function BuyPage() {
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <span className="text-muted-foreground">Payouts</span>
                         <span className="font-display font-semibold">
-                          {currency === "USD" ? "Weekly" : "Within 24 hrs"}
+                          {currency === "USD" ? "Max 5 (10 business day cooldown)" : "Within 24 hrs"}
                         </span>
                       </div>
 
@@ -612,11 +676,25 @@ function BuyPage() {
                           { icon: Layers, label: "Phases", value: "1-Step (Instant)" },
                           { icon: Wallet, label: "Profit split", value: "80%" },
                         ]
-                      : [
-                          { icon: ShieldCheck, label: "Profit target / phase", value: `${selected?.profit_target_percent ?? 0}%` },
+                      : currency === "USD"
+                        ? [
+                            { icon: ShieldCheck, label: "Profit target Phase 1", value: "10%" },
+                            { icon: ShieldCheck, label: "Profit target Phase 2", value: "5%" },
+                            { icon: Zap, label: "Max drawdown (trailing)", value: "10%" },
+                            { icon: AlertTriangle, label: "Daily drawdown", value: "5%" },
+                            { icon: Clock, label: "Min hold time", value: "3 minutes" },
+                            { icon: TrendingUp, label: "Profitable days required", value: "5 days (>=0.5% each)" },
+                            { icon: Wallet, label: "Profit split", value: "80/20" },
+                            { icon: Clock, label: "Payout cooldown", value: "10 business days" },
+                            { icon: Layers, label: "Max payouts", value: "5 total" },
+                            { icon: Ban, label: "Weekend holding", value: "Not allowed" },
+                            { icon: Ban, label: "News trading", value: "+/-5 min blackout" },
+                          ]
+                        : [
+                          { icon: ShieldCheck, label: "Profit target / phase", value: selected?.phase2_profit_target_percent ? `${selected?.profit_target_percent ?? 0}% / ${selected?.phase2_profit_target_percent}%` : `${selected?.profit_target_percent ?? 0}%` },
                           { icon: Zap, label: "Max drawdown", value: `${selected?.max_drawdown_percent ?? 0}%` },
                           { icon: Layers, label: "Phases to funded", value: `${selected?.phases ?? 2}` },
-                          { icon: Clock, label: "Min trading days", value: currency === "USD" ? "4" : `${selected?.min_trading_days ?? 3}` },
+                          { icon: Clock, label: "Min trading days", value: `${selected?.min_trading_days ?? 3}` },
                           { icon: Wallet, label: "Profit split", value: "80%" },
                           { icon: Clock, label: "Payout processing", value: "Within 24 hrs" },
                         ]
@@ -634,7 +712,7 @@ function BuyPage() {
                 <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
                   <span className="font-display block font-semibold text-warning">Rules reminder</span>
                     {currency === "USD"
-                      ? "Trade only on your USD MT5 evaluation account. No automated trading. No copy trading. Min 3-minute hold. At least 3 days with closed profit ≥0.5% of account size. 10% trailing drawdown. 5% daily drawdown (resets midnight UTC+1). News trading restriction: 5 mins. Inactivity: 15 days."
+                      ? "USD accounts: Min 3-minute hold on all trades (SL, TP, manual). 10% trailing drawdown from highest peak. 5% daily drawdown (resets midnight UTC). No weekend holding — all positions must close before Friday 21:00 UTC (crypto exempt). News blackout: 5 minutes before/after high-impact events. 5 profitable trading days required per phase — each day must show >=0.5% net profit on your starting balance. Max 5 payouts per account. 10 business days between payouts. Inactivity limit: 15 days."
                       : "Trade only on your FundedNG MT5 evaluation account. No automated trading. No copy trading. All trades must be held at least 3 minutes (manual, SL, and TP closes all count). 20% trailing drawdown from highest equity peak."}
                 </div>
 

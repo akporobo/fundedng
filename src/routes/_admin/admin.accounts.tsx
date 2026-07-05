@@ -150,7 +150,7 @@ function AccountsPage() {
                 return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">PHASE 2 REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "phase2")}>Reject</Button></>)}{hit ? <Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button> : <span className="text-[11px] text-muted-foreground">Needs {formatNaira(Math.ceil(required))} equity ({target}% target)</span>}</>);
               })()}
               {a.current_phase >= 2 && a.status === "active" && (() => {
-                const target = Number(a.challenges?.profit_target_percent ?? 10);
+                const target = Number(a.challenges?.phase2_profit_target_percent ?? a.challenges?.profit_target_percent ?? 10);
                 const equity = Number(a.current_equity ?? a.starting_balance);
                 const required = Number(a.starting_balance) * (1 + target / 100);
                 const hit = equity >= required;

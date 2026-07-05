@@ -10,7 +10,7 @@ import { notifyEmail } from "@/lib/notify-email";
 
 const blankChallenge = {
   id: "", name: "", account_size: 200000, price_naira: 12000, usd_price: "", currency: "NGN",
-  profit_target_percent: 10, max_drawdown_percent: 20,
+  profit_target_percent: 10, phase2_profit_target_percent: "", max_drawdown_percent: 20,
   phases: 2, is_active: true, challenge_type: "standard", max_daily_drawdown_percent: 10, max_trading_days: 45, discount_percent: 0,
 };
 
@@ -129,7 +129,7 @@ function useAdminDataHook() {
       name: challengeForm.name.trim(), account_size: Number(challengeForm.account_size), price_naira: Number(challengeForm.price_naira),
       usd_price: challengeForm.currency === "USD" ? Number(challengeForm.usd_price) || 0 : null,
       currency: challengeForm.currency || "NGN",
-      profit_target_percent: Number(challengeForm.profit_target_percent), max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
+      profit_target_percent: Number(challengeForm.profit_target_percent), phase2_profit_target_percent: Number(challengeForm.phase2_profit_target_percent) || null, max_drawdown_percent: Number(challengeForm.max_drawdown_percent),
       phases: Number(challengeForm.phases), is_active: !!challengeForm.is_active,
       challenge_type: challengeForm.challenge_type === "instant" ? "instant" : "standard",
       max_daily_drawdown_percent: Number(challengeForm.max_daily_drawdown_percent) || null,
@@ -170,7 +170,7 @@ function useAdminDataHook() {
     const accountIds = poRows.map((p) => p.trader_account_id).filter(Boolean);
     const [profRes, chRes, ordRes, taRes] = await Promise.all([
       userIds.length ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
-      challengeIds.length ? supabase.from("challenges").select("id, name, account_size, profit_target_percent, max_drawdown_percent, phases").in("id", challengeIds) : Promise.resolve({ data: [] as any[] }),
+      challengeIds.length ? supabase.from("challenges").select("id, name, account_size, profit_target_percent, phase2_profit_target_percent, max_drawdown_percent, phases").in("id", challengeIds) : Promise.resolve({ data: [] as any[] }),
       orderIds.length ? supabase.from("orders").select("id, status").in("id", orderIds) : Promise.resolve({ data: [] as any[] }),
       accountIds.length ? supabase.from("trader_accounts").select("id, mt5_login").in("id", accountIds) : Promise.resolve({ data: [] as any[] }),
     ]);

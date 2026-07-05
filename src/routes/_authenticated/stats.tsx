@@ -13,7 +13,7 @@ interface Account {
   id: string; mt5_login: string; starting_balance: number; current_phase: number;
   status: string; trading_days?: number; created_at: string; phase1_passed_at: string | null;
   phase2_passed_at: string | null; funded_at: string | null;
-  challenges?: { name: string; min_trading_days?: number; profit_target_percent: number; max_drawdown_percent: number; phases: number };
+  challenges?: { name: string; min_trading_days?: number; profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number };
 }
 
 interface ClosedTrade {
@@ -43,7 +43,7 @@ function StatsPage() {
     if (!user) return;
     supabase
       .from("trader_accounts")
-      .select("*, challenges(name,min_trading_days,profit_target_percent,max_drawdown_percent,phases)")
+      .select("*, challenges(name,min_trading_days,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases)")
       .eq("user_id", user.id)
       .in("status", ["active", "funded", "passed"])
       .order("created_at", { ascending: false })
@@ -335,7 +335,7 @@ function StatsPage() {
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><Target className="h-3 w-3" /> Min Required</div>
-                <div className="font-display mt-1 text-lg font-bold">{selected.currency === "USD" ? "4" : (selected.challenges?.min_trading_days ?? 3)}</div>
+                <div className="font-display mt-1 text-lg font-bold">{selected.currency === "USD" ? "5" : (selected.challenges?.min_trading_days ?? 3)}</div>
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Closed Trades</div>

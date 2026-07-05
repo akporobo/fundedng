@@ -46,7 +46,7 @@ function ChallengesPage() {
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div><span className="text-muted-foreground">Fee:</span> <span className="font-display text-primary">{c.currency === "USD" ? formatUSD(c.usd_price) : formatNaira(c.price_naira)}</span></div>
               <div><span className="text-muted-foreground">Phases:</span> {c.phases}</div>
-              <div><span className="text-muted-foreground">Target:</span> {c.profit_target_percent}%</div>
+               <div><span className="text-muted-foreground">Target:</span> {c.phase2_profit_target_percent ? `${c.profit_target_percent}% / ${c.phase2_profit_target_percent}%` : `${c.profit_target_percent}%`}</div>
               <div><span className="text-muted-foreground">Drawdown:</span> {c.max_drawdown_percent}%</div>
             </div>
             <div className="flex gap-2 pt-1">
@@ -83,7 +83,7 @@ function ChallengesPage() {
                 <td className="px-4 py-3"><Badge variant="outline" className={`font-display ${c.challenge_type === "instant" ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}`}>{c.challenge_type === "instant" ? "INSTANT" : "STANDARD"}</Badge></td>
                 <td className="px-4 py-3">{c.currency === "USD" ? formatUSD(c.account_size) : formatNaira(c.account_size)}</td>
                 <td className="px-4 py-3 font-display text-primary">{c.currency === "USD" ? formatUSD(c.usd_price) : formatNaira(c.price_naira)}</td>
-                <td className="px-4 py-3">{c.profit_target_percent}%</td>
+                <td className="px-4 py-3">{c.phase2_profit_target_percent ? `${c.profit_target_percent}% / ${c.phase2_profit_target_percent}%` : `${c.profit_target_percent}%`}</td>
                 <td className="px-4 py-3">{c.max_drawdown_percent}%</td>
                 <td className="px-4 py-3">{c.phases}</td>
                 <td className="px-4 py-3"><Switch checked={c.is_active} onCheckedChange={() => toggleChallengeActive(c)} /></td>
@@ -133,7 +133,10 @@ function ChallengesPage() {
                 <div className="grid gap-1.5"><Label htmlFor="ch-fee">Fee (₦)</Label><Input id="ch-fee" type="number" min={0} value={challengeForm.price_naira} onChange={(e) => setChallengeForm({ ...challengeForm, price_naira: e.target.value })} /></div>
               )}
               <div className="grid gap-1.5"><Label htmlFor="ch-discount">Discount % (0–100)</Label><Input id="ch-discount" type="number" min={0} max={100} step="0.01" value={challengeForm.discount_percent ?? 0} onChange={(e) => setChallengeForm({ ...challengeForm, discount_percent: e.target.value })} /></div>
-              <div className="grid gap-1.5"><Label htmlFor="ch-target">Profit Target %</Label><Input id="ch-target" type="number" min={0} step="0.01" value={challengeForm.profit_target_percent} onChange={(e) => setChallengeForm({ ...challengeForm, profit_target_percent: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label htmlFor="ch-target">Phase 1 Profit Target %</Label><Input id="ch-target" type="number" min={0} step="0.01" value={challengeForm.profit_target_percent} onChange={(e) => setChallengeForm({ ...challengeForm, profit_target_percent: e.target.value })} /></div>
+              {Number(challengeForm.phases) >= 2 && (
+                <div className="grid gap-1.5"><Label htmlFor="ch-target-2">Phase 2 Profit Target %</Label><Input id="ch-target-2" type="number" min={0} step="0.01" value={challengeForm.phase2_profit_target_percent} onChange={(e) => setChallengeForm({ ...challengeForm, phase2_profit_target_percent: e.target.value })} placeholder="Same as Phase 1" /></div>
+              )}
               <div className="grid gap-1.5"><Label htmlFor="ch-dd">Max Drawdown %</Label><Input id="ch-dd" type="number" min={0} step="0.01" value={challengeForm.max_drawdown_percent} onChange={(e) => setChallengeForm({ ...challengeForm, max_drawdown_percent: e.target.value })} /></div>
               <div className="grid gap-1.5"><Label htmlFor="ch-phases">Phases</Label><Input id="ch-phases" type="number" min={1} max={5} value={challengeForm.phases} onChange={(e) => setChallengeForm({ ...challengeForm, phases: e.target.value })} /></div>
               <div className="flex items-end gap-2"><Checkbox id="ch-active" checked={!!challengeForm.is_active} onCheckedChange={(v) => setChallengeForm({ ...challengeForm, is_active: !!v })} /><Label htmlFor="ch-active" className="cursor-pointer">Active</Label></div>
