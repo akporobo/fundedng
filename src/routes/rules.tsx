@@ -217,6 +217,28 @@ function RulesPage() {
         </div>
       </section>
 
+      {/* Discounted Challenge Rules */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-5xl px-4 py-20 md:px-6">
+          <div className="text-center">
+            <Badge variant="outline" className="font-display border-amber-400/40 text-amber-500">DISCOUNTED CHALLENGES</Badge>
+            <h2 className="font-display mt-4 text-4xl font-bold">Limited payouts for discounted challenges</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+              Challenges purchased at a discounted price are subject to a maximum of 2 payouts. Once two payouts have been
+              made, the account will be considered fully settled and no further payouts will be processed.
+            </p>
+          </div>
+
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              This restriction applies to any challenge where a discount was applied at the point of purchase, including
+              promotional codes, partner discounts, seasonal sales, or any other reduced-price offer. Standard-priced
+              challenges are not affected by this limit.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Detailed rules */}
       <section className="border-b border-border bg-surface">
         <div className="mx-auto max-w-4xl px-4 py-20 md:px-6">
