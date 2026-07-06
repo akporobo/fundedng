@@ -149,6 +149,15 @@ function useAdminDataHook() {
     if (error) return toast.error(error.message); toast.success(c.is_active ? "Deactivated" : "Activated"); loadChallenges();
   };
 
+  const [deletingChallengeId, setDeletingChallengeId] = useState<string | null>(null);
+  const deleteChallenge = async (c: any) => {
+    setDeletingChallengeId(c.id);
+    const { error } = await supabase.from("challenges").delete().eq("id", c.id);
+    setDeletingChallengeId(null);
+    if (error) return toast.error(error.message);
+    toast.success("Challenge deleted"); setChallengeEditOpen(false); loadChallenges();
+  };
+
   const load = async () => {
     const [pr, ord, accRaw, poRaw, req, breachedRes] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -730,7 +739,7 @@ function useAdminDataHook() {
     savingSocialOrder, socialDeleting, setUploadFile, setUploadPreview, setUploadLabel,
     setUploadCategory, setUploadOrder, setUploading, loadSocialItems,
     challengeList, challengeEditOpen, editingChallenge, challengeForm, savingChallenge,
-    openNewChallenge, openEditChallenge, saveChallenge, toggleChallengeActive, setChallengeEditOpen, setChallengeForm,
+    openNewChallenge, openEditChallenge, saveChallenge, toggleChallengeActive, deleteChallenge, deletingChallengeId, setDeletingChallengeId, setChallengeEditOpen, setChallengeForm,
     load, loadChallenges, loadTickets, loadAffiliate, loadPartners, loadDiscounts,
     updatePayout, updateAccount, resetAccountBalance, approvePhase2, approveFunded,
   };

@@ -10,6 +10,15 @@ function fmtNaira(n: number | null | undefined) {
   return "₦" + new Intl.NumberFormat("en-NG").format(Math.round(Number(n)));
 }
 
+function fmtUSD(n: number | null | undefined) {
+  if (n == null) return "$—";
+  return "$" + new Intl.NumberFormat("en-US").format(Math.round(Number(n)));
+}
+
+function fmtAmount(n: number | null | undefined, currency: string | null | undefined) {
+  return currency === "USD" ? fmtUSD(n) : fmtNaira(n);
+}
+
 function firstName(name?: string | null) {
   if (!name) return "Trader";
   return name.trim().split(/\s+/)[0];
@@ -203,17 +212,18 @@ async function welcome(userId: string) {
 async function purchaseConfirmed(orderId: string) {
   const { data: order } = await supabaseAdmin.from("orders").select("*").eq("id", orderId).maybeSingle();
   if (!order) return { ok: false, error: "order not found" };
-  const { data: ch } = await supabaseAdmin.from("challenges").select("name, account_size, price_naira").eq("id", (order as any).challenge_id).maybeSingle();
+  const { data: ch } = await supabaseAdmin.from("challenges").select("name, account_size, currency, price_naira").eq("id", (order as any).challenge_id).maybeSingle();
   const { email, name } = await getUserEmail((order as any).user_id);
   if (!email) return { ok: false, error: "no email" };
   const fn = firstName(name);
+  const cc = (ch as any)?.currency;
   const subject = "Challenge Purchase Confirmed ✅ — FundedNG";
   const details =
     `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">ORDER DETAILS</div>` +
     detailRow("Challenge", (ch as any)?.name ?? "—") +
-    detailRow("Account Size", fmtNaira((ch as any)?.account_size)) +
-    detailRow("Amount Paid", fmtNaira((order as any).amount_naira ?? (ch as any)?.price_naira)) +
+    detailRow("Account Size", fmtAmount((ch as any)?.account_size, cc)) +
+    detailRow("Amount Paid", fmtAmount((order as any).amount_naira ?? (ch as any)?.price_naira, cc)) +
     detailRow("Order ID", String((order as any).id).slice(0, 8).toUpperCase()) +
     `</div>`;
   const html = shell({
@@ -282,17 +292,18 @@ async function mt5Delivered(orderId: string, login: string, password: string, se
 
 /* 4. Phase 1 passed */
 async function phase1Passed(accountId: string) {
-  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance, challenge_id").eq("id", accountId).maybeSingle();
+  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance, currency, challenge_id").eq("id", accountId).maybeSingle();
   if (!acc) return { ok: false, error: "account not found" };
   const { data: ch } = await supabaseAdmin.from("challenges").select("profit_target_percent, max_drawdown_percent").eq("id", (acc as any).challenge_id).maybeSingle();
   const { email, name } = await getUserEmail((acc as any).user_id);
   if (!email) return { ok: false, error: "no email" };
   const fn = firstName(name);
+  const cc = (acc as any).currency;
   const subject = "🏆 Phase 1 Passed — You're Halfway There!";
   const details =
     `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">PHASE 2 DETAILS</div>` +
-    detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
+    detailRow("Account Size", fmtAmount((acc as any).starting_balance, cc)) +
     detailRow("Profit Target", `${(ch as any)?.profit_target_percent ?? "—"}%`) +
     detailRow("Max Total Drawdown", `${(ch as any)?.max_drawdown_percent ?? "—"}%`) +
     `</div>`;
@@ -311,23 +322,24 @@ async function phase1Passed(accountId: string) {
   const r = await resendSend({ to: email, subject, html });
   await sendAdminCopy(`Phase 1 passed: ${name ?? email}`, shell({
     title: "Phase 1 passed",
-    body: h1("Phase 1 passed") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Account size", fmtNaira((acc as any).starting_balance)),
+    body: h1("Phase 1 passed") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Account size", fmtAmount((acc as any).starting_balance, cc)),
   }));
   return r;
 }
 
 /* 5. Funded */
 async function funded(accountId: string) {
-  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance").eq("id", accountId).maybeSingle();
+  const { data: acc } = await supabaseAdmin.from("trader_accounts").select("user_id, starting_balance, currency").eq("id", accountId).maybeSingle();
   if (!acc) return { ok: false, error: "account not found" };
   const { email, name } = await getUserEmail((acc as any).user_id);
   if (!email) return { ok: false, error: "no email" };
   const fn = firstName(name);
+  const cc = (acc as any).currency;
   const subject = "🎉 You're a Funded Trader! Welcome to the FundedNG Family";
   const details =
     `<div style="background:#f9fafb;border-radius:10px;padding:16px 18px;margin:18px 0;">` +
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin-bottom:10px;">FUNDED ACCOUNT DETAILS</div>` +
-    detailRow("Account Size", fmtNaira((acc as any).starting_balance)) +
+    detailRow("Account Size", fmtAmount((acc as any).starting_balance, cc)) +
     detailRow("Profit Split", "80% in your favour") +
     detailRow("First Payout", "After 10% KYC withdrawal") +
     detailRow("Payout Schedule", "Every 7 days") +
@@ -351,7 +363,7 @@ async function funded(accountId: string) {
   const r = await resendSend({ to: email, subject, html });
   await sendAdminCopy(`Funded: ${name ?? email}`, shell({
     title: "Funded",
-    body: h1("Trader funded") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Account size", fmtNaira((acc as any).starting_balance)),
+    body: h1("Trader funded") + detailRow("Trader", name ?? "—") + detailRow("Email", email) + detailRow("Account size", fmtAmount((acc as any).starting_balance, cc)),
   }));
   return r;
 }

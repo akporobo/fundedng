@@ -12,7 +12,7 @@ import {
   Cell,
 } from "recharts";
 import { TrendingUp, TrendingDown, Activity, Calendar, BarChart2, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, AlertCircle, Zap } from "lucide-react";
-import { formatNaira, formatPercent } from "@/lib/utils";
+import { fmt, formatUSD, formatPercent } from "@/lib/utils";
 
 interface Snapshot {
   snapshot_time: string;
@@ -32,6 +32,7 @@ interface TradingAnalyticsProps {
   currentPhase: number;
   status: "active" | "breached" | "passed" | "funded";
   tradingDays: number;
+  currency?: string;
   maxDailyDrawdownPercent?: number;
   dailyDrawdownPercent?: number;
 }
@@ -74,7 +75,7 @@ function getEquityChartData(snapshots: Snapshot[], startingBalance: number) {
 }
 
 function AnimNumber({ value, prefix = "", suffix = "", className = "" }: { value: number; prefix?: string; suffix?: string; className?: string }) {
-  const formatted = Math.abs(value) >= 1000 ? formatNaira(value) : value.toFixed(2);
+  const formatted = Math.abs(value) >= 1000 ? fmt(value) : value.toFixed(2);
   return (
     <span className={className}>
       {prefix}{Math.abs(value) >= 1000 ? formatted : `${value >= 0 ? "+" : "-"}${Math.abs(value).toFixed(2)}%`}{suffix}
@@ -181,6 +182,7 @@ export function TradingAnalytics({
   currentPhase,
   status,
   tradingDays,
+  currency,
   maxDailyDrawdownPercent,
   dailyDrawdownPercent,
 }: TradingAnalyticsProps) {
@@ -191,6 +193,8 @@ export function TradingAnalytics({
   const profitPct = startingBalance > 0 ? ((currentEquity - startingBalance) / startingBalance) * 100 : 0;
   const totalPL = currentEquity - startingBalance;
   const isProfit = totalPL >= 0;
+
+  const fmt = currency === "USD" ? formatUSD : fmt;
 
   const drawdownLimit = Math.max(startingBalance, currentEquity) * (1 - maxDrawdownPercent / 100);
   const profitTargetEquity = startingBalance * (1 + profitTargetPercent / 100);
@@ -221,7 +225,7 @@ export function TradingAnalytics({
         {[
           {
             label: "Total P/L",
-            value: formatNaira(totalPL),
+            value: fmt(totalPL),
             sub: `${isProfit ? "+" : ""}${profitPct.toFixed(2)}%`,
             icon: isProfit ? TrendingUp : TrendingDown,
             color: isProfit ? "text-green-500" : "text-red-500",
@@ -302,14 +306,14 @@ export function TradingAnalytics({
                 tick={{ fontSize: 10, fill: "currentColor" }}
                 stroke="transparent"
                 className="text-muted-foreground"
-                tickFormatter={(v) => formatNaira(v)}
+                tickFormatter={(v) => fmt(v)}
                 width={80}
                 domain={["auto", "auto"]}
               />
               <Tooltip
                 contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
                 formatter={(v: number, name: string) => [
-                  formatNaira(v),
+                  fmt(v),
                   name === "equity" ? "Equity" : name === "balance" ? "Balance" : name,
                 ]}
                 labelStyle={{ fontSize: 10, color: "var(--muted-foreground)", marginBottom: 4 }}
@@ -347,10 +351,10 @@ export function TradingAnalytics({
                 <BarChart data={dailyPL} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "currentColor" }} className="text-muted-foreground" />
-                  <YAxis tick={{ fontSize: 9, fill: "currentColor" }} className="text-muted-foreground" tickFormatter={(v) => formatNaira(v)} width={72} />
+                  <YAxis tick={{ fontSize: 9, fill: "currentColor" }} className="text-muted-foreground" tickFormatter={(v) => fmt(v)} width={72} />
                   <Tooltip
                     contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }}
-                    formatter={(v: number) => [formatNaira(v), "Daily P/L"]}
+                    formatter={(v: number) => [fmt(v), "Daily P/L"]}
                   />
                   <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1} />
                   <Bar dataKey="pnl" radius={[3, 3, 0, 0]}>

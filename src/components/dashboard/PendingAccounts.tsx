@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Clock, LifeBuoy } from "lucide-react";
 import { toast } from "sonner";
-import { formatNaira } from "@/lib/utils";
+import { formatNaira, formatUSD } from "@/lib/utils";
 
 const PREP_MS = 5 * 60 * 1000;
 
@@ -22,6 +22,7 @@ interface PendingOrder {
   id: string;
   created_at: string;
   amount_paid: number;
+  currency?: string;
   challenges?: { name: string; account_size: number } | null;
 }
 
@@ -60,7 +61,7 @@ export function PendingAccounts({ userId }: { userId: string }) {
   const load = async () => {
     const { data: paidOrders } = await supabase
       .from("orders")
-      .select("id, created_at, amount_paid, challenges(name, account_size)")
+      .select("id, created_at, amount_paid, currency, challenges(name, account_size)")
       .eq("user_id", userId)
       .eq("status", "paid")
       .order("created_at", { ascending: false });
@@ -136,7 +137,7 @@ export function PendingAccounts({ userId }: { userId: string }) {
                     We're preparing your account
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {o.challenges?.name ?? "Challenge"} · {formatNaira(o.challenges?.account_size ?? 0)}
+                    {o.challenges?.name ?? "Challenge"} · {o.currency === "USD" ? formatUSD(o.challenges?.account_size ?? 0) : formatNaira(o.challenges?.account_size ?? 0)}
                     {" · "}
                     {elapsed
                       ? "Taking longer than expected — open a ticket and we'll send your logins."

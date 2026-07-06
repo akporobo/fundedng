@@ -705,7 +705,9 @@ function DashboardPage() {
                 </div>
               )}
 
-              {selected && (
+              {selected && (() => {
+                const fmt = selected.currency === "USD" ? formatUSD : formatNaira;
+                return (
                 <>
                   {selected.status === "breached" && selected.breach_reason && (
                     <Alert variant="destructive">
@@ -745,8 +747,6 @@ function DashboardPage() {
                   )}
 
                   {(() => {
-                    const isUSD = selected.currency === "USD";
-                    const fmt = isUSD ? formatUSD : formatNaira;
                     return (
                       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                         {[
@@ -836,7 +836,7 @@ function DashboardPage() {
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">
-                            Reach {target}% profit ({formatNaira(Math.ceil(start * (1 + target / 100)))} equity) to request phase 2 approval.
+                            Reach {target}% profit ({fmt(Math.ceil(start * (1 + target / 100)))} equity) to request phase 2 approval.
                           </p>
                         )}
                       </div>
@@ -858,7 +858,7 @@ function DashboardPage() {
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">
-                            Reach {target}% profit ({formatNaira(Math.ceil(start * (1 + target / 100)))} equity) to request funded approval.
+                            Reach {target}% profit ({fmt(Math.ceil(start * (1 + target / 100)))} equity) to request funded approval.
                           </p>
                         )}
                       </div>
@@ -899,17 +899,17 @@ function DashboardPage() {
                               stroke="currentColor"
                               className="text-muted-foreground"
                               domain={["auto", "auto"]}
-                              tickFormatter={(v) => formatNaira(v)}
+                              tickFormatter={(v) => fmt(v)}
                             />
                             <Tooltip
                               contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }}
-                              formatter={(v: number, name: string) => [formatNaira(v), name === "equity" ? "Equity" : name === "balance" ? "Balance" : name]}
+                              formatter={(v: number, name: string) => [fmt(v), name === "equity" ? "Equity" : name === "balance" ? "Balance" : name]}
                             />
                             <Line type="monotone" dataKey="equity" stroke="var(--primary)" strokeWidth={2} dot={false} />
                             <Line type="monotone" dataKey="balance" stroke="var(--warning)" strokeWidth={1.5} dot={false} strokeDasharray="5 5" />
-                            <ReferenceLine y={drawdownLimit} stroke="hsl(0, 84%, 60%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Drawdown Limit: ${formatNaira(drawdownLimit)}`, position: "insideTopLeft", fill: "hsl(0, 84%, 60%)", fontSize: 10 }} />
-                            <ReferenceLine y={profitTarget} stroke="hsl(142, 76%, 36%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Target: ${formatNaira(profitTarget)}`, position: "insideTopRight", fill: "hsl(142, 76%, 36%)", fontSize: 10 }} />
-                            <ReferenceLine y={currentBalance} stroke="hsl(45, 93%, 47%)" strokeWidth={1} strokeDasharray="4 4" label={{ value: `Balance: ${formatNaira(currentBalance)}`, position: "insideBottomRight", fill: "hsl(45, 93%, 47%)", fontSize: 10 }} />
+                            <ReferenceLine y={drawdownLimit} stroke="hsl(0, 84%, 60%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Drawdown Limit: ${fmt(drawdownLimit)}`, position: "insideTopLeft", fill: "hsl(0, 84%, 60%)", fontSize: 10 }} />
+                            <ReferenceLine y={profitTarget} stroke="hsl(142, 76%, 36%)" strokeWidth={1.5} strokeDasharray="3 3" label={{ value: `Target: ${fmt(profitTarget)}`, position: "insideTopRight", fill: "hsl(142, 76%, 36%)", fontSize: 10 }} />
+                            <ReferenceLine y={currentBalance} stroke="hsl(45, 93%, 47%)" strokeWidth={1} strokeDasharray="4 4" label={{ value: `Balance: ${fmt(currentBalance)}`, position: "insideBottomRight", fill: "hsl(45, 93%, 47%)", fontSize: 10 }} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -991,6 +991,7 @@ function DashboardPage() {
                       currentPhase={selectedPhase === "phase1" ? 1 : selectedPhase === "phase2" ? 2 : selected.current_phase}
                       status={selectedPhase === "funded" ? "funded" : "active"}
                       tradingDays={selected.trading_days ?? 0}
+                      currency={selected.currency}
                       maxDailyDrawdownPercent={maxDailyDD ?? undefined}
                       dailyDrawdownPercent={dailyDrawdownPercent}
                     />
@@ -1148,7 +1149,7 @@ function DashboardPage() {
                     </>
                   )}
                 </>
-              )}
+              ); })())}
             </TabsContent>
 
             <TabsContent value="accounts" className="mt-6 space-y-3">
@@ -1158,7 +1159,7 @@ function DashboardPage() {
                     <div className="font-display text-primary">{a.mt5_login}</div>
                     <div className="text-xs text-muted-foreground">{a.challenges?.name}</div>
                   </div>
-                  <div className="text-sm">{formatNaira(a.starting_balance)}</div>
+                  <div className="text-sm">{a.currency === "USD" ? formatUSD(a.starting_balance) : formatNaira(a.starting_balance)}</div>
                   <div className="font-display text-sm text-gold">{a.status === "funded" ? "FUNDED" : `Phase ${a.current_phase}/${a.challenges?.phases ?? 2}`}</div>
                     <Badge className={`${statusVariant[a.status]} font-display`}>{a.status.toUpperCase()}</Badge>
                   {a.status === "breached" && a.breach_reason && (

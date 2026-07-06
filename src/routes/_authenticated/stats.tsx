@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { formatNaira } from "@/lib/utils";
+import { fmt, formatUSD } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, CalendarDays, BarChart3, DollarSign, Target, Trophy } from "lucide-react";
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/stats")({ component: Stats
 
 interface Account {
   id: string; mt5_login: string; starting_balance: number; current_phase: number;
-  status: string; trading_days?: number; created_at: string; phase1_passed_at: string | null;
+  status: string; currency?: string; trading_days?: number; created_at: string; phase1_passed_at: string | null;
   phase2_passed_at: string | null; funded_at: string | null;
   challenges?: { name: string; min_trading_days?: number; profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number };
 }
@@ -191,6 +191,8 @@ function StatsPage() {
   const bestDay = [...dailyPnL.entries()].sort((a, b) => b[1] - a[1])[0];
   const worstDay = [...dailyPnL.entries()].sort((a, b) => a[1] - b[1])[0];
 
+  const fmt = selected?.currency === "USD" ? formatUSD : fmt;
+
   const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
@@ -275,7 +277,7 @@ function StatsPage() {
                     <div className="font-display text-xs font-semibold">{day.date.getDate()}</div>
                     {pnl !== null && (
                       <div className={`text-[10px] font-medium leading-tight ${textColor}`}>
-                        {pnl > 0 ? "+" : ""}{formatNaira(pnl)}
+                        {pnl > 0 ? "+" : ""}{fmt(pnl)}
                       </div>
                     )}
                   </button>
@@ -303,7 +305,7 @@ function StatsPage() {
                             <span className="font-display text-sm flex-1">{t.symbol}</span>
                             <span className={`text-xs w-16 text-right ${isShort ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>{t.duration_seconds}s</span>
                             <span className={`text-xs w-24 text-right font-medium ${t.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                              {t.profit >= 0 ? "+" : ""}{formatNaira(t.profit)}
+                              {t.profit >= 0 ? "+" : ""}{fmt(t.profit)}
                             </span>
                           </div>
                         );
@@ -344,20 +346,20 @@ function StatsPage() {
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> Net P&amp;L</div>
                 <div className={`font-display mt-1 text-lg font-bold ${totalPnL >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                  {totalPnL >= 0 ? "+" : ""}{formatNaira(totalPnL)}
+                  {totalPnL >= 0 ? "+" : ""}{fmt(totalPnL)}
                 </div>
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><Trophy className="h-3 w-3 text-green-500" /> Best Day</div>
                 <div className="font-display mt-1 text-lg font-bold text-green-600 dark:text-green-400">
-                  {bestDay ? formatNaira(bestDay[1]) : "—"}
+                  {bestDay ? fmt(bestDay[1]) : "—"}
                 </div>
                 {bestDay && <div className="text-[10px] text-muted-foreground">{new Date(bestDay[0]).toLocaleDateString()}</div>}
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingDown className="h-3 w-3 text-red-500" /> Worst Day</div>
                 <div className="font-display mt-1 text-lg font-bold text-red-600 dark:text-red-400">
-                  {worstDay ? formatNaira(worstDay[1]) : "—"}
+                  {worstDay ? fmt(worstDay[1]) : "—"}
                 </div>
                 {worstDay && <div className="text-[10px] text-muted-foreground">{new Date(worstDay[0]).toLocaleDateString()}</div>}
               </div>
@@ -411,7 +413,7 @@ function StatsPage() {
                           <td className="py-1.5 pr-3 font-display">{t.symbol}</td>
                           <td className="py-1.5 pr-3 text-muted-foreground">{t.duration_seconds}s</td>
                           <td className={`py-1.5 text-right ${t.profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                            {t.profit >= 0 ? "+" : ""}{formatNaira(t.profit)}
+                            {t.profit >= 0 ? "+" : ""}{fmt(t.profit)}
                           </td>
                         </tr>
                       ))}

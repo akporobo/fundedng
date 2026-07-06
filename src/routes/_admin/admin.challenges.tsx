@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_admin/admin/challenges")({
 function ChallengesPage() {
   const {
     challengeList, challengeEditOpen, editingChallenge, challengeForm, savingChallenge,
-    openNewChallenge, openEditChallenge, saveChallenge, toggleChallengeActive, setChallengeEditOpen, setChallengeForm,
+    openNewChallenge, openEditChallenge, saveChallenge, toggleChallengeActive, deleteChallenge, deletingChallengeId, setDeletingChallengeId, setChallengeEditOpen, setChallengeForm,
   } = useAdminData();
 
   return (
@@ -52,6 +52,9 @@ function ChallengesPage() {
             <div className="flex gap-2 pt-1">
               <Button size="sm" variant="outline" onClick={() => openEditChallenge(c)}>Edit</Button>
               <Button size="sm" variant="outline" onClick={() => toggleChallengeActive(c)}>{c.is_active ? "Deactivate" : "Activate"}</Button>
+              <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setDeletingChallengeId(c.id)} disabled={deletingChallengeId === c.id}>
+                {deletingChallengeId === c.id ? "Deleting…" : "Delete"}
+              </Button>
             </div>
           </div>
         ))}
@@ -87,7 +90,12 @@ function ChallengesPage() {
                 <td className="px-4 py-3">{c.max_drawdown_percent}%</td>
                 <td className="px-4 py-3">{c.phases}</td>
                 <td className="px-4 py-3"><Switch checked={c.is_active} onCheckedChange={() => toggleChallengeActive(c)} /></td>
-                <td className="px-4 py-3 text-right"><Button size="sm" variant="outline" onClick={() => openEditChallenge(c)}>Edit</Button></td>
+                <td className="px-4 py-3 text-right flex gap-1 justify-end">
+                  <Button size="sm" variant="outline" onClick={() => openEditChallenge(c)}>Edit</Button>
+                  <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setDeletingChallengeId(c.id)} disabled={deletingChallengeId === c.id}>
+                    {deletingChallengeId === c.id ? "Deleting…" : "Delete"}
+                  </Button>
+                </td>
               </tr>
             ))}
             {challengeList.length === 0 && (<tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No challenges yet.</td></tr>)}
@@ -163,6 +171,28 @@ function ChallengesPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setChallengeEditOpen(false)} disabled={savingChallenge}>Cancel</Button>
             <Button onClick={saveChallenge} disabled={savingChallenge}>{savingChallenge ? "Saving…" : editingChallenge?.id ? "Save changes" : "Add challenge"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deletingChallengeId && challengeList.some((c) => c.id === deletingChallengeId)} onOpenChange={(o) => { if (!o) setDeletingChallengeId(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete challenge?</DialogTitle>
+            <DialogDescription>
+              {(() => {
+                const c = challengeList.find((c) => c.id === deletingChallengeId);
+                if (!c) return null;
+                return <>Are you sure you want to delete <span className="font-semibold">{c.name}</span> ({c.currency === "USD" ? formatUSD(c.account_size) : formatNaira(c.account_size)})? This action cannot be undone.</>;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeletingChallengeId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { const c = challengeList.find((c) => c.id === deletingChallengeId); if (c) deleteChallenge(c); }}>
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

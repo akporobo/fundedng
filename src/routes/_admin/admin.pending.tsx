@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatNaira } from "@/lib/utils";
+import { formatNaira, formatUSD } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ function PendingPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex-1 min-w-[200px]">
               <div className="font-semibold">{r.profiles?.full_name ?? "—"}</div>
-              <div className="text-xs text-muted-foreground">{r.challenges?.name} · {formatNaira(r.challenges?.account_size ?? 0)} {r.orders?.currency === "USD" && <Badge variant="outline" className="ml-1 border-blue-400/40 text-blue-500 text-[10px]">USD</Badge>}</div>
+              <div className="text-xs text-muted-foreground">{r.challenges?.name} · {r.orders?.currency === "USD" ? formatUSD(r.challenges?.account_size ?? 0) : formatNaira(r.challenges?.account_size ?? 0)} {r.orders?.currency === "USD" && <Badge variant="outline" className="ml-1 border-blue-400/40 text-blue-500 text-[10px]">USD</Badge>}</div>
             </div>
             <Badge variant="outline" className={`font-display ${r.status === "failed" ? "border-destructive/40 text-destructive" : "border-warning/40 text-warning"}`}>
               {r.status.toUpperCase()}
@@ -50,7 +50,7 @@ function PendingPage() {
             <DialogTitle>Deliver MT5 account</DialogTitle>
             <DialogDescription>
               {deliverFor && (
-                <>Trader: <span className="font-medium">{deliverFor.profiles?.full_name ?? "—"}</span> · {deliverFor.challenges?.name} ({formatNaira(deliverFor.challenges?.account_size ?? 0)})</>
+                <>Trader: <span className="font-medium">{deliverFor.profiles?.full_name ?? "—"}</span> · {deliverFor.challenges?.name} ({deliverFor.orders?.currency === "USD" ? formatUSD(deliverFor.challenges?.account_size ?? 0) : formatNaira(deliverFor.challenges?.account_size ?? 0)})</>
               )}
             </DialogDescription>
           </DialogHeader>

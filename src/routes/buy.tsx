@@ -713,7 +713,7 @@ function BuyPage() {
                     Cancel
                   </Button>
                   <Button className="font-display" onClick={handleBuy} disabled={loading || !agreed}>
-                    {loading ? "Processing…" : <>Confirm & Pay {currency === "NGN" ? formatNaira(confirmPrice) : formatNaira(confirmPrice)} <ArrowRight className="ml-2 h-4 w-4" /></>}
+                    {loading ? "Processing…" : <>Confirm & Pay {currency === "NGN" ? formatNaira(confirmPrice) : formatUSD(payable)} <ArrowRight className="ml-2 h-4 w-4" /></>}
                   </Button>
                 </DialogFooter>
               </>

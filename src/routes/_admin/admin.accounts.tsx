@@ -107,7 +107,9 @@ function AccountsPage() {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.trim().toLowerCase();
         return (a.mt5_login ?? "").toLowerCase().includes(q) || (a.profiles?.full_name ?? "").toLowerCase().includes(q);
-      }).map((a) => (
+      }).map((a) => {
+        const fmt = a.currency === "USD" ? formatUSD : formatNaira;
+        return (
         <div key={a.id}>
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -115,7 +117,7 @@ function AccountsPage() {
               <div className="font-semibold">{a.profiles?.full_name ?? "—"}</div>
                   <div className="text-xs text-muted-foreground">{a.challenges?.name} · login {a.mt5_login} {a.currency === "USD" && <Badge variant="outline" className="ml-1 border-blue-400/40 text-blue-500 text-[10px]">USD</Badge>}</div>
               </div>
-              <div className="text-sm">{formatNaira(a.starting_balance)}</div>
+              <div className="text-sm">{fmt(a.starting_balance)}</div>
               <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
               <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
             </div>
@@ -129,11 +131,11 @@ function AccountsPage() {
               const ddColor = ddPct / maxDD > 0.75 ? "text-red-500" : ddPct / maxDD > 0.5 ? "text-amber-500" : "text-green-500";
               return (
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                  <span className="text-muted-foreground">Equity: <span className="font-display text-primary">{formatNaira(eq)}</span></span>
+                  <span className="text-muted-foreground">Equity: <span className="font-display text-primary">{fmt(eq)}</span></span>
                   <span className="text-muted-foreground">P/L: <span className={`font-display ${profitPct >= 0 ? "text-green-500" : "text-red-500"}`}>{profitPct >= 0 ? "+" : ""}{profitPct.toFixed(2)}%</span></span>
                   <span className="text-muted-foreground">Drawdown: <span className={`font-display ${ddColor}`}>{ddPct.toFixed(2)}%</span><span className="text-muted-foreground/60"> / {maxDD}%</span></span>
-                  <span className="text-muted-foreground">Peak: <span className="font-display">{formatNaira(pk)}</span></span>
-                  <span className="text-muted-foreground">DD Limit: <span className="font-display text-red-500">{formatNaira(Math.floor(pk * (1 - maxDD / 100)))}</span></span>
+                  <span className="text-muted-foreground">Peak: <span className="font-display">{fmt(pk)}</span></span>
+                  <span className="text-muted-foreground">DD Limit: <span className="font-display text-red-500">{fmt(Math.floor(pk * (1 - maxDD / 100)))}</span></span>
                   <span className="text-muted-foreground">Days traded: <span className="font-display">{a.trading_days ?? 0}</span></span>
                   {a.last_synced_at && <span className="text-muted-foreground/60">Synced: {new Date(a.last_synced_at).toLocaleString()}</span>}
                 </div>
@@ -147,7 +149,7 @@ function AccountsPage() {
                 const required = Number(a.starting_balance) * (1 + target / 100);
                 const hit = equity >= required;
                 const requested = !!a.phase2_requested_at;
-                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">PHASE 2 REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "phase2")}>Reject</Button></>)}{hit ? <Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button> : <span className="text-[11px] text-muted-foreground">Needs {formatNaira(Math.ceil(required))} equity ({target}% target)</span>}</>);
+                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">PHASE 2 REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "phase2")}>Reject</Button></>)}{hit ? <Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button> : <span className="text-[11px] text-muted-foreground">Needs {fmt(Math.ceil(required))} equity ({target}% target)</span>}</>);
               })()}
               {a.current_phase >= 2 && a.status === "active" && (() => {
                 const target = Number(a.challenges?.phase2_profit_target_percent ?? a.challenges?.profit_target_percent ?? 10);
@@ -155,7 +157,7 @@ function AccountsPage() {
                 const required = Number(a.starting_balance) * (1 + target / 100);
                 const hit = equity >= required;
                 const requested = !!a.funded_requested_at;
-                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">FUNDED REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "funded")}>Reject</Button></>)}{hit ? <Button size="sm" onClick={() => approveFunded(a)}>Phase 2 passed → Approve Funded</Button> : <span className="text-[11px] text-muted-foreground">Needs {formatNaira(Math.ceil(required))} equity ({target}% target)</span>}</>);
+                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">FUNDED REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "funded")}>Reject</Button></>)}{hit ? <Button size="sm" onClick={() => approveFunded(a)}>Phase 2 passed → Approve Funded</Button> : <span className="text-[11px] text-muted-foreground">Needs {fmt(Math.ceil(required))} equity ({target}% target)</span>}</>);
               })()}
               <Button size="sm" variant="outline" onClick={() => openWarningDialog(a)}>Warning</Button>
               <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
@@ -193,7 +195,7 @@ function AccountsPage() {
             </div>
           )}
         </div>
-      ))}
+      ); })}
 
       {/* Edit credentials dialog */}
       <Dialog open={!!viewCredsFor} onOpenChange={(o) => { if (!o) { setViewCredsFor(null); setCredDraft({}); } }}>
