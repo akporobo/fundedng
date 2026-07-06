@@ -442,35 +442,43 @@ function DashboardPage() {
     const equity = Number(selected.current_equity ?? selected.starting_balance);
     const profit = equity - selected.starting_balance;
     const isUsdAccount = selected.currency === "USD";
-    const minProfit = isUsdAccount
-      ? selected.starting_balance * 0.06
-      : selected.starting_balance * 0.1;
-    if (profit < minProfit) return toast.error(`You need at least ${formatNaira(minProfit)} in profit to request a payout.`);
 
-    // USD: first 2 payouts capped at 6%, subsequent at 10%. NGN: first capped at 10%, subsequent at 50%.
-    // Trader receives 80% of the profit portion requested.
     const priorPayouts = payouts.filter(
       (p) =>
         ["approved", "paid"].includes(p.status) &&
         (p as Payout & { trader_account_id?: string }).trader_account_id === selected.id,
     );
     const priorCount = priorPayouts.length;
+
+    if (isUsdAccount && priorCount >= 5) return toast.error("Maximum 5 payouts reached for this account.");
+
+    let minProfit: number;
     let profitCap: number;
     if (isUsdAccount) {
-      const firstUsdCap = selected.starting_balance * 0.06;
-      const subsequentUsdCap = selected.starting_balance * 0.1;
-      profitCap = priorCount < 2 ? firstUsdCap : subsequentUsdCap;
+      if (priorCount < 2) {
+        minProfit = selected.starting_balance * 0.06;
+        profitCap = selected.starting_balance * 0.06;
+      } else if (priorCount < 4) {
+        minProfit = selected.starting_balance * 0.1;
+        profitCap = selected.starting_balance * 0.1;
+      } else {
+        minProfit = 0;
+        profitCap = profit * 0.5;
+      }
     } else {
       const firstNgnCap = selected.starting_balance * 0.1;
       const subsequentNgnCap = selected.starting_balance * 0.5;
+      minProfit = selected.starting_balance * 0.1;
       profitCap = priorCount === 0 ? firstNgnCap : subsequentNgnCap;
     }
+    if (profit < minProfit) return toast.error(`You need at least ${formatNaira(minProfit)} in profit to request a payout.`);
+
     const requestedProfit = Math.min(profit, profitCap);
-    const amount = Math.floor(requestedProfit * 0.8); // trader gets 80% of profit
+    const amount = Math.floor(requestedProfit * 0.8);
 
     if (priorCount === 0) {
       const capText = isUsdAccount
-        ? `First payout capped at ${formatNaira(minProfit)} profit (6% of account, you receive 80% = ${formatNaira(amount)}). 2nd payout also capped at 6%. Subsequent payouts use 10% cap.`
+        ? `Payments 1-2 capped at 6% each, 3-4 capped at 10% each, final payout is 50% of remaining profit.`
         : `First payout capped at ${formatNaira(minProfit)} profit (you receive 80% = ${formatNaira(amount)}). Subsequent payouts use 50% cap.`;
       toast.message(capText);
     }

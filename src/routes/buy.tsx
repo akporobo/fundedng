@@ -471,40 +471,7 @@ function BuyPage() {
                           <span>{formatNaira(Math.ceil(payable * exchangeRate))}</span>
                         </div>
                       )}
-                      {selectedSize && currency === "USD" && (() => {
-                        const payout6 = Math.round(selectedSize * 0.06 * 0.8);
-                        const payout10 = Math.round(selectedSize * 0.10 * 0.8);
-                        return (
-                          <div className="border-t border-border pt-3">
-                            <p className="font-display text-xs font-semibold text-muted-foreground mb-2">PAYOUT STRUCTURE</p>
-                            <div className="space-y-1 text-xs text-muted-foreground">
-                              <div className="flex justify-between">
-                                <span>1st and 2nd payout</span>
-                                <span className="text-foreground font-medium">up to {formatUSD(payout6)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>3rd and 4th payout</span>
-                                <span className="text-foreground font-medium">up to {formatUSD(payout10)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>5th payout (final)</span>
-                                <span className="text-foreground font-medium">50% of remaining profit</span>
-                              </div>
-                              <div className="flex justify-between border-t border-border pt-1 mt-1">
-                                <span>Cooldown between payouts</span>
-                                <span className="text-foreground font-medium">10 business days</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Account lifecycle</span>
-                                <span className="text-foreground font-medium">Retired after 5th payout</span>
-                              </div>
-                            </div>
-                            <p className="mt-2 text-[11px] text-muted-foreground border-t border-border pt-2">
-                              Min profit before payout: 6% (payouts 1-2) · 10% (payouts 3-4). All amounts at 80% trader split.
-                            </p>
-                          </div>
-                        );
-                      })()}
+
                     </div>
                     {currency === "USD" && (
                       <p className="mt-3 text-center text-[11px] text-muted-foreground">

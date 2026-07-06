@@ -330,7 +330,7 @@ function RulesPage() {
                 You need at least 5 profitable trading days in each phase. A profitable day means your net profit on that calendar day is at least 0.5% of your starting balance. This threshold is fixed — it does not roll upwards as your equity grows.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> >=0.5% net profit on starting balance per day.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> {'>='}0.5% net profit on starting balance per day.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> Threshold is fixed, not rolling.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> Progress visible on your Trading Stats dashboard.</li>
               </ul>
