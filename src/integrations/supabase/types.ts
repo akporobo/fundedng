@@ -365,9 +365,10 @@ export type Database = {
           price_naira: number
           profit_target_percent: number
            discount_percent: number | null
+           drawdown_type: string
          }
          Insert: {
-           account_size: number
+            account_size: number
            challenge_type?: string
            created_at?: string
            discount_percent?: number | null
@@ -380,10 +381,11 @@ export type Database = {
            name: string
            phases?: number
            price_naira: number
-           profit_target_percent?: number
-         }
-         Update: {
-           account_size?: number
+            profit_target_percent?: number
+            drawdown_type?: string
+          }
+          Update: {
+            account_size?: number
            challenge_type?: string
            created_at?: string
            discount_percent?: number | null
@@ -396,9 +398,10 @@ export type Database = {
            name?: string
            phases?: number
            price_naira?: number
-           profit_target_percent?: number
-         }
-        Relationships: []
+            profit_target_percent?: number
+            drawdown_type?: string
+          }
+         Relationships: []
       }
       community_groups: {
         Row: {

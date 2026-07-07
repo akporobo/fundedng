@@ -12,7 +12,7 @@ import {
   Cell,
 } from "recharts";
 import { TrendingUp, TrendingDown, Activity, Calendar, BarChart2, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, AlertCircle, Zap } from "lucide-react";
-import { fmt, formatUSD, formatPercent } from "@/lib/utils";
+import { formatNaira, formatUSD, formatPercent } from "@/lib/utils";
 
 interface Snapshot {
   snapshot_time: string;
@@ -35,6 +35,7 @@ interface TradingAnalyticsProps {
   currency?: string;
   maxDailyDrawdownPercent?: number;
   dailyDrawdownPercent?: number;
+  drawdownType?: string;
 }
 
 function getDailyPL(snapshots: Snapshot[]) {
@@ -51,7 +52,15 @@ function getDailyPL(snapshots: Snapshot[]) {
   }));
 }
 
-function getPeakDrawdown(snapshots: Snapshot[], startingBalance: number) {
+function getPeakDrawdown(snapshots: Snapshot[], startingBalance: number, drawdownType?: string) {
+  if (drawdownType === "static_balance") {
+    let maxDD = 0;
+    for (const s of snapshots) {
+      const dd = startingBalance > 0 ? ((startingBalance - s.balance) / startingBalance) * 100 : 0;
+      if (dd > maxDD) maxDD = dd;
+    }
+    return maxDD;
+  }
   let peak = startingBalance;
   let maxDD = 0;
   for (const s of snapshots) {
@@ -185,18 +194,22 @@ export function TradingAnalytics({
   currency,
   maxDailyDrawdownPercent,
   dailyDrawdownPercent,
+  drawdownType,
 }: TradingAnalyticsProps) {
+  const isStaticBalance = drawdownType === "static_balance";
   const chartData = getEquityChartData(snapshots, startingBalance);
   const dailyPL = getDailyPL(snapshots);
   const daysTraded = tradingDays;
-  const peakDD = getPeakDrawdown(snapshots, startingBalance);
+  const peakDD = getPeakDrawdown(snapshots, startingBalance, drawdownType);
   const profitPct = startingBalance > 0 ? ((currentEquity - startingBalance) / startingBalance) * 100 : 0;
   const totalPL = currentEquity - startingBalance;
   const isProfit = totalPL >= 0;
 
-  const fmt = currency === "USD" ? formatUSD : fmt;
+  const fmt = currency === "USD" ? formatUSD : formatNaira;
 
-  const drawdownLimit = Math.max(startingBalance, currentEquity) * (1 - maxDrawdownPercent / 100);
+  const drawdownLimit = isStaticBalance
+    ? startingBalance * (1 - maxDrawdownPercent / 100)
+    : Math.max(startingBalance, currentEquity) * (1 - maxDrawdownPercent / 100);
   const profitTargetEquity = startingBalance * (1 + profitTargetPercent / 100);
 
   const tradeCount = snapshots.length;
@@ -232,7 +245,7 @@ export function TradingAnalytics({
             bg: isProfit ? "border-green-500/20 bg-green-500/5" : "border-red-500/20 bg-red-500/5",
           },
           {
-            label: "Peak Drawdown",
+            label: isStaticBalance ? "Max Drawdown" : "Peak Drawdown",
             value: `${peakDD.toFixed(2)}%`,
             sub: `Limit: ${maxDrawdownPercent}%`,
             icon: BarChart2,

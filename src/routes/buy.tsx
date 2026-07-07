@@ -647,7 +647,7 @@ function BuyPage() {
                         ? [
                             { icon: ShieldCheck, label: "Profit target Phase 1", value: "10%" },
                             { icon: ShieldCheck, label: "Profit target Phase 2", value: "5%" },
-                            { icon: Zap, label: "Max drawdown (trailing)", value: "10%" },
+                            { icon: Zap, label: "Max drawdown (static)", value: "10%" },
                             { icon: AlertTriangle, label: "Daily drawdown", value: "5%" },
                             { icon: Clock, label: "Min hold time", value: "3 minutes" },
                             { icon: TrendingUp, label: "Profitable days required", value: "5 days (>=0.5% each)" },
@@ -679,7 +679,7 @@ function BuyPage() {
                 <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
                   <span className="font-display block font-semibold text-warning">Rules reminder</span>
                     {currency === "USD"
-                      ? "USD accounts: Min 3-minute hold on all trades (SL, TP, manual). 10% trailing drawdown from highest peak. 5% daily drawdown (resets midnight UTC). No weekend holding — all positions must close before Friday 21:00 UTC (crypto exempt). News blackout: 5 minutes before/after high-impact events. 5 profitable trading days required per phase — each day must show >=0.5% net profit on your starting balance. Max 5 payouts per account. 10 business days between payouts. Inactivity limit: 15 days."
+                      ? "USD accounts: Min 3-minute hold on all trades (SL, TP, manual). 10% static drawdown from starting balance (based on closed balance, not floating equity). 5% daily drawdown (resets midnight UTC). No weekend holding — all positions must close before Friday 21:00 UTC (crypto exempt). News blackout: 5 minutes before/after high-impact events. 5 profitable trading days required per phase — each day must show >=0.5% net profit on your starting balance. Max 5 payouts per account. 10 business days between payouts. Inactivity limit: 15 days."
                       : "Trade only on your FundedNG MT5 evaluation account. No automated trading. No copy trading. All trades must be held at least 3 minutes (manual, SL, and TP closes all count). 20% trailing drawdown from highest equity peak."}
                 </div>
 

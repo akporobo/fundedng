@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { fmt, formatUSD } from "@/lib/utils";
+import { formatUSD, formatNaira } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, CalendarDays, BarChart3, DollarSign, Target, Trophy } from "lucide-react";
@@ -13,7 +13,7 @@ interface Account {
   id: string; mt5_login: string; starting_balance: number; current_phase: number;
   status: string; currency?: string; trading_days?: number; created_at: string; phase1_passed_at: string | null;
   phase2_passed_at: string | null; funded_at: string | null;
-  challenges?: { name: string; min_trading_days?: number; profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number };
+  challenges?: { name: string; min_trading_days?: number; profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number; drawdown_type?: string };
 }
 
 interface ClosedTrade {
@@ -43,7 +43,7 @@ function StatsPage() {
     if (!user) return;
     supabase
       .from("trader_accounts")
-      .select("*, challenges(name,min_trading_days,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases)")
+      .select("*, challenges(name,min_trading_days,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases,drawdown_type)")
       .eq("user_id", user.id)
       .in("status", ["active", "funded", "passed"])
       .order("created_at", { ascending: false })
@@ -191,7 +191,7 @@ function StatsPage() {
   const bestDay = [...dailyPnL.entries()].sort((a, b) => b[1] - a[1])[0];
   const worstDay = [...dailyPnL.entries()].sort((a, b) => a[1] - b[1])[0];
 
-  const fmt = selected?.currency === "USD" ? formatUSD : fmt;
+  const fmt = selected?.currency === "USD" ? formatUSD : formatNaira;
 
   const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -333,7 +333,7 @@ function StatsPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Trading Days</div>
-                <div className="font-display mt-1 text-lg font-bold">{selected.trading_days ?? 0}</div>
+                <div className="font-display mt-1 text-lg font-bold">{tradesByDay.size}</div>
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><Target className="h-3 w-3" /> Min Required</div>

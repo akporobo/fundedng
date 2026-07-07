@@ -309,12 +309,12 @@ function RulesPage() {
                 <div className="font-display text-6xl font-bold text-blue-400/30">01</div>
                 <ShieldCheck className="h-8 w-8 text-blue-400" />
               </div>
-              <h3 className="font-display mt-4 text-2xl font-bold">10% Max Drawdown + 5% Daily</h3>
+              <h3 className="font-display mt-4 text-2xl font-bold">10% Static Drawdown + 5% Daily</h3>
               <p className="mt-3 text-muted-foreground">
-                Your equity must never drop more than 10% from the highest equity peak reached (trailing). On top of that, a 5% daily drawdown limit resets at midnight UTC — measured from the start-of-day equity. Either breach closes the account permanently.
+                Your account balance (realized P&amp;L) must never drop more than 10% from your starting balance — not trailing, and based on closed balance rather than floating equity. On top of that, a 5% daily drawdown limit resets at midnight UTC — also measured from balance. Either breach closes the account permanently.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> 10% trailing drawdown from highest peak.</li>
+                <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> 10% static drawdown from starting balance (closed balance).</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> 5% daily drawdown resets at midnight UTC.</li>
                 <li className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400" /> Either breach = permanent account closure.</li>
               </ul>

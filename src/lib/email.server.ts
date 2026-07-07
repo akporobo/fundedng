@@ -249,7 +249,7 @@ async function purchaseConfirmed(orderId: string) {
 async function mt5Delivered(orderId: string, login: string, password: string, server: string) {
   const { data: order } = await supabaseAdmin.from("orders").select("user_id, challenge_id").eq("id", orderId).maybeSingle();
   if (!order) return { ok: false, error: "order not found" };
-  const { data: ch } = await supabaseAdmin.from("challenges").select("name, profit_target_percent, max_drawdown_percent").eq("id", (order as any).challenge_id).maybeSingle();
+  const { data: ch } = await supabaseAdmin.from("challenges").select("name, profit_target_percent, max_drawdown_percent, drawdown_type").eq("id", (order as any).challenge_id).maybeSingle();
   const { email, name } = await getUserEmail((order as any).user_id);
   if (!email) return { ok: false, error: "no email" };
   const fn = firstName(name);
@@ -267,7 +267,7 @@ async function mt5Delivered(orderId: string, login: string, password: string, se
     `<div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;color:#0a8f5a;letter-spacing:1px;margin:18px 0 8px;">YOUR CHALLENGE RULES</div>` +
     `<ul style="margin:0 0 14px 18px;padding:0;font-size:14px;color:#374151;line-height:1.7;">` +
     `<li>Profit Target: <b>${(ch as any)?.profit_target_percent ?? "—"}%</b></li>` +
-    `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b> (equity trailing from highest peak)</li>` +
+    `<li>Max Total Drawdown: <b>${(ch as any)?.max_drawdown_percent ?? "—"}%</b> ${(ch as any)?.drawdown_type === "static_balance" ? "(static, based on closed balance)" : "(equity trailing from highest peak)"}</li>` +
     `<li>Anti-Scalping: <b>3-minute</b> minimum hold — 3 warnings, then breach on 4th</li>` +
     `<li>No Weekend Holding: close all positions before weekend market close</li>` +
     `</ul>`;

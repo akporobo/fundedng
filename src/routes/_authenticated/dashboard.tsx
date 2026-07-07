@@ -47,7 +47,7 @@ interface Account {
   trading_days?: number;
   currency?: string;
   last_payout_date?: string | null;
-  challenges?: { name: string; profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number; min_trading_days?: number; max_daily_drawdown_percent?: number | null };
+  challenges?: { name: string; profit_target_percent: number; phase2_profit_target_percent?: number | null; max_drawdown_percent: number; phases: number; min_trading_days?: number; max_daily_drawdown_percent?: number | null; drawdown_type?: string };
 }
 
 interface PartnerFreeAccount {
@@ -250,7 +250,7 @@ function DashboardPage() {
   const load = async (): Promise<Account[]> => {
     if (!user) return [];
     const [a, p, n, c, pf] = await Promise.all([
-      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases,min_trading_days,max_daily_drawdown_percent)").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("trader_accounts").select("*, challenges(name,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases,min_trading_days,max_daily_drawdown_percent,drawdown_type)").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("payouts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("certificates").select("*").eq("user_id", user.id).order("issued_at", { ascending: false }),
@@ -271,7 +271,7 @@ function DashboardPage() {
         // Find the corresponding trader_accounts row (created during delivery)
         const { data: taData } = await supabase
           .from("trader_accounts")
-          .select("*, challenges(name,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases)")
+          .select("*, challenges(name,profit_target_percent,phase2_profit_target_percent,max_drawdown_percent,phases,drawdown_type)")
           .eq("mt5_login", pfa.mt5_login)
           .eq("user_id", user.id)
           .maybeSingle();
@@ -289,7 +289,7 @@ function DashboardPage() {
           if (challengeId) {
             const { data } = await supabase
               .from("challenges")
-              .select("name, profit_target_percent, phase2_profit_target_percent, max_drawdown_percent, phases, min_trading_days, max_daily_drawdown_percent")
+              .select("name, profit_target_percent, phase2_profit_target_percent, max_drawdown_percent, phases, min_trading_days, max_daily_drawdown_percent, drawdown_type")
               .eq("id", challengeId)
               .maybeSingle();
             chData = data;
@@ -306,7 +306,7 @@ function DashboardPage() {
             challenge_id: challengeId || "",
             phase2_requested_at: null,
             funded_requested_at: null,
-            challenges:             chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2, min_trading_days: 3 },
+            challenges:             chData ?? { name: "Elite", profit_target_percent: 10, max_drawdown_percent: 20, phases: 2, min_trading_days: 3, drawdown_type: "trailing_equity" },
           };
           list.push(freeAccount);
           setAccounts([...list]);
@@ -514,25 +514,50 @@ function DashboardPage() {
     const dbPeak = Number(selected?.peak_equity ?? 0);
     return dbPeak > 0 ? dbPeak : start;
   })();
-  const ddPct = peakEquity > 0 ? Math.max(0, ((peakEquity - equity) / peakEquity) * 100) : 0;
+  const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
+  const maxDailyDD = selected?.challenges?.max_daily_drawdown_percent ?? null;
+  const drawdownType = selected?.challenges?.drawdown_type ?? "trailing_equity";
+  const isStaticBalance = drawdownType === "static_balance";
+  const balance = Number(latestSnapshot?.balance ?? selected?.current_equity ?? selected?.starting_balance ?? 0);
+  const ddPct = isStaticBalance
+    ? (start > 0 ? Math.max(0, ((start - balance) / start) * 100) : 0)
+    : (peakEquity > 0 ? Math.max(0, ((peakEquity - equity) / peakEquity) * 100) : 0);
   const target = selected?.current_phase === 2
     ? (selected?.challenges?.phase2_profit_target_percent ?? selected?.challenges?.profit_target_percent ?? 10)
     : (selected?.challenges?.profit_target_percent ?? 10);
-  const maxDD = selected?.challenges?.max_drawdown_percent ?? 20;
-  const maxDailyDD = selected?.challenges?.max_daily_drawdown_percent ?? null;
   const dailyDrawdownPercent = (() => {
     if (!maxDailyDD) return 0;
     const today = new Date().toISOString().slice(0, 10);
     const todaySnaps = snapshots.filter((s) => s.snapshot_time.slice(0, 10) === today);
     if (todaySnaps.length === 0) return 0;
-    const dailyPeak = Math.max(...todaySnaps.map((s) => Number(s.equity)), equity);
-    return dailyPeak > 0 ? ((dailyPeak - equity) / dailyPeak) * 100 : 0;
+    const dailyPeak = Math.max(...todaySnaps.map((s) => Number(isStaticBalance ? s.balance : s.equity)), isStaticBalance ? balance : equity);
+    return dailyPeak > 0 ? ((dailyPeak - (isStaticBalance ? balance : equity)) / dailyPeak) * 100 : 0;
   })();
   const phaseEquity = phaseSnapshots.length > 0 ? Number(phaseSnapshots[phaseSnapshots.length - 1].equity) : equity;
   const phasePeak = phaseSnapshots.length > 0 ? Math.max(...phaseSnapshots.map(s => Number(s.equity))) : peakEquity;
   const unread = notifications.filter((n) => !n.is_read).length;
 
-  const drawdownLimit = peakEquity * (1 - maxDD / 100);
+  const [ddCountdown, setDdCountdown] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const msUtc1 = now.getTime() + now.getTimezoneOffset() * 60000 + 3600000;
+      const next = new Date(msUtc1);
+      next.setDate(next.getDate() + 1);
+      next.setHours(0, 0, 0, 0);
+      const diff = next.getTime() - msUtc1;
+      if (diff <= 0) { setDdCountdown("00:00:00"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setDdCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const drawdownLimit = isStaticBalance ? start * (1 - maxDD / 100) : peakEquity * (1 - maxDD / 100);
   const profitTarget = selected?.status === "funded"
     ? start * (1 + 0.5)
     : start * (1 + target / 100);
@@ -775,12 +800,18 @@ function DashboardPage() {
                          <Progress value={Math.min(100, Math.max(0, (profitPct / target) * 100))} />
                        </div>
                        <div>
-                          <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Drawdown</span><span className={`font-display ${ddPct/maxDD>0.75?"text-destructive":ddPct/maxDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(ddPct)} / {maxDD}%</span></div>
+                           <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">{isStaticBalance ? "Static Drawdown" : "Drawdown"}</span><span className={`font-display ${ddPct/maxDD>0.75?"text-destructive":ddPct/maxDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(ddPct)} / {maxDD}%</span></div>
                           <Progress value={Math.min(100, (ddPct/maxDD)*100)} />
                        </div>
                        {maxDailyDD ? (
                        <div>
-                          <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Daily Drawdown</span><span className={`font-display ${dailyDrawdownPercent/maxDailyDD>0.75?"text-destructive":dailyDrawdownPercent/maxDailyDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(dailyDrawdownPercent)} / {maxDailyDD}%</span></div>
+                           <div className="mb-1 flex justify-between text-xs">
+                             <div className="flex items-center gap-2">
+                               <span className="text-muted-foreground">Daily Drawdown</span>
+                               <span className="font-mono text-[10px] text-muted-foreground/60">↻ resets in {ddCountdown}</span>
+                             </div>
+                             <span className={`font-display ${dailyDrawdownPercent/maxDailyDD>0.75?"text-destructive":dailyDrawdownPercent/maxDailyDD>0.5?"text-warning":"text-primary"}`}>{formatPercent(dailyDrawdownPercent)} / {maxDailyDD}%</span>
+                           </div>
                           <Progress value={Math.min(100, (dailyDrawdownPercent/maxDailyDD)*100)} />
                        </div>
                        ) : null}
@@ -794,14 +825,14 @@ function DashboardPage() {
                            <div className="mt-4 space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                              <div className="font-display text-sm font-semibold text-primary">USD Compliance Checklist</div>
                              <div className="space-y-1.5 text-xs">
-                               <div className="flex items-center gap-2">
-                                 <span className={ddPct <= 5 ? "text-green-500" : "text-red-500"}>{ddPct <= 5 ? "✅" : "❌"}</span>
-                                 <span className="text-muted-foreground">Daily Drawdown ≤ 5% — Current: {formatPercent(ddPct)}</span>
-                               </div>
-                               <div className="flex items-center gap-2">
-                                 <span className={ddPct <= 10 ? "text-green-500" : "text-red-500"}>{ddPct <= 10 ? "✅" : "❌"}</span>
-                                 <span className="text-muted-foreground">Total Drawdown ≤ 10% — Current: {formatPercent(ddPct)}</span>
-                               </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={dailyDrawdownPercent <= 5 ? "text-green-500" : "text-red-500"}>{dailyDrawdownPercent <= 5 ? "✅" : "❌"}</span>
+                                  <span className="text-muted-foreground">Daily Drawdown ≤ 5% — Current: {formatPercent(dailyDrawdownPercent)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={ddPct <= 10 ? "text-green-500" : "text-red-500"}>{ddPct <= 10 ? "✅" : "❌"}</span>
+                                  <span className="text-muted-foreground">{isStaticBalance ? "Static Drawdown" : "Total Drawdown"} ≤ 10% — Current: {formatPercent(ddPct)}</span>
+                                </div>
                                <div className="flex items-center gap-2">
                                  <span className={daysTraded >= minProfitableDays ? "text-green-500" : "text-red-500"}>{daysTraded >= minProfitableDays ? "✅" : "❌"}</span>
                                  <span className="text-muted-foreground">Profitable Days: {daysTraded} of {minProfitableDays} required (≥0.5% profit each)</span>
@@ -994,6 +1025,7 @@ function DashboardPage() {
                       currency={selected.currency}
                       maxDailyDrawdownPercent={maxDailyDD ?? undefined}
                       dailyDrawdownPercent={dailyDrawdownPercent}
+                      drawdownType={drawdownType}
                     />
                   )}
 
@@ -1149,7 +1181,7 @@ function DashboardPage() {
                     </>
                   )}
                 </>
-              ); })())}
+              ); })()}
             </TabsContent>
 
             <TabsContent value="accounts" className="mt-6 space-y-3">

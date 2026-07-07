@@ -12,6 +12,8 @@ const blankChallenge = {
   id: "", name: "", account_size: 200000, price_naira: 12000, usd_price: "", currency: "NGN",
   profit_target_percent: 10, phase2_profit_target_percent: "", max_drawdown_percent: 20,
   phases: 2, is_active: true, challenge_type: "standard", max_daily_drawdown_percent: 10, max_trading_days: 45, discount_percent: 0,
+  min_trading_days: 3,
+  drawdown_type: "trailing_equity",
 };
 
 function useAdminDataHook() {
@@ -134,7 +136,9 @@ function useAdminDataHook() {
       challenge_type: challengeForm.challenge_type === "instant" ? "instant" : "standard",
       max_daily_drawdown_percent: Number(challengeForm.max_daily_drawdown_percent) || null,
       max_trading_days: challengeForm.challenge_type === "instant" ? Number(challengeForm.max_trading_days) || null : null,
+      min_trading_days: Number(challengeForm.min_trading_days) || 3,
       discount_percent: Number(challengeForm.discount_percent) || 0,
+      drawdown_type: challengeForm.drawdown_type || "trailing_equity",
     };
     let error;
     if (editingChallenge?.id) ({ error } = await supabase.from("challenges").update(payload).eq("id", editingChallenge.id));
@@ -152,6 +156,13 @@ function useAdminDataHook() {
   const [deletingChallengeId, setDeletingChallengeId] = useState<string | null>(null);
   const deleteChallenge = async (c: any) => {
     setDeletingChallengeId(c.id);
+    const { count: orderCount } = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("challenge_id", c.id);
+    const { count: accountCount } = await supabase.from("trader_accounts").select("id", { count: "exact", head: true }).eq("challenge_id", c.id);
+    if ((orderCount ?? 0) > 0 || (accountCount ?? 0) > 0) {
+      setDeletingChallengeId(null);
+      const refs = [orderCount ? `${orderCount} order(s)` : "", accountCount ? `${accountCount} account(s)` : ""].filter(Boolean).join(" and ");
+      return toast.error(`Cannot delete: ${refs} reference this challenge. Deactivate it instead.`);
+    }
     const { error } = await supabase.from("challenges").delete().eq("id", c.id);
     setDeletingChallengeId(null);
     if (error) return toast.error(error.message);
