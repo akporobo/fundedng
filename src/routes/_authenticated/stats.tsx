@@ -157,6 +157,18 @@ function StatsPage() {
     return map;
   }, [tradesByDay]);
 
+  const profitableTradingDays = useMemo(() => {
+    if (!selected) return 0;
+    const isUSD = selected.currency === "USD";
+    if (!isUSD) return tradesByDay.size;
+    const threshold = Number(selected.starting_balance) * 0.005;
+    let count = 0;
+    for (const [, dayPnL] of dailyPnL.entries()) {
+      if (dayPnL >= threshold) count++;
+    }
+    return count;
+  }, [dailyPnL, tradesByDay, selected]);
+
   const calendarDays = useMemo(() => {
     if (!activePhase) return [];
     const days: { date: Date; key: string; pnl: number | null; trades: ClosedTrade[] }[] = [];
@@ -332,12 +344,15 @@ function StatsPage() {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="rounded-lg border border-border bg-background p-4">
-                <div className="text-[11px] text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Trading Days</div>
-                <div className="font-display mt-1 text-lg font-bold">{tradesByDay.size}</div>
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {selected?.currency === "USD" ? "Profitable Days" : "Trading Days"}</div>
+                <div className="font-display mt-1 text-lg font-bold">{profitableTradingDays}</div>
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><Target className="h-3 w-3" /> Min Required</div>
                 <div className="font-display mt-1 text-lg font-bold">{selected.currency === "USD" ? "5" : (selected.challenges?.min_trading_days ?? 3)}</div>
+                {selected?.currency === "USD" && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">≥0.5% profit each</div>
+                )}
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Closed Trades</div>

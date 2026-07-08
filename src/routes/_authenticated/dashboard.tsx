@@ -452,6 +452,17 @@ function DashboardPage() {
 
     if (isUsdAccount && priorCount >= 5) return toast.error("Maximum 5 payouts reached for this account.");
 
+    if (isUsdAccount) {
+      const daysTraded = selected.trading_days ?? 0;
+      if (daysTraded < 5) {
+        return toast.error(
+          `You need at least 5 profitable trading days (≥0.5% profit each) ` +
+          `to request a payout. You have ${daysTraded} so far. ` +
+          `Check your Trading Stats page for your daily breakdown.`
+        );
+      }
+    }
+
     let minProfit: number;
     let profitCap: number;
     if (isUsdAccount) {
@@ -483,6 +494,18 @@ function DashboardPage() {
       toast.message(capText);
     }
     setSubmitting(true);
+    let exchangeRate = 1550;
+    if (isUsdAccount) {
+      const { data: rateData } = await supabase
+        .from("app_config")
+        .select("value")
+        .eq("key", "usd_exchange_rate")
+        .single();
+      exchangeRate = Number(rateData?.value ?? 1550);
+    }
+    const amountInNaira = isUsdAccount
+      ? Math.floor(requestedProfit * 0.8 * exchangeRate)
+      : Math.floor(requestedProfit * 0.8);
     const { data: sess } = await supabase.auth.getSession();
     if (!sess.session?.access_token) {
       setSubmitting(false);
@@ -492,7 +515,7 @@ function DashboardPage() {
       accessToken: sess.session.access_token,
       userId: user!.id,
       traderAccountId: selected.id,
-      amountNaira: amount,
+      amountNaira: amountInNaira,
       profitPercent: Number(((requestedProfit / selected.starting_balance) * 100).toFixed(4)),
       bankDetails: {
         account_number: bankAccountNumber,
@@ -502,7 +525,11 @@ function DashboardPage() {
     }});
     setSubmitting(false);
      if (!res.ok) return toast.error(res.error ?? "Request failed");
-     toast.success(`Payout of ${formatNaira(amount)} requested!`);
+     toast.success(
+       isUsdAccount
+         ? `Payout of $${(requestedProfit * 0.8).toFixed(2)} requested!`
+         : `Payout of ${formatNaira(amountInNaira)} requested!`
+     );
      load();
   };
 
@@ -841,10 +868,10 @@ function DashboardPage() {
                                  <span className="text-amber-500">⚠️</span>
                                  <span className="text-muted-foreground">News Trading: profits within 5 mins of red-folder events are voided</span>
                                </div>
-                               <div className="flex items-center gap-2">
-                                 <span className="text-amber-500">⚠️</span>
-                                 <span className="text-muted-foreground">Inactivity: last trade X days ago — breach at 15 days</span>
-                               </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-amber-500">⚠️</span>
+                                  <span className="text-muted-foreground">No weekend holding · No news trading within 5 min</span>
+                                </div>
                              </div>
                            </div>
                          );
