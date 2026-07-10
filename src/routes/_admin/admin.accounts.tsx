@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatNaira, formatUSD } from "@/lib/utils";
 import { Eye, Download } from "lucide-react";
-import { generateFundedCertificate } from "@/components/certificates/certificateGenerator";
+import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -37,7 +38,52 @@ function AccountsPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [credDraft, setCredDraft] = useState<Record<string, Record<string, string>>>({});
   const [credSaving, setCredSaving] = useState<string | null>(null);
+  const [certTarget, setCertTarget] = useState<Certificate | null>(null);
+  const [certLoading, setCertLoading] = useState<string | null>(null);
   const payoutAccountIds = useMemo(() => new Set(payouts.filter(p => p.trader_account_id).map(p => p.trader_account_id)), [payouts]);
+
+  async function openFundedCertificate(account: any) {
+    setCertLoading(account.id);
+    try {
+      const { data } = await supabase
+        .from("certificates")
+        .select("*")
+        .eq("trader_account_id", account.id)
+        .eq("kind", "funded")
+        .order("issued_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        setCertTarget(data as Certificate);
+      } else {
+        setCertTarget({
+          id: account.id,
+          kind: "funded",
+          certificate_number: `FNG-FND-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+          full_name: account.profiles?.full_name ?? "Trader",
+          account_size: account.starting_balance,
+          challenge_name: account.challenges?.name ?? "Challenge",
+          mt5_login: account.mt5_login ?? "",
+          payout_amount: null,
+          issued_at: new Date().toISOString(),
+        });
+      }
+    } catch {
+      setCertTarget({
+        id: account.id,
+        kind: "funded",
+        certificate_number: `FNG-FND-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+        full_name: account.profiles?.full_name ?? "Trader",
+        account_size: account.starting_balance,
+        challenge_name: account.challenges?.name ?? "Challenge",
+        mt5_login: account.mt5_login ?? "",
+        payout_amount: null,
+        issued_at: new Date().toISOString(),
+      });
+    } finally {
+      setCertLoading(null);
+    }
+  }
 
   const tabs = [
     { id: "all", label: "All" },
@@ -168,7 +214,7 @@ function AccountsPage() {
                 <Button size="sm" variant="outline" onClick={() => resetAccountBalance(a)}>Reset Balance</Button>
               )}
               {a.status === "funded" && (
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => generateFundedCertificate({ traderName: a.profiles?.full_name ?? "Trader", date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), accountSize: a.starting_balance })}>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={certLoading === a.id} onClick={() => openFundedCertificate(a)}>
                   <Download className="h-4 w-4" />
                 </Button>
               )}
@@ -436,6 +482,16 @@ function AccountsPage() {
             <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); setRejectType(null); }} disabled={rejecting}>Cancel</Button>
             <Button variant="destructive" onClick={submitRejectPhase} disabled={rejecting || !rejectReason.trim()}>{rejecting ? "Rejecting…" : "Reject Request"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Funded Certificate dialog */}
+      <Dialog open={!!certTarget} onOpenChange={(o) => { if (!o) setCertTarget(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Funded Certificate</DialogTitle>
+            <DialogDescription>Preview and download the same certificate traders see.</DialogDescription>
+          </DialogHeader>
+          {certTarget && <CertificateCard cert={certTarget} />}
         </DialogContent>
       </Dialog>
     </div>

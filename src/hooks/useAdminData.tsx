@@ -199,7 +199,8 @@ function useAdminDataHook() {
     const ordMap = new Map((ordRes.data ?? []).map((o: any) => [o.id, o]));
     const taMap = new Map((taRes.data ?? []).map((t: any) => [t.id, t]));
     const accList = accRows.map((a: any) => ({ ...a, profiles: profMap.get(a.user_id) ?? null, challenges: chMap.get(a.challenge_id) ?? null, _trading_days: a.trading_days ?? 0 }));
-    const poList = poRows.map((p: any) => ({ ...p, profiles: profMap.get(p.user_id) ?? null, trader_accounts: taMap.get(p.trader_account_id) ?? null }));
+    const accMap = new Map(accList.map((a: any) => [a.id, a]));
+    const poList = poRows.map((p: any) => ({ ...p, profiles: profMap.get(p.user_id) ?? null, trader_accounts: accMap.get(p.trader_account_id) ?? taMap.get(p.trader_account_id) ?? null }));
     const hydrated = reqRows.map((r: any) => ({ ...r, profiles: profMap.get(r.user_id) ?? null, challenges: chMap.get(r.challenge_id) ?? null, orders: ordMap.get(r.order_id) ?? null }));
     accList.sort((a: any, b: any) => { const score = (x: any) => { if (x.status !== "active") return 0; if (x.current_phase < 2 && x.phase2_requested_at) return 2; if (x.current_phase >= 2 && x.funded_requested_at) return 2; return 0; }; return score(b) - score(a); });
     setAccounts(accList); setPayouts(poList); setPendingRequests(hydrated);

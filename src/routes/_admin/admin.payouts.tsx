@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { formatNaira, formatUSD } from "@/lib/utils";
 import { Building, Copy, Download } from "lucide-react";
 import { toast } from "sonner";
-import { generatePayoutCertificate } from "@/components/certificates/certificateGenerator";
+import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -59,6 +61,52 @@ function PayoutsPage() {
     setPayoutRejectTarget, setPayoutRejectReason, openPayoutRejectDialog, submitPayoutReject,
   } = useAdminData();
 
+  const [certTarget, setCertTarget] = useState<Certificate | null>(null);
+  const [certLoading, setCertLoading] = useState<string | null>(null);
+
+  async function openPayoutCertificate(p: any) {
+    setCertLoading(p.id);
+    try {
+      const { data } = await supabase
+        .from("certificates")
+        .select("*")
+        .eq("payout_id", p.id)
+        .eq("kind", "payout")
+        .order("issued_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        setCertTarget(data as Certificate);
+      } else {
+        setCertTarget({
+          id: p.id,
+          kind: "payout",
+          certificate_number: `FNG-PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+          full_name: p.profiles?.full_name ?? "Trader",
+          account_size: p.trader_accounts?.account_size ?? 0,
+          challenge_name: p.trader_accounts?.challenges?.name ?? "Challenge",
+          mt5_login: p.trader_accounts?.mt5_login ?? "",
+          payout_amount: p.amount_naira,
+          issued_at: new Date().toISOString(),
+        });
+      }
+    } catch {
+      setCertTarget({
+        id: p.id,
+        kind: "payout",
+        certificate_number: `FNG-PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+        full_name: p.profiles?.full_name ?? "Trader",
+        account_size: p.trader_accounts?.account_size ?? 0,
+        challenge_name: p.trader_accounts?.challenges?.name ?? "Challenge",
+        mt5_login: p.trader_accounts?.mt5_login ?? "",
+        payout_amount: p.amount_naira,
+        issued_at: new Date().toISOString(),
+      });
+    } finally {
+      setCertLoading(null);
+    }
+  }
+
   return (
     <div className="mt-6 space-y-3">
       <h2 className="font-display text-xl font-bold">Trader Payouts</h2>
@@ -95,7 +143,7 @@ function PayoutsPage() {
               {p.status === "pending" && <Button size="sm" onClick={() => updatePayout(p, "approved")}>Approve</Button>}
               {p.status === "approved" && <Button size="sm" onClick={() => updatePayout(p, "paid")}>Mark Paid</Button>}
               {(p.status === "paid" || p.status === "approved") && (
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => generatePayoutCertificate({ traderName: p.profiles?.full_name ?? "Trader", amount: p.amount_naira, date: new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }), method: p.payment_method === "usdt" ? "USDT" : "Bank Transfer", payoutId: p.id })}>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={certLoading === p.id} onClick={() => openPayoutCertificate(p)}>
                   <Download className="h-4 w-4" />
                 </Button>
               )}
@@ -130,6 +178,17 @@ function PayoutsPage() {
             <Button variant="outline" onClick={() => { setPayoutRejectTarget(null); setPayoutRejectReason(""); }} disabled={payoutRejecting}>Cancel</Button>
             <Button variant="destructive" onClick={submitPayoutReject} disabled={payoutRejecting || !payoutRejectReason.trim()}>{payoutRejecting ? "Rejecting…" : "Reject Payout"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payout Certificate dialog */}
+      <Dialog open={!!certTarget} onOpenChange={(o) => { if (!o) setCertTarget(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Payout Certificate</DialogTitle>
+            <DialogDescription>Preview and download the same certificate traders see.</DialogDescription>
+          </DialogHeader>
+          {certTarget && <CertificateCard cert={certTarget} />}
         </DialogContent>
       </Dialog>
     </div>
