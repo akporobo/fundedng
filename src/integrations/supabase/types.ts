@@ -726,6 +726,93 @@ export type Database = {
           },
         ]
       }
+      partner_applications: {
+        Row: {
+          id: string
+          created_at: string
+          full_name: string
+          email: string
+          phone: string
+          country: string
+          primary_platform: string
+          profile_link: string
+          follower_count: string
+          community_type: string
+          community_size: string | null
+          community_link: string | null
+          actively_trades: string
+          trading_style: string
+          passed_challenge: string
+          challenge_platform: string | null
+          willing_to_pass_publicly: string
+          why_funded_ng: string
+          content_type: string
+          other_prop_firms: string
+          sample_content_link: string | null
+          agree_no_giveaway_only: boolean
+          agree_public_challenge: boolean
+          agree_no_dm: boolean
+          agree_terms: boolean
+          status: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          full_name: string
+          email: string
+          phone: string
+          country: string
+          primary_platform: string
+          profile_link: string
+          follower_count: string
+          community_type: string
+          community_size?: string | null
+          community_link?: string | null
+          actively_trades: string
+          trading_style: string
+          passed_challenge: string
+          challenge_platform?: string | null
+          willing_to_pass_publicly: string
+          why_funded_ng: string
+          content_type: string
+          other_prop_firms: string
+          sample_content_link?: string | null
+          agree_no_giveaway_only?: boolean
+          agree_public_challenge?: boolean
+          agree_no_dm?: boolean
+          agree_terms?: boolean
+          status?: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          full_name?: string
+          email?: string
+          phone?: string
+          country?: string
+          primary_platform?: string
+          profile_link?: string
+          follower_count?: string
+          community_type?: string
+          community_size?: string | null
+          community_link?: string | null
+          actively_trades?: string
+          trading_style?: string
+          passed_challenge?: string
+          challenge_platform?: string | null
+          willing_to_pass_publicly?: string
+          why_funded_ng?: string
+          content_type?: string
+          other_prop_firms?: string
+          sample_content_link?: string | null
+          agree_no_giveaway_only?: boolean
+          agree_public_challenge?: boolean
+          agree_no_dm?: boolean
+          agree_terms?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
       partner_clicks: {
         Row: {
           created_at: string
