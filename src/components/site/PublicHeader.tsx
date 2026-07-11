@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const PUBLIC_NAV = [
   { to: "/", label: "Home" },
   { to: "/rules", label: "Rules" },
+  { to: "/partners", label: "Partners" },
   { to: "/agreement", label: "Agreement" },
 ] as const;
 

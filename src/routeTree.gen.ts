@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as PartnerApplyRouteImport } from './routes/partner-apply'
 import { Route as DiscordRouteImport } from './routes/discord'
 import { Route as BuyRouteImport } from './routes/buy'
 import { Route as AgreementRouteImport } from './routes/agreement'
@@ -26,6 +27,7 @@ import { Route as ApiVerifyBankRouteImport } from './routes/api.verify-bank'
 import { Route as ApiSquadWebhookRouteImport } from './routes/api.squad-webhook'
 import { Route as ApiSendEmailRouteImport } from './routes/api.send-email'
 import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
+import { Route as ApiPartnerApplicationRouteImport } from './routes/api.partner-application'
 import { Route as ApiNotifyNewPurchaseRouteImport } from './routes/api.notify-new-purchase'
 import { Route as ApiInitializePaymentRouteImport } from './routes/api.initialize-payment'
 import { Route as ApiExchangeRateRouteImport } from './routes/api.exchange-rate'
@@ -66,6 +68,11 @@ import { Route as ApiPublicCronHandleNewsViolationRouteImport } from './routes/a
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnerApplyRoute = PartnerApplyRouteImport.update({
+  id: '/partner-apply',
+  path: '/partner-apply',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiscordRoute = DiscordRouteImport.update({
@@ -144,6 +151,11 @@ const ApiSendEmailRoute = ApiSendEmailRouteImport.update({
 const ApiProvisionAccountRoute = ApiProvisionAccountRouteImport.update({
   id: '/api/provision-account',
   path: '/api/provision-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPartnerApplicationRoute = ApiPartnerApplicationRouteImport.update({
+  id: '/api/partner-application',
+  path: '/api/partner-application',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiNotifyNewPurchaseRoute = ApiNotifyNewPurchaseRouteImport.update({
@@ -339,6 +351,7 @@ export interface FileRoutesByFullPath {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
+  '/partner-apply': typeof PartnerApplyRoute
   '/rules': typeof RulesRoute
   '/admin': typeof AdminAdminRouteWithChildren
   '/affiliate': typeof AuthenticatedAffiliateRoute
@@ -352,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/api/exchange-rate': typeof ApiExchangeRateRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
+  '/api/partner-application': typeof ApiPartnerApplicationRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
   '/api/squad-webhook': typeof ApiSquadWebhookRoute
@@ -392,6 +406,7 @@ export interface FileRoutesByTo {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
+  '/partner-apply': typeof PartnerApplyRoute
   '/rules': typeof RulesRoute
   '/affiliate': typeof AuthenticatedAffiliateRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -403,6 +418,7 @@ export interface FileRoutesByTo {
   '/api/exchange-rate': typeof ApiExchangeRateRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
+  '/api/partner-application': typeof ApiPartnerApplicationRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
   '/api/squad-webhook': typeof ApiSquadWebhookRoute
@@ -446,6 +462,7 @@ export interface FileRoutesById {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
+  '/partner-apply': typeof PartnerApplyRoute
   '/rules': typeof RulesRoute
   '/_admin/admin': typeof AdminAdminRouteWithChildren
   '/_authenticated/affiliate': typeof AuthenticatedAffiliateRoute
@@ -459,6 +476,7 @@ export interface FileRoutesById {
   '/api/exchange-rate': typeof ApiExchangeRateRoute
   '/api/initialize-payment': typeof ApiInitializePaymentRoute
   '/api/notify-new-purchase': typeof ApiNotifyNewPurchaseRoute
+  '/api/partner-application': typeof ApiPartnerApplicationRoute
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
   '/api/squad-webhook': typeof ApiSquadWebhookRoute
@@ -501,6 +519,7 @@ export interface FileRouteTypes {
     | '/agreement'
     | '/buy'
     | '/discord'
+    | '/partner-apply'
     | '/rules'
     | '/admin'
     | '/affiliate'
@@ -514,6 +533,7 @@ export interface FileRouteTypes {
     | '/api/exchange-rate'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
+    | '/api/partner-application'
     | '/api/provision-account'
     | '/api/send-email'
     | '/api/squad-webhook'
@@ -554,6 +574,7 @@ export interface FileRouteTypes {
     | '/agreement'
     | '/buy'
     | '/discord'
+    | '/partner-apply'
     | '/rules'
     | '/affiliate'
     | '/dashboard'
@@ -565,6 +586,7 @@ export interface FileRouteTypes {
     | '/api/exchange-rate'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
+    | '/api/partner-application'
     | '/api/provision-account'
     | '/api/send-email'
     | '/api/squad-webhook'
@@ -607,6 +629,7 @@ export interface FileRouteTypes {
     | '/agreement'
     | '/buy'
     | '/discord'
+    | '/partner-apply'
     | '/rules'
     | '/_admin/admin'
     | '/_authenticated/affiliate'
@@ -620,6 +643,7 @@ export interface FileRouteTypes {
     | '/api/exchange-rate'
     | '/api/initialize-payment'
     | '/api/notify-new-purchase'
+    | '/api/partner-application'
     | '/api/provision-account'
     | '/api/send-email'
     | '/api/squad-webhook'
@@ -663,11 +687,13 @@ export interface RootRouteChildren {
   AgreementRoute: typeof AgreementRoute
   BuyRoute: typeof BuyRoute
   DiscordRoute: typeof DiscordRoute
+  PartnerApplyRoute: typeof PartnerApplyRoute
   RulesRoute: typeof RulesRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
   ApiExchangeRateRoute: typeof ApiExchangeRateRoute
   ApiInitializePaymentRoute: typeof ApiInitializePaymentRoute
   ApiNotifyNewPurchaseRoute: typeof ApiNotifyNewPurchaseRoute
+  ApiPartnerApplicationRoute: typeof ApiPartnerApplicationRoute
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
   ApiSendEmailRoute: typeof ApiSendEmailRoute
   ApiSquadWebhookRoute: typeof ApiSquadWebhookRoute
@@ -697,6 +723,13 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/rules'
       preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner-apply': {
+      id: '/partner-apply'
+      path: '/partner-apply'
+      fullPath: '/partner-apply'
+      preLoaderRoute: typeof PartnerApplyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/discord': {
@@ -809,6 +842,13 @@ declare module '@tanstack/react-router' {
       path: '/api/provision-account'
       fullPath: '/api/provision-account'
       preLoaderRoute: typeof ApiProvisionAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/partner-application': {
+      id: '/api/partner-application'
+      path: '/api/partner-application'
+      fullPath: '/api/partner-application'
+      preLoaderRoute: typeof ApiPartnerApplicationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/notify-new-purchase': {
@@ -1157,11 +1197,13 @@ const rootRouteChildren: RootRouteChildren = {
   AgreementRoute: AgreementRoute,
   BuyRoute: BuyRoute,
   DiscordRoute: DiscordRoute,
+  PartnerApplyRoute: PartnerApplyRoute,
   RulesRoute: RulesRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
   ApiExchangeRateRoute: ApiExchangeRateRoute,
   ApiInitializePaymentRoute: ApiInitializePaymentRoute,
   ApiNotifyNewPurchaseRoute: ApiNotifyNewPurchaseRoute,
+  ApiPartnerApplicationRoute: ApiPartnerApplicationRoute,
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
   ApiSendEmailRoute: ApiSendEmailRoute,
   ApiSquadWebhookRoute: ApiSquadWebhookRoute,
