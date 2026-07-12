@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as PartnersRouteImport } from './routes/partners'
 import { Route as PartnerApplyRouteImport } from './routes/partner-apply'
 import { Route as DiscordRouteImport } from './routes/discord'
 import { Route as BuyRouteImport } from './routes/buy'
@@ -68,6 +69,11 @@ import { Route as ApiPublicCronHandleNewsViolationRouteImport } from './routes/a
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnersRoute = PartnersRouteImport.update({
+  id: '/partners',
+  path: '/partners',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartnerApplyRoute = PartnerApplyRouteImport.update({
@@ -352,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
   '/partner-apply': typeof PartnerApplyRoute
+  '/partners': typeof PartnersRoute
   '/rules': typeof RulesRoute
   '/admin': typeof AdminAdminRouteWithChildren
   '/affiliate': typeof AuthenticatedAffiliateRoute
@@ -407,6 +414,7 @@ export interface FileRoutesByTo {
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
   '/partner-apply': typeof PartnerApplyRoute
+  '/partners': typeof PartnersRoute
   '/rules': typeof RulesRoute
   '/affiliate': typeof AuthenticatedAffiliateRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -463,6 +471,7 @@ export interface FileRoutesById {
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
   '/partner-apply': typeof PartnerApplyRoute
+  '/partners': typeof PartnersRoute
   '/rules': typeof RulesRoute
   '/_admin/admin': typeof AdminAdminRouteWithChildren
   '/_authenticated/affiliate': typeof AuthenticatedAffiliateRoute
@@ -520,6 +529,7 @@ export interface FileRouteTypes {
     | '/buy'
     | '/discord'
     | '/partner-apply'
+    | '/partners'
     | '/rules'
     | '/admin'
     | '/affiliate'
@@ -575,6 +585,7 @@ export interface FileRouteTypes {
     | '/buy'
     | '/discord'
     | '/partner-apply'
+    | '/partners'
     | '/rules'
     | '/affiliate'
     | '/dashboard'
@@ -630,6 +641,7 @@ export interface FileRouteTypes {
     | '/buy'
     | '/discord'
     | '/partner-apply'
+    | '/partners'
     | '/rules'
     | '/_admin/admin'
     | '/_authenticated/affiliate'
@@ -688,6 +700,7 @@ export interface RootRouteChildren {
   BuyRoute: typeof BuyRoute
   DiscordRoute: typeof DiscordRoute
   PartnerApplyRoute: typeof PartnerApplyRoute
+  PartnersRoute: typeof PartnersRoute
   RulesRoute: typeof RulesRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
   ApiExchangeRateRoute: typeof ApiExchangeRateRoute
@@ -723,6 +736,13 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/rules'
       preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partners': {
+      id: '/partners'
+      path: '/partners'
+      fullPath: '/partners'
+      preLoaderRoute: typeof PartnersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/partner-apply': {
@@ -1198,6 +1218,7 @@ const rootRouteChildren: RootRouteChildren = {
   BuyRoute: BuyRoute,
   DiscordRoute: DiscordRoute,
   PartnerApplyRoute: PartnerApplyRoute,
+  PartnersRoute: PartnersRoute,
   RulesRoute: RulesRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
   ApiExchangeRateRoute: ApiExchangeRateRoute,

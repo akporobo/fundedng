@@ -29,6 +29,7 @@ wrangler.jsonc
 *.suo
 *.ntvs*
 *.njsproj
+
 *.sln
 *.sw?
 .env
