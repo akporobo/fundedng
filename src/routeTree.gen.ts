@@ -10,7 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RulesRouteImport } from './routes/rules'
+<<<<<<< HEAD
 import { Route as PartnersRouteImport } from './routes/partners'
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
 import { Route as PartnerApplyRouteImport } from './routes/partner-apply'
 import { Route as DiscordRouteImport } from './routes/discord'
 import { Route as BuyRouteImport } from './routes/buy'
@@ -71,11 +74,14 @@ const RulesRoute = RulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => rootRouteImport,
 } as any)
+<<<<<<< HEAD
 const PartnersRoute = PartnersRouteImport.update({
   id: '/partners',
   path: '/partners',
   getParentRoute: () => rootRouteImport,
 } as any)
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
 const PartnerApplyRoute = PartnerApplyRouteImport.update({
   id: '/partner-apply',
   path: '/partner-apply',
@@ -358,7 +364,10 @@ export interface FileRoutesByFullPath {
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
   '/partner-apply': typeof PartnerApplyRoute
+<<<<<<< HEAD
   '/partners': typeof PartnersRoute
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
   '/rules': typeof RulesRoute
   '/admin': typeof AdminAdminRouteWithChildren
   '/affiliate': typeof AuthenticatedAffiliateRoute
@@ -414,7 +423,10 @@ export interface FileRoutesByTo {
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
   '/partner-apply': typeof PartnerApplyRoute
+<<<<<<< HEAD
   '/partners': typeof PartnersRoute
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
   '/rules': typeof RulesRoute
   '/affiliate': typeof AuthenticatedAffiliateRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -471,7 +483,10 @@ export interface FileRoutesById {
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
   '/partner-apply': typeof PartnerApplyRoute
+<<<<<<< HEAD
   '/partners': typeof PartnersRoute
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
   '/rules': typeof RulesRoute
   '/_admin/admin': typeof AdminAdminRouteWithChildren
   '/_authenticated/affiliate': typeof AuthenticatedAffiliateRoute
@@ -529,7 +544,10 @@ export interface FileRouteTypes {
     | '/buy'
     | '/discord'
     | '/partner-apply'
+<<<<<<< HEAD
     | '/partners'
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
     | '/rules'
     | '/admin'
     | '/affiliate'
@@ -585,7 +603,10 @@ export interface FileRouteTypes {
     | '/buy'
     | '/discord'
     | '/partner-apply'
+<<<<<<< HEAD
     | '/partners'
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
     | '/rules'
     | '/affiliate'
     | '/dashboard'
@@ -641,7 +662,10 @@ export interface FileRouteTypes {
     | '/buy'
     | '/discord'
     | '/partner-apply'
+<<<<<<< HEAD
     | '/partners'
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
     | '/rules'
     | '/_admin/admin'
     | '/_authenticated/affiliate'
@@ -700,7 +724,10 @@ export interface RootRouteChildren {
   BuyRoute: typeof BuyRoute
   DiscordRoute: typeof DiscordRoute
   PartnerApplyRoute: typeof PartnerApplyRoute
+<<<<<<< HEAD
   PartnersRoute: typeof PartnersRoute
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
   RulesRoute: typeof RulesRoute
   ApiDeliverAccountRoute: typeof ApiDeliverAccountRoute
   ApiExchangeRateRoute: typeof ApiExchangeRateRoute
@@ -738,6 +765,7 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RulesRouteImport
       parentRoute: typeof rootRouteImport
     }
+<<<<<<< HEAD
     '/partners': {
       id: '/partners'
       path: '/partners'
@@ -745,6 +773,8 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartnersRouteImport
       parentRoute: typeof rootRouteImport
     }
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
     '/partner-apply': {
       id: '/partner-apply'
       path: '/partner-apply'
@@ -1218,7 +1248,10 @@ const rootRouteChildren: RootRouteChildren = {
   BuyRoute: BuyRoute,
   DiscordRoute: DiscordRoute,
   PartnerApplyRoute: PartnerApplyRoute,
+<<<<<<< HEAD
   PartnersRoute: PartnersRoute,
+=======
+>>>>>>> 9556b5a (Rebranded the Partnership program page)
   RulesRoute: RulesRoute,
   ApiDeliverAccountRoute: ApiDeliverAccountRoute,
   ApiExchangeRateRoute: ApiExchangeRateRoute,

@@ -34,8 +34,6 @@ wrangler.jsonc
 *.sw?
 .env
 .dev.vars
-.env
-.env
-.env
-.env
-
+dist/
+.dev.vars
+*.dev.vars
