@@ -58,6 +58,7 @@ export async function claimPoolAccount(args: {
   currency: string;
   challengeId: string;
   userId: string;
+  phaseProgression?: boolean;
 }): Promise<{ ok: true; accountId: string; mt5Login: string; mt5Password: string; mt5Server: string } | { ok: false; error: string }> {
   let lastError = "No accounts available for this size. Admin has been notified.";
   const isUsd = args.currency === "USD";
@@ -160,43 +161,45 @@ export async function claimPoolAccount(args: {
       .update({ assigned_account_id: newAccount.id })
       .eq("id", poolRow.id);
 
-    // 5. Mark order delivered
-    await supabaseAdmin
-      .from("orders")
-      .update({ status: "delivered" })
-      .eq("id", args.orderId);
+    // 5. Mark order delivered (skip for phase progression — order already delivered)
+    if (!args.phaseProgression) {
+      await supabaseAdmin
+        .from("orders")
+        .update({ status: "delivered" })
+        .eq("id", args.orderId);
 
-    // 6. Mark account_request as fulfilled (so it doesn't show in admin pending tab)
-    // Uses upsert to avoid race with tg_orders_queue_request trigger
-    await supabaseAdmin
-      .from("account_requests")
-      .upsert({
-        order_id: args.orderId,
-        user_id: args.userId,
-        challenge_id: args.challengeId,
-        status: "fulfilled",
-        fulfilled_at: new Date().toISOString(),
-        claimed_by: "pool",
-        provider_response: { login: poolRow.mt5_login, server: poolRow.mt5_server },
-      }, {
-        onConflict: "order_id",
-        ignoreDuplicates: false,
-      })
-      .then(({ error }) => {
-        if (error) console.warn("[claimPoolAccount] account_requests upsert failed:", error.message);
-      });
+      // 6. Mark account_request as fulfilled (so it doesn't show in admin pending tab)
+      // Uses upsert to avoid race with tg_orders_queue_request trigger
+      await supabaseAdmin
+        .from("account_requests")
+        .upsert({
+          order_id: args.orderId,
+          user_id: args.userId,
+          challenge_id: args.challengeId,
+          status: "fulfilled",
+          fulfilled_at: new Date().toISOString(),
+          claimed_by: "pool",
+          provider_response: { login: poolRow.mt5_login, server: poolRow.mt5_server },
+        }, {
+          onConflict: "order_id",
+          ignoreDuplicates: false,
+        })
+        .then(({ error }) => {
+          if (error) console.warn("[claimPoolAccount] account_requests upsert failed:", error.message);
+        });
 
-    // 7. Send welcome notification to trader
-    await supabaseAdmin
-      .from("notifications")
-      .insert({
-        user_id: args.userId,
-        title: "🎉 Your MT5 Account is Ready",
-        message: `Your challenge account is active. Login: ${poolRow.mt5_login} · Server: ${poolRow.mt5_server}. Check your dashboard for the password.`,
-        type: "welcome",
-      });
+      // 7. Send welcome notification to trader
+      await supabaseAdmin
+        .from("notifications")
+        .insert({
+          user_id: args.userId,
+          title: "🎉 Your MT5 Account is Ready",
+          message: `Your challenge account is active. Login: ${poolRow.mt5_login} · Server: ${poolRow.mt5_server}. Check your dashboard for the password.`,
+          type: "welcome",
+        });
+    }
 
-    // 8. Check if stock is low for this size
+    // 5b. Check if stock is low for this size
     const { count: remaining } = await supabaseAdmin
       .from("account_pool")
       .select("id", { count: "exact", head: true })

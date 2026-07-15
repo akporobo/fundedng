@@ -23,6 +23,7 @@ async function attemptDelivery(orderId: string, userId: string, challengeId: str
   const poolResult = await claimPoolAccount({
     orderId,
     accountSizeNgn: challenge.account_size,
+    currency: challenge.currency ?? "NGN",
     challengeId: challenge.id,
     userId,
   }).catch(() => null);

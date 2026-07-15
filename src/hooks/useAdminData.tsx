@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatNaira } from "@/lib/utils";
 import { verifyKycServer, verifyKycDocumentServer, rejectKycDocumentServer } from "@/server/kyc.functions";
-import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer } from "@/server/admin.functions";
+import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer, approvePhase2Server, approveFundedServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
 
 
@@ -353,26 +353,32 @@ function useAdminDataHook() {
 
   const approvePhase2 = async (a: any) => {
     if (a.current_phase >= 2) return toast.error("Already in Phase 2 or beyond");
-    if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
-    const phasePassedAt = new Date(Date.now() - 1000).toISOString();
-    const resetSnapshotAt = new Date().toISOString();
-    const { error } = await supabase.from("trader_accounts").update({ current_phase: 2, current_equity: a.starting_balance, peak_equity: a.starting_balance, daily_peak_equity: a.starting_balance, daily_peak_date: new Date().toISOString().slice(0, 10), phase1_passed_at: phasePassedAt, phase2_requested_at: null, phase_rejected_reason: null, phase_rejected_at: null, status: "active", trading_days: 0 } as never).eq("id", a.id);
-    if (error) return toast.error(error.message);
-    await supabase.from("account_snapshots").insert({ trader_account_id: a.id, equity: a.starting_balance, balance: a.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: resetSnapshotAt } as never);
-    await supabase.from("notifications").insert({ user_id: a.user_id, title: "🎯 Phase 1 Passed", message: "Congratulations — you're now in Phase 2.", type: "success" } as never);
-    toast.success("Phase 2 approved"); notifyEmail({ type: "phase1_passed", accountId: a.id }); load();
+    if (!confirm(`Approve Phase 2 for ${a.profiles?.full_name ?? "trader"}? A new account will be provisioned from the pool.`)) return;
+    if (!session?.access_token) return toast.error("Please sign in again");
+    try {
+      const result = await approvePhase2Server({ data: { accessToken: session.access_token, accountId: a.id } });
+      if (!result?.ok) return toast.error(result?.error ?? "Approval failed");
+      toast.success("Phase 2 approved — new account provisioned");
+      notifyEmail({ type: "phase1_passed", accountId: a.id });
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Approval failed");
+    }
   };
 
   const approveFunded = async (a: any) => {
     if (a.status === "funded") return toast.error("Already funded");
-    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? Equity will reset to ${formatNaira(a.starting_balance)}.`)) return;
-    const phasePassedAt = new Date(Date.now() - 1000).toISOString();
-    const resetSnapshotAt = new Date().toISOString();
-    const { error } = await supabase.from("trader_accounts").update({ status: "funded", current_equity: a.starting_balance, peak_equity: a.starting_balance, daily_peak_equity: a.starting_balance, daily_peak_date: new Date().toISOString().slice(0, 10), phase2_passed_at: phasePassedAt, funded_at: phasePassedAt, funded_requested_at: null, phase_rejected_reason: null, phase_rejected_at: null, trading_days: 0 } as never).eq("id", a.id);
-    if (error) return toast.error(error.message);
-    await supabase.from("account_snapshots").insert({ trader_account_id: a.id, equity: a.starting_balance, balance: a.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: resetSnapshotAt } as never);
-    await supabase.from("notifications").insert({ user_id: a.user_id, title: "🏆 You're Funded!", message: "Congratulations — your account is now funded.", type: "success" } as never);
-    toast.success("Account funded"); notifyEmail({ type: "funded", accountId: a.id }); load();
+    if (!confirm(`Approve Funded status for ${a.profiles?.full_name ?? "trader"}? A new funded account will be provisioned from the pool.`)) return;
+    if (!session?.access_token) return toast.error("Please sign in again");
+    try {
+      const result = await approveFundedServer({ data: { accessToken: session.access_token, accountId: a.id } });
+      if (!result?.ok) return toast.error(result?.error ?? "Approval failed");
+      toast.success("Funded status approved — new account provisioned");
+      notifyEmail({ type: "funded", accountId: a.id });
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Approval failed");
+    }
   };
 
   const submitEquity = async (account: any) => {

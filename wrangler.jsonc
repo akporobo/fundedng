@@ -12,6 +12,9 @@
     "VITE_VAPID_PUBLIC_KEY": "your-vapid-public-key-here",
     
   },
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
   "observability": {
     "enabled": false,
     "head_sampling_rate": 1,

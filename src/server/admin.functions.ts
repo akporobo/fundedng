@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
+import { claimPoolAccount } from "@/lib/account-pool.server";
 
 const AddSocialProofInput = z.object({
   accessToken: z.string().min(1),
@@ -189,50 +190,77 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
 
       const { data: acc } = await supabaseAdmin
         .from("trader_accounts")
-        .select("user_id, starting_balance")
+        .select("user_id, starting_balance, currency, challenge_id, order_id, current_phase, status")
         .eq("id", data.accountId)
         .maybeSingle();
+
       if (!acc) return { ok: false as const, error: "Account not found" };
       if ((acc as any).current_phase >= 2) return { ok: false as const, error: "Already in Phase 2 or beyond" };
 
-      const startingBalance = (acc as any).starting_balance;
+      const isUsd = (acc as any).currency === "USD";
+      const startingBalance = Number((acc as any).starting_balance);
 
-      const { error: updateErr } = await supabaseAdmin
+      // 1. Mark Phase 1 account as passed
+      const { error: passErr } = await supabaseAdmin
+        .from("trader_accounts")
+        .update({
+          status: "passed",
+          phase1_passed_at: new Date().toISOString(),
+          phase2_requested_at: null,
+        } as never)
+        .eq("id", data.accountId);
+
+      if (passErr) return { ok: false as const, error: passErr.message };
+
+      // 2. Claim a fresh account from the pool for Phase 2
+      const poolResult = await claimPoolAccount({
+        orderId: (acc as any).order_id,
+        accountSizeNgn: isUsd ? 0 : startingBalance,
+        accountSizeUsd: isUsd ? startingBalance : undefined,
+        currency: (acc as any).currency ?? "NGN",
+        challengeId: (acc as any).challenge_id,
+        userId: (acc as any).user_id,
+        phaseProgression: true,
+      });
+
+      if (!poolResult.ok) {
+        // Rollback Phase 1 status if pool claim fails
+        await supabaseAdmin
+          .from("trader_accounts")
+          .update({ status: "active", phase1_passed_at: null } as never)
+          .eq("id", data.accountId);
+        return { ok: false as const, error: `Pool unavailable: ${poolResult.error}` };
+      }
+
+      // 3. Set the new account to Phase 2
+      await supabaseAdmin
         .from("trader_accounts")
         .update({
           current_phase: 2,
-          current_equity: startingBalance,
-          peak_equity: startingBalance,
-          daily_peak_equity: startingBalance,
-          daily_peak_date: new Date().toISOString().slice(0, 10),
           phase1_passed_at: new Date().toISOString(),
-          phase2_requested_at: null,
-          status: "active",
           trading_days: 0,
         } as never)
-        .eq("id", data.accountId);
-      if (updateErr) return { ok: false as const, error: updateErr.message };
+        .eq("id", poolResult.accountId);
 
-      await supabaseAdmin.from("account_snapshots").insert({
-        trader_account_id: data.accountId,
-        equity: startingBalance,
-        balance: startingBalance,
-        profit: 0,
-        drawdown_percent: 0,
-      } as never);
-
+      // 4. Notify trader with new credentials
       await supabaseAdmin.from("notifications").insert({
         user_id: (acc as any).user_id,
-        title: "🎯 Phase 1 Passed",
-        message: "Congratulations — you're now in Phase 2. Your equity has been reset to the starting balance.",
+        title: "🎯 Phase 1 Passed — New Account Provisioned",
+        message: `Congratulations — you passed Phase 1! Your Phase 2 account is ready. New Login: ${poolResult.mt5Login} · Server: ${poolResult.mt5Server}. Your starting balance is ${isUsd ? "$" : "₦"}${startingBalance.toLocaleString()}. Good luck!`,
         type: "success",
       } as never);
 
-      await sendEventEmail({ type: "phase1_passed", accountId: data.accountId }).catch((e) =>
+      // 5. Send phase 1 passed email
+      await sendEventEmail({ type: "phase1_passed", accountId: poolResult.accountId }).catch((e) =>
         console.error("[approvePhase2Server] email send failed", e),
       );
 
-      return { ok: true as const };
+      // 6. Telegram alert to admin
+      await supabaseAdmin.rpc("send_telegram" as never, {
+        p_message: `🎯 <b>Phase 2 Provisioned</b>\nTrader: ${(acc as any).user_id}\nNew Login: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}\nSize: ${isUsd ? "$" : "₦"}${startingBalance.toLocaleString()}`,
+      } as never);
+
+      return { ok: true as const, newAccountId: poolResult.accountId };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Approval failed";
       console.error("[approvePhase2Server] unexpected", msg);
@@ -257,50 +285,78 @@ export const approveFundedServer = createServerFn({ method: "POST" })
 
       const { data: acc } = await supabaseAdmin
         .from("trader_accounts")
-        .select("user_id, starting_balance, status")
+        .select("user_id, starting_balance, currency, challenge_id, order_id, current_phase, status")
         .eq("id", data.accountId)
         .maybeSingle();
+
       if (!acc) return { ok: false as const, error: "Account not found" };
       if ((acc as any).status === "funded") return { ok: false as const, error: "Already funded" };
 
-      const startingBalance = (acc as any).starting_balance;
+      const isUsd = (acc as any).currency === "USD";
+      const startingBalance = Number((acc as any).starting_balance);
 
-      const { error: updateErr } = await supabaseAdmin
+      // 1. Mark Phase 2 account as passed
+      const { error: passErr } = await supabaseAdmin
+        .from("trader_accounts")
+        .update({
+          status: "passed",
+          phase2_passed_at: new Date().toISOString(),
+          funded_requested_at: null,
+        } as never)
+        .eq("id", data.accountId);
+
+      if (passErr) return { ok: false as const, error: passErr.message };
+
+      // 2. Claim fresh funded account from pool
+      const poolResult = await claimPoolAccount({
+        orderId: (acc as any).order_id,
+        accountSizeNgn: isUsd ? 0 : startingBalance,
+        accountSizeUsd: isUsd ? startingBalance : undefined,
+        currency: (acc as any).currency ?? "NGN",
+        challengeId: (acc as any).challenge_id,
+        userId: (acc as any).user_id,
+        phaseProgression: true,
+      });
+
+      if (!poolResult.ok) {
+        // Rollback if pool claim fails
+        await supabaseAdmin
+          .from("trader_accounts")
+          .update({ status: "active", phase2_passed_at: null } as never)
+          .eq("id", data.accountId);
+        return { ok: false as const, error: `Pool unavailable: ${poolResult.error}` };
+      }
+
+      // 3. Set funded status on new account
+      await supabaseAdmin
         .from("trader_accounts")
         .update({
           status: "funded",
-          current_equity: startingBalance,
-          peak_equity: startingBalance,
-          daily_peak_equity: startingBalance,
-          daily_peak_date: new Date().toISOString().slice(0, 10),
-          phase2_passed_at: new Date().toISOString(),
+          current_phase: 3,
           funded_at: new Date().toISOString(),
-          funded_requested_at: null,
           trading_days: 0,
         } as never)
-        .eq("id", data.accountId);
-      if (updateErr) return { ok: false as const, error: updateErr.message };
+        .eq("id", poolResult.accountId);
 
-      await supabaseAdmin.from("account_snapshots").insert({
-        trader_account_id: data.accountId,
-        equity: startingBalance,
-        balance: startingBalance,
-        profit: 0,
-        drawdown_percent: 0,
-      } as never);
-
+      // 4. Notify trader
       await supabaseAdmin.from("notifications").insert({
         user_id: (acc as any).user_id,
-        title: "🏆 You're Funded!",
-        message: "Congratulations — your account is now funded. Equity has been reset to the starting balance. Start trading and request payouts.",
+        title: "🏆 You're Funded — New Account Provisioned",
+        message: `Congratulations — you are now a funded trader! Your funded account is ready. Login: ${poolResult.mt5Login} · Server: ${poolResult.mt5Server}. Start trading and request your first payout!`,
         type: "success",
       } as never);
 
-      await sendEventEmail({ type: "funded", accountId: data.accountId }).catch((e) =>
+      // 5. Email
+      await sendEventEmail({ type: "funded", accountId: poolResult.accountId }).catch((e) =>
         console.error("[approveFundedServer] email send failed", e),
       );
 
-      return { ok: true as const };
+      // 6. Telegram
+      await supabaseAdmin.rpc("send_telegram" as never, {
+        p_message: `🏆 <b>Trader Funded</b>\nUser: ${(acc as any).user_id}\nNew Login: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}\nSize: ${isUsd ? "$" : "₦"}${startingBalance.toLocaleString()}`,
+      } as never);
+
+      return { ok: true as const, newAccountId: poolResult.accountId };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Approval failed";
       console.error("[approveFundedServer] unexpected", msg);

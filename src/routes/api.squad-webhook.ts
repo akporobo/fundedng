@@ -80,6 +80,7 @@ export const Route = createFileRoute("/api/squad-webhook")({
           const poolResult = await claimPoolAccount({
             orderId: order.id,
             accountSizeNgn: challenge.account_size,
+            currency: challenge.currency ?? "NGN",
             challengeId: challenge.id,
             userId: order.user_id,
           }).catch((e) => {

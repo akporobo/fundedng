@@ -354,6 +354,9 @@ export type Database = {
           account_size: number
           challenge_type: string
           created_at: string
+          currency: string | null
+          discount_percent: number | null
+          drawdown_type: string
           id: string
           is_active: boolean
           max_daily_drawdown_percent: number | null
@@ -362,45 +365,48 @@ export type Database = {
           min_trading_days: number
           name: string
           phases: number
+          phase2_profit_target_percent: number | null
           price_naira: number
           profit_target_percent: number
-           discount_percent: number | null
-           drawdown_type: string
-         }
-         Insert: {
-            account_size: number
-           challenge_type?: string
-           created_at?: string
-           discount_percent?: number | null
-           id?: string
-           is_active?: boolean
-           max_daily_drawdown_percent?: number | null
-           max_drawdown_percent?: number
-           max_trading_days?: number | null
-           min_trading_days?: number
-           name: string
-           phases?: number
-           price_naira: number
-            profit_target_percent?: number
-            drawdown_type?: string
-          }
-          Update: {
-            account_size?: number
-           challenge_type?: string
-           created_at?: string
-           discount_percent?: number | null
-           id?: string
-           is_active?: boolean
-           max_daily_drawdown_percent?: number | null
-           max_drawdown_percent?: number
-           max_trading_days?: number | null
-           min_trading_days?: number
-           name?: string
-           phases?: number
-           price_naira?: number
-            profit_target_percent?: number
-            drawdown_type?: string
-          }
+        }
+        Insert: {
+          account_size: number
+          challenge_type?: string
+          created_at?: string
+          currency?: string | null
+          discount_percent?: number | null
+          drawdown_type?: string
+          id?: string
+          is_active?: boolean
+          max_daily_drawdown_percent?: number | null
+          max_drawdown_percent?: number
+          max_trading_days?: number | null
+          min_trading_days?: number
+          name: string
+          phases?: number
+          phase2_profit_target_percent?: number | null
+          price_naira: number
+          profit_target_percent?: number
+        }
+        Update: {
+          account_size?: number
+          challenge_type?: string
+          created_at?: string
+          currency?: string | null
+          discount_percent?: number | null
+          drawdown_type?: string
+          id?: string
+          is_active?: boolean
+          max_daily_drawdown_percent?: number | null
+          max_drawdown_percent?: number
+          max_trading_days?: number | null
+          min_trading_days?: number
+          name?: string
+          phases?: number
+          phase2_profit_target_percent?: number | null
+          price_naira?: number
+          profit_target_percent?: number
+        }
          Relationships: []
       }
       community_groups: {
@@ -1195,6 +1201,7 @@ export type Database = {
           breach_reason: string | null
           challenge_id: string
           created_at: string
+          currency: string | null
           current_equity: number | null
           current_phase: number
           deleted_at: string | null
@@ -1212,6 +1219,7 @@ export type Database = {
           phase1_passed_at: string | null
           phase2_passed_at: string | null
           phase2_requested_at: string | null
+          phase_progression_pending: string | null
           phase_rejected_at: string | null
           phase_rejected_reason: string | null
           provider: string
@@ -1226,6 +1234,7 @@ export type Database = {
           breach_reason?: string | null
           challenge_id: string
           created_at?: string
+          currency?: string | null
           current_equity?: number | null
           current_phase?: number
           deleted_at?: string | null
@@ -1243,6 +1252,7 @@ export type Database = {
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
           phase2_requested_at?: string | null
+          phase_progression_pending?: string | null
           phase_rejected_at?: string | null
           phase_rejected_reason?: string | null
           provider?: string
@@ -1257,6 +1267,7 @@ export type Database = {
           breach_reason?: string | null
           challenge_id?: string
           created_at?: string
+          currency?: string | null
           current_equity?: number | null
           current_phase?: number
           deleted_at?: string | null
@@ -1274,6 +1285,7 @@ export type Database = {
           phase1_passed_at?: string | null
           phase2_passed_at?: string | null
           phase2_requested_at?: string | null
+          phase_progression_pending?: string | null
           phase_rejected_at?: string | null
           phase_rejected_reason?: string | null
           provider?: string

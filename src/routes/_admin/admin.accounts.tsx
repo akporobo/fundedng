@@ -195,7 +195,7 @@ function AccountsPage() {
                 const required = Number(a.starting_balance) * (1 + target / 100);
                 const hit = equity >= required;
                 const requested = !!a.phase2_requested_at;
-                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">PHASE 2 REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "phase2")}>Reject</Button></>)}{hit ? <Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button> : <span className="text-[11px] text-muted-foreground">Needs {fmt(Math.ceil(required))} equity ({target}% target)</span>}</>);
+                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">PHASE 2 REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "phase2")}>Reject</Button></>)}{hit ? <><Button size="sm" onClick={() => approvePhase2(a)}>Phase 1 passed → Approve Phase 2</Button><span className="text-[10px] text-muted-foreground italic ml-1">⚡ Auto-provisions when criteria met. Use as fallback.</span></> : <span className="text-[11px] text-muted-foreground">Needs {fmt(Math.ceil(required))} equity ({target}% target)</span>}</>);
               })()}
               {a.current_phase >= 2 && a.status === "active" && (() => {
                 const target = Number(a.challenges?.phase2_profit_target_percent ?? a.challenges?.profit_target_percent ?? 10);
@@ -203,7 +203,7 @@ function AccountsPage() {
                 const required = Number(a.starting_balance) * (1 + target / 100);
                 const hit = equity >= required;
                 const requested = !!a.funded_requested_at;
-                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">FUNDED REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "funded")}>Reject</Button></>)}{hit ? <Button size="sm" onClick={() => approveFunded(a)}>Phase 2 passed → Approve Funded</Button> : <span className="text-[11px] text-muted-foreground">Needs {fmt(Math.ceil(required))} equity ({target}% target)</span>}</>);
+                return (<>{requested && (<><Badge variant="outline" className="font-display border-warning/40 text-warning">FUNDED REQUESTED</Badge><Button size="sm" variant="destructive" onClick={() => openRejectDialog(a, "funded")}>Reject</Button></>)}{hit ? <><Button size="sm" onClick={() => approveFunded(a)}>Phase 2 passed → Approve Funded</Button><span className="text-[10px] text-muted-foreground italic ml-1">⚡ Auto-provisions when criteria met. Use as fallback.</span></> : <span className="text-[11px] text-muted-foreground">Needs {fmt(Math.ceil(required))} equity ({target}% target)</span>}</>);
               })()}
               <Button size="sm" variant="outline" onClick={() => openWarningDialog(a)}>Warning</Button>
               <Button size="sm" variant="outline" onClick={() => openBreachDialog(a)}>Breach</Button>
