@@ -233,7 +233,7 @@ export const Route = createFileRoute("/api/initialize-payment")({
               amount: amountKobo,
               email: user.email,
               currency: "NGN",
-              initiate_type: "inline",
+              initiate_type: "redirect",
               transaction_ref: reference,
               customer_name: customerName,
               callback_url: `${origin}/payment/callback?${callbackParams.toString()}`,
