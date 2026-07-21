@@ -13,6 +13,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { confirmMt5ResetServer } from "@/server/admin.functions";
+import { useRouter } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/payouts")({
   component: PayoutsPage,
@@ -60,6 +62,7 @@ function PayoutsPage() {
     payoutRejectTarget, payoutRejectReason, payoutRejecting,
     setPayoutRejectTarget, setPayoutRejectReason, openPayoutRejectDialog, submitPayoutReject,
   } = useAdminData();
+  const router = useRouter();
 
   const [certTarget, setCertTarget] = useState<Certificate | null>(null);
   const [certLoading, setCertLoading] = useState<string | null>(null);
@@ -150,6 +153,46 @@ function PayoutsPage() {
               {p.status === "pending" && <Button size="sm" variant="outline" onClick={() => openPayoutRejectDialog(p)}>Reject</Button>}
             </div>
           </div>
+          {p.status === "paid" && p.trader_accounts?.monitor_paused && (
+            <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-red-400">
+                  🔴 Monitor Paused — MT5 Reset Pending
+                </p>
+                <p className="text-xs text-red-400/80 mt-0.5">
+                  Reset MT5 login <code>{p.trader_accounts.mt5_login}</code> balance
+                  to {p.trader_accounts.currency === "USD"
+                    ? `$${Number(p.trader_accounts.starting_balance).toLocaleString()}`
+                    : `₦${Number(p.trader_accounts.starting_balance).toLocaleString()}`
+                  } on Exness before confirming.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    `Have you reset MT5 login ${p.trader_accounts?.mt5_login} balance on Exness? Only click OK after completing the reset.`
+                  );
+                  if (!confirmed) return;
+                  const accessToken = (await supabase.auth.getSession()).data.session?.access_token ?? "";
+                  const result = await confirmMt5ResetServer({
+                    data: {
+                      accessToken,
+                      traderAccountId: p.trader_account_id,
+                    }
+                  });
+                  if (result.ok) {
+                    toast.success("Monitor resumed — equity sync active.");
+                    router.invalidate();
+                  } else {
+                    toast.error(result.error ?? "Failed to resume monitor");
+                  }
+                }}
+                className="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 transition-colors"
+              >
+                ✅ MT5 Reset Done
+              </button>
+            </div>
+          )}
         </div>
       ))}
 

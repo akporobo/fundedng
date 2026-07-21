@@ -154,6 +154,61 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
             await supabaseAdmin
               .from("account_snapshots")
               .insert({ trader_account_id: account.id, equity: account.starting_balance, balance: account.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: new Date().toISOString() } as never);
+
+            // Pause monitor for this account to prevent MT5 balance from overwriting reset
+            await supabaseAdmin
+              .from("trader_accounts")
+              .update({
+                monitor_paused: true,
+                monitor_paused_at: new Date().toISOString(),
+                monitor_paused_reason: `Payout paid — awaiting MT5 balance reset on Exness`,
+              } as never)
+              .eq("id", account.id);
+
+            // Send urgent Telegram reminder
+            const { data: fullAccount } = await supabaseAdmin
+              .from("trader_accounts")
+              .select("mt5_login, mt5_server, currency, starting_balance, profiles(full_name)")
+              .eq("id", account.id)
+              .maybeSingle();
+
+            const { data: payoutDetails } = await supabaseAdmin
+              .from("payouts")
+              .select("amount_naira")
+              .eq("id", data.payoutId)
+              .maybeSingle();
+
+            const traderName = (fullAccount as any)?.profiles?.full_name ?? "Unknown Trader";
+            const mt5Login = (fullAccount as any)?.mt5_login ?? "?";
+            const mt5Server = (fullAccount as any)?.mt5_server ?? "Exness-MT5Trial9";
+            const currency = (fullAccount as any)?.currency ?? "NGN";
+            const startingBalance = Number((fullAccount as any)?.starting_balance ?? 0);
+            const payoutAmount = Number((payoutDetails as any)?.amount_naira ?? 0);
+
+            const balanceDisplay = currency === "USD"
+              ? `$${startingBalance.toLocaleString()}`
+              : `₦${startingBalance.toLocaleString()}`;
+
+            const payoutDisplay = currency === "USD"
+              ? `$${(payoutAmount / 1550).toFixed(2)}`
+              : `₦${payoutAmount.toLocaleString()}`;
+
+            try {
+              await supabaseAdmin.rpc("send_telegram" as never, {
+                p_message:
+                  `🔴 <b>ACTION REQUIRED — MT5 Reset Needed</b>\n\n` +
+                  `Trader: <b>${traderName}</b>\n` +
+                  `MT5 Login: <code>${mt5Login}</code>\n` +
+                  `Server: ${mt5Server}\n` +
+                  `Account Size: ${balanceDisplay}\n` +
+                  `Payout Paid: ${payoutDisplay}\n\n` +
+                  `⚠️ <b>Go to Exness Partner Portal NOW and reset this account balance to ${balanceDisplay}</b>\n\n` +
+                  `🛑 Monitor is PAUSED for this account until you confirm the reset.\n` +
+                  `✅ Click "MT5 Reset Done" in the admin panel to resume monitoring.`,
+              } as never);
+            } catch (e) {
+              console.error("[updatePayoutServer] telegram reminder failed", e);
+            }
           }
         }
         await sendEventEmail({ type: "payout_paid", payoutId: data.payoutId }).catch((e) =>
@@ -169,6 +224,58 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Update failed";
       console.error("[updatePayoutServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Confirm MT5 Reset — unpause monitor after payout
+// ---------------------------------------------------------------------------
+const ConfirmMt5ResetInput = z.object({
+  accessToken: z.string().min(1),
+  traderAccountId: z.string().uuid(),
+});
+
+export const confirmMt5ResetServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => ConfirmMt5ResetInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      const { error } = await supabaseAdmin
+        .from("trader_accounts")
+        .update({
+          monitor_paused: false,
+          monitor_paused_at: null,
+          monitor_paused_reason: null,
+        } as never)
+        .eq("id", data.traderAccountId);
+
+      if (error) return { ok: false as const, error: error.message };
+
+      // Confirm via Telegram
+      const { data: account } = await supabaseAdmin
+        .from("trader_accounts")
+        .select("mt5_login, profiles(full_name)")
+        .eq("id", data.traderAccountId)
+        .maybeSingle();
+
+      const name = (account as any)?.profiles?.full_name ?? "Trader";
+      const login = (account as any)?.mt5_login ?? "?";
+
+      try {
+        await supabaseAdmin.rpc("send_telegram" as never, {
+          p_message: `✅ <b>MT5 Reset Confirmed</b>\nTrader: ${name}\nLogin: <code>${login}</code>\nMonitor resumed — equity sync active again.`,
+        } as never);
+      } catch (e) {
+        console.error("[confirmMt5ResetServer] telegram failed", e);
+      }
+
+      return { ok: true as const };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      console.error("[confirmMt5ResetServer] unexpected", msg);
       return { ok: false as const, error: msg };
     }
   });

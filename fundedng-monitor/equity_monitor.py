@@ -203,6 +203,7 @@ def fetch_accounts(supabase: Client) -> list[dict]:
         .in_("status", ["active", "funded"])
         .not_.is_("investor_password", "null")
         .neq("investor_password", "")
+        .eq("monitor_paused", False)
         .execute()
     )
     return res.data or []

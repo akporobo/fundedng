@@ -192,7 +192,7 @@ function useAdminDataHook() {
       userIds.length ? supabase.from("profiles").select("id, full_name, bank_account_number, bank_name, bank_account_name, kyc_verified").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
       challengeIds.length ? supabase.from("challenges").select("id, name, account_size, profit_target_percent, phase2_profit_target_percent, max_drawdown_percent, phases").in("id", challengeIds) : Promise.resolve({ data: [] as any[] }),
       orderIds.length ? supabase.from("orders").select("id, status").in("id", orderIds) : Promise.resolve({ data: [] as any[] }),
-      accountIds.length ? supabase.from("trader_accounts").select("id, mt5_login").in("id", accountIds) : Promise.resolve({ data: [] as any[] }),
+      accountIds.length ? supabase.from("trader_accounts").select("id, mt5_login, currency, starting_balance, monitor_paused, monitor_paused_reason").in("id", accountIds) : Promise.resolve({ data: [] as any[] }),
     ]);
     const profMap = new Map((profRes.data ?? []).map((p: any) => [p.id, p]));
     const chMap = new Map((chRes.data ?? []).map((c: any) => [c.id, c]));
@@ -324,7 +324,13 @@ function useAdminDataHook() {
       if (account) {
         await supabase.from("trader_accounts").update({ current_equity: account.starting_balance, peak_equity: account.starting_balance, daily_peak_equity: account.starting_balance, daily_peak_date: new Date().toISOString().slice(0, 10), trading_days: 0 } as never).eq("id", account.id);
         await supabase.from("account_snapshots").insert({ trader_account_id: account.id, equity: account.starting_balance, balance: account.starting_balance, profit: 0, drawdown_percent: 0, snapshot_time: new Date().toISOString() } as never);
-        toast.success("Account metrics reset");
+        // Pause monitor to prevent MT5 balance from overwriting the reset
+        await supabase.from("trader_accounts").update({
+          monitor_paused: true,
+          monitor_paused_at: new Date().toISOString(),
+          monitor_paused_reason: "Payout paid — awaiting MT5 balance reset on Exness",
+        } as never).eq("id", account.id);
+        toast.success("Account metrics reset — monitor paused");
       }
     }
     if (status === "rejected") notifyEmail({ type: "payout_rejected", payoutId: p.id, reason: "Rejected by admin." });

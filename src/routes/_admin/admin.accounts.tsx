@@ -166,6 +166,9 @@ function AccountsPage() {
               <div className="text-sm">{fmt(a.starting_balance)}</div>
               <div className="font-display text-sm text-gold">Phase {a.current_phase}</div>
               <Badge variant="outline" className="font-display">{a.status.toUpperCase()}</Badge>
+              {a.monitor_paused && (
+                <Badge variant="outline" className="border-amber-500/50 text-amber-500 text-[10px]">⏸ Monitor Paused</Badge>
+              )}
             </div>
             {(() => {
               const eq = Number(a.current_equity ?? a.starting_balance);
