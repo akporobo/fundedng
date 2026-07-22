@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
+import { sendTelegramWithButtons } from "@/lib/telegram.server";
 
 const AddSocialProofInput = z.object({
   accessToken: z.string().min(1),
@@ -99,6 +100,44 @@ export const requestPayoutServer = createServerFn({ method: "POST" })
       await sendEventEmail({ type: "payout_requested", payoutId: (payoutInsert as any).id }).catch((e) =>
         console.error("[requestPayoutServer] email send failed", e),
       );
+
+      // Send Telegram with Approve/Reject buttons
+      const { data: traderAcc } = await supabaseAdmin
+        .from("trader_accounts")
+        .select("mt5_login, currency, starting_balance, profiles(full_name), challenges(name)")
+        .eq("id", data.traderAccountId)
+        .maybeSingle();
+
+      const traderName = (traderAcc as any)?.profiles?.full_name ?? "Unknown";
+      const mt5Login = (traderAcc as any)?.mt5_login ?? "?";
+      const challengeName = (traderAcc as any)?.challenges?.name ?? "?";
+      const payoutCurrency = (traderAcc as any)?.currency ?? "NGN";
+      const startingBalance = Number((traderAcc as any)?.starting_balance ?? 0);
+
+      const amountDisplay = payoutCurrency === "USD"
+        ? `$${(data.amountNaira / 1550).toFixed(2)} (~N${data.amountNaira.toLocaleString()})`
+        : `N${data.amountNaira.toLocaleString()}`;
+
+      const balanceDisplay = payoutCurrency === "USD"
+        ? `$${startingBalance.toLocaleString()}`
+        : `N${startingBalance.toLocaleString()}`;
+
+      await sendTelegramWithButtons(
+        `Payout Request\n\n` +
+        `Trader: <b>${traderName}</b>\n` +
+        `MT5: <code>${mt5Login}</code>\n` +
+        `Account: ${challengeName} ${balanceDisplay}\n` +
+        `Amount: <b>${amountDisplay}</b>\n` +
+        `Profit: ${data.profitPercent.toFixed(2)}%\n` +
+        `Bank: ${data.bankDetails.bank_name} — ${data.bankDetails.account_number}\n` +
+        `Account Name: ${data.bankDetails.account_name}`,
+        [
+          [
+            { text: "Approve", callback_data: `approve_payout:${(payoutInsert as any).id}` },
+            { text: "Reject", callback_data: `reject_payout:${(payoutInsert as any).id}` },
+          ],
+        ],
+      ).catch((e) => console.error("[requestPayoutServer] telegram failed", e));
 
       return { ok: true as const, payoutId: (payoutInsert as any).id };
     } catch (e) {
@@ -574,6 +613,80 @@ export const deleteSocialProofServer = createServerFn({ method: "POST" })
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Delete failed";
       console.error("[deleteSocialProofServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Send Telegram notification with inline buttons for phase progression requests
+// ---------------------------------------------------------------------------
+const PhaseRequestNotificationInput = z.object({
+  accessToken: z.string().min(1),
+  accountId: z.string().uuid(),
+  phase: z.enum(["phase2", "funded"]),
+});
+
+export const sendPhaseRequestNotificationServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => PhaseRequestNotificationInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertUser(data.accessToken);
+      if (!auth.ok) return auth;
+
+      const { data: acc } = await supabaseAdmin
+        .from("trader_accounts")
+        .select(`
+          id, mt5_login, currency, starting_balance, current_phase,
+          trading_days, scalping_warnings,
+          challenges(name, min_trading_days, profit_target_percent),
+          profiles(full_name)
+        `)
+        .eq("id", data.accountId)
+        .maybeSingle();
+
+      if (!acc) return { ok: false as const, error: "Account not found" };
+
+      const traderName = (acc as any).profiles?.full_name ?? "Unknown";
+      const mt5Login = (acc as any).mt5_login ?? "?";
+      const challengeName = (acc as any).challenges?.name ?? "?";
+      const currency = (acc as any).currency ?? "NGN";
+      const startingBalance = Number((acc as any).starting_balance ?? 0);
+      const tradingDays = (acc as any).trading_days ?? 0;
+      const scalpingWarnings = (acc as any).scalping_warnings ?? 0;
+      const minDays = currency === "USD" ? 5 : ((acc as any).challenges?.min_trading_days ?? 3);
+      const profitTarget = (acc as any).challenges?.profit_target_percent ?? 10;
+
+      const isPhase2 = data.phase === "phase2";
+      const title = isPhase2 ? "Phase 2 Request" : "Funded Request";
+      const approveAction = isPhase2 ? "approve_phase2" : "approve_funded";
+      const rejectAction = isPhase2 ? "reject_phase2" : "reject_funded";
+
+      const balanceDisplay = currency === "USD"
+        ? `$${startingBalance.toLocaleString()}`
+        : `N${startingBalance.toLocaleString()}`;
+
+      const daysCheck = tradingDays >= minDays ? "+" : "!";
+      const scalpingCheck = scalpingWarnings < 4 ? "+" : "!";
+
+      await sendTelegramWithButtons(
+        `${title}\n\n` +
+        `Trader: <b>${traderName}</b>\n` +
+        `MT5: <code>${mt5Login}</code>\n` +
+        `Account: ${challengeName} ${balanceDisplay}\n` +
+        `Profit Target: ${profitTarget}%\n` +
+        `${daysCheck} Trading Days: ${tradingDays}/${minDays}\n` +
+        `${scalpingCheck} Scalping: ${scalpingWarnings}/4\n`,
+        [
+          [
+            { text: "Approve & Provision", callback_data: `${approveAction}:${data.accountId}` },
+            { text: "Reject", callback_data: `${rejectAction}:${data.accountId}` },
+          ],
+        ],
+      );
+
+      return { ok: true as const };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
       return { ok: false as const, error: msg };
     }
   });

@@ -21,7 +21,7 @@ import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { TradingAnalytics } from "@/components/dashboard/TradingAnalytics";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
-import { requestPayoutServer } from "@/server/admin.functions";
+import { requestPayoutServer, sendPhaseRequestNotificationServer } from "@/server/admin.functions";
 import { notifyEmail } from "@/lib/notify-email";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -633,6 +633,18 @@ function DashboardPage() {
     const { error } = await supabase.rpc("request_phase2", { _account_id: selected.id });
     if (error) return toast.error(error.message);
     await supabase.from("trader_accounts").update({ phase_rejected_reason: null, phase_rejected_at: null } as never).eq("id", selected.id);
+
+    const { data: sess } = await supabase.auth.getSession();
+    if (sess.session?.access_token) {
+      await sendPhaseRequestNotificationServer({
+        data: {
+          accessToken: sess.session.access_token,
+          accountId: selected.id,
+          phase: "phase2",
+        },
+      }).catch(() => {});
+    }
+
     toast.success("Phase 2 approval requested. An admin will review shortly.");
     load();
   };
@@ -649,6 +661,18 @@ function DashboardPage() {
     const { error } = await supabase.rpc("request_funded", { _account_id: selected.id });
     if (error) return toast.error(error.message);
     await supabase.from("trader_accounts").update({ phase_rejected_reason: null, phase_rejected_at: null } as never).eq("id", selected.id);
+
+    const { data: sess } = await supabase.auth.getSession();
+    if (sess.session?.access_token) {
+      await sendPhaseRequestNotificationServer({
+        data: {
+          accessToken: sess.session.access_token,
+          accountId: selected.id,
+          phase: "funded",
+        },
+      }).catch(() => {});
+    }
+
     toast.success("Funded approval requested. An admin will review shortly.");
     load();
   };
