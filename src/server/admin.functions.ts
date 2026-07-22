@@ -217,12 +217,43 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
               .eq("id", data.payoutId)
               .maybeSingle();
 
+            // Post to live activity feed (only for leaderboard-opted-in traders)
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("full_name, leaderboard_opt_in")
+              .eq("id", (account as any).user_id)
+              .maybeSingle();
+
+            if ((profile as any)?.leaderboard_opt_in) {
+              const fullName = (profile as any)?.full_name ?? "Trader";
+              const firstName = fullName.split(" ")[0] ?? fullName;
+              const anonymized = firstName.length <= 2
+                ? firstName[0] + "***"
+                : firstName[0] + "***" + firstName[firstName.length - 1];
+              const avatarInitials = fullName.split(" ").slice(0, 2)
+                .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
+
+              const cur = (account as any).currency ?? "NGN";
+              const amountNaira = Number(payoutDetails?.amount_naira ?? 0);
+              const displayAmount = cur === "USD" ? amountNaira / 1550 : amountNaira;
+
+              await supabaseAdmin.from("live_activity").insert({
+                event_type: "payout_paid",
+                anonymized_name: anonymized,
+                avatar_initials: avatarInitials,
+                challenge_name: "",
+                currency: cur,
+                amount: Math.round(displayAmount * 100) / 100,
+                account_size: Number((account as any).starting_balance),
+              } as never);
+            }
+
             const traderName = (fullAccount as any)?.profiles?.full_name ?? "Unknown Trader";
             const mt5Login = (fullAccount as any)?.mt5_login ?? "?";
             const mt5Server = (fullAccount as any)?.mt5_server ?? "Exness-MT5Trial9";
             const currency = (fullAccount as any)?.currency ?? "NGN";
             const startingBalance = Number((fullAccount as any)?.starting_balance ?? 0);
-            const payoutAmount = Number((payoutDetails as any)?.amount_naira ?? 0);
+            const payoutAmount = Number(payoutDetails?.amount_naira ?? 0);
 
             const balanceDisplay = currency === "USD"
               ? `$${startingBalance.toLocaleString()}`
@@ -406,6 +437,38 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
         p_message: `🎯 <b>Phase 2 Provisioned</b>\nTrader: ${(acc as any).user_id}\nNew Login: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}\nSize: ${isUsd ? "$" : "₦"}${startingBalance.toLocaleString()}`,
       } as never);
 
+      // 7. Post to live activity feed
+      const { data: phase2Profile } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, leaderboard_opt_in")
+        .eq("id", (acc as any).user_id)
+        .maybeSingle();
+
+      if ((phase2Profile as any)?.leaderboard_opt_in) {
+        const fullName = (phase2Profile as any)?.full_name ?? "Trader";
+        const firstName = fullName.split(" ")[0] ?? fullName;
+        const anonymized = firstName.length <= 2
+          ? firstName[0] + "***"
+          : firstName[0] + "***" + firstName[firstName.length - 1];
+        const avatarInitials = fullName.split(" ").slice(0, 2)
+          .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
+
+        const { data: challengeData } = await supabaseAdmin
+          .from("challenges")
+          .select("name")
+          .eq("id", (acc as any).challenge_id)
+          .maybeSingle();
+
+        await supabaseAdmin.from("live_activity").insert({
+          event_type: "phase2_approved",
+          anonymized_name: anonymized,
+          avatar_initials: avatarInitials,
+          challenge_name: (challengeData as any)?.name ?? "",
+          currency: (acc as any).currency ?? "NGN",
+          account_size: startingBalance,
+        } as never);
+      }
+
       return { ok: true as const, newAccountId: poolResult.accountId };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Approval failed";
@@ -501,6 +564,38 @@ export const approveFundedServer = createServerFn({ method: "POST" })
       await supabaseAdmin.rpc("send_telegram" as never, {
         p_message: `🏆 <b>Trader Funded</b>\nUser: ${(acc as any).user_id}\nNew Login: ${poolResult.mt5Login}\nServer: ${poolResult.mt5Server}\nSize: ${isUsd ? "$" : "₦"}${startingBalance.toLocaleString()}`,
       } as never);
+
+      // 7. Post to live activity feed
+      const { data: fundedProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, leaderboard_opt_in")
+        .eq("id", (acc as any).user_id)
+        .maybeSingle();
+
+      if ((fundedProfile as any)?.leaderboard_opt_in) {
+        const fullName = (fundedProfile as any)?.full_name ?? "Trader";
+        const firstName = fullName.split(" ")[0] ?? fullName;
+        const anonymized = firstName.length <= 2
+          ? firstName[0] + "***"
+          : firstName[0] + "***" + firstName[firstName.length - 1];
+        const avatarInitials = fullName.split(" ").slice(0, 2)
+          .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
+
+        const { data: challengeData } = await supabaseAdmin
+          .from("challenges")
+          .select("name")
+          .eq("id", (acc as any).challenge_id)
+          .maybeSingle();
+
+        await supabaseAdmin.from("live_activity").insert({
+          event_type: "funded_approved",
+          anonymized_name: anonymized,
+          avatar_initials: avatarInitials,
+          challenge_name: (challengeData as any)?.name ?? "",
+          currency: (acc as any).currency ?? "NGN",
+          account_size: startingBalance,
+        } as never);
+      }
 
       return { ok: true as const, newAccountId: poolResult.accountId };
     } catch (e) {

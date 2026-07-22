@@ -25,6 +25,7 @@ import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as ApiVerifyPaymentRouteImport } from './routes/api.verify-payment'
 import { Route as ApiVerifyBankRouteImport } from './routes/api.verify-bank'
+import { Route as ApiTelegramWebhookRouteImport } from './routes/api.telegram-webhook'
 import { Route as ApiSquadWebhookRouteImport } from './routes/api.squad-webhook'
 import { Route as ApiSendEmailRouteImport } from './routes/api.send-email'
 import { Route as ApiProvisionAccountRouteImport } from './routes/api.provision-account'
@@ -143,6 +144,11 @@ const ApiVerifyPaymentRoute = ApiVerifyPaymentRouteImport.update({
 const ApiVerifyBankRoute = ApiVerifyBankRouteImport.update({
   id: '/api/verify-bank',
   path: '/api/verify-bank',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTelegramWebhookRoute = ApiTelegramWebhookRouteImport.update({
+  id: '/api/telegram-webhook',
+  path: '/api/telegram-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSquadWebhookRoute = ApiSquadWebhookRouteImport.update({
@@ -383,6 +389,7 @@ export interface FileRoutesByFullPath {
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
   '/api/squad-webhook': typeof ApiSquadWebhookRoute
+  '/api/telegram-webhook': typeof ApiTelegramWebhookRoute
   '/api/verify-bank': typeof ApiVerifyBankRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -438,6 +445,7 @@ export interface FileRoutesByTo {
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
   '/api/squad-webhook': typeof ApiSquadWebhookRoute
+  '/api/telegram-webhook': typeof ApiTelegramWebhookRoute
   '/api/verify-bank': typeof ApiVerifyBankRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -498,6 +506,7 @@ export interface FileRoutesById {
   '/api/provision-account': typeof ApiProvisionAccountRoute
   '/api/send-email': typeof ApiSendEmailRoute
   '/api/squad-webhook': typeof ApiSquadWebhookRoute
+  '/api/telegram-webhook': typeof ApiTelegramWebhookRoute
   '/api/verify-bank': typeof ApiVerifyBankRoute
   '/api/verify-payment': typeof ApiVerifyPaymentRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -557,6 +566,7 @@ export interface FileRouteTypes {
     | '/api/provision-account'
     | '/api/send-email'
     | '/api/squad-webhook'
+    | '/api/telegram-webhook'
     | '/api/verify-bank'
     | '/api/verify-payment'
     | '/auth/forgot-password'
@@ -612,6 +622,7 @@ export interface FileRouteTypes {
     | '/api/provision-account'
     | '/api/send-email'
     | '/api/squad-webhook'
+    | '/api/telegram-webhook'
     | '/api/verify-bank'
     | '/api/verify-payment'
     | '/auth/forgot-password'
@@ -671,6 +682,7 @@ export interface FileRouteTypes {
     | '/api/provision-account'
     | '/api/send-email'
     | '/api/squad-webhook'
+    | '/api/telegram-webhook'
     | '/api/verify-bank'
     | '/api/verify-payment'
     | '/auth/forgot-password'
@@ -723,6 +735,7 @@ export interface RootRouteChildren {
   ApiProvisionAccountRoute: typeof ApiProvisionAccountRoute
   ApiSendEmailRoute: typeof ApiSendEmailRoute
   ApiSquadWebhookRoute: typeof ApiSquadWebhookRoute
+  ApiTelegramWebhookRoute: typeof ApiTelegramWebhookRoute
   ApiVerifyBankRoute: typeof ApiVerifyBankRoute
   ApiVerifyPaymentRoute: typeof ApiVerifyPaymentRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
@@ -855,6 +868,13 @@ declare module '@tanstack/react-router' {
       path: '/api/verify-bank'
       fullPath: '/api/verify-bank'
       preLoaderRoute: typeof ApiVerifyBankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/telegram-webhook': {
+      id: '/api/telegram-webhook'
+      path: '/api/telegram-webhook'
+      fullPath: '/api/telegram-webhook'
+      preLoaderRoute: typeof ApiTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/squad-webhook': {
@@ -1249,6 +1269,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProvisionAccountRoute: ApiProvisionAccountRoute,
   ApiSendEmailRoute: ApiSendEmailRoute,
   ApiSquadWebhookRoute: ApiSquadWebhookRoute,
+  ApiTelegramWebhookRoute: ApiTelegramWebhookRoute,
   ApiVerifyBankRoute: ApiVerifyBankRoute,
   ApiVerifyPaymentRoute: ApiVerifyPaymentRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
