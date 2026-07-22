@@ -62,6 +62,7 @@ import { Route as AdminAdminAffiliateRouteImport } from './routes/_admin/admin.a
 import { Route as AdminAdminAccountsRouteImport } from './routes/_admin/admin.accounts'
 import { Route as ApiPublicCronSyncEquityV2RouteImport } from './routes/api.public.cron.sync-equity-v2'
 import { Route as ApiPublicCronSyncEquityRouteImport } from './routes/api.public.cron.sync-equity'
+import { Route as ApiPublicCronRefreshLeaderboardRouteImport } from './routes/api.public.cron.refresh-leaderboard'
 import { Route as ApiPublicCronReconcilePaymentsRouteImport } from './routes/api.public.cron.reconcile-payments'
 import { Route as ApiPublicCronHandleWeekendViolationRouteImport } from './routes/api.public.cron.handle-weekend-violation'
 import { Route as ApiPublicCronHandleScalpingRouteImport } from './routes/api.public.cron.handle-scalping'
@@ -334,6 +335,12 @@ const ApiPublicCronSyncEquityRoute = ApiPublicCronSyncEquityRouteImport.update({
   path: '/api/public/cron/sync-equity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronRefreshLeaderboardRoute =
+  ApiPublicCronRefreshLeaderboardRouteImport.update({
+    id: '/api/public/cron/refresh-leaderboard',
+    path: '/api/public/cron/refresh-leaderboard',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronReconcilePaymentsRoute =
   ApiPublicCronReconcilePaymentsRouteImport.update({
     id: '/api/public/cron/reconcile-payments',
@@ -420,6 +427,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/handle-weekend-violation': typeof ApiPublicCronHandleWeekendViolationRoute
   '/api/public/cron/reconcile-payments': typeof ApiPublicCronReconcilePaymentsRoute
+  '/api/public/cron/refresh-leaderboard': typeof ApiPublicCronRefreshLeaderboardRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -476,6 +484,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/handle-weekend-violation': typeof ApiPublicCronHandleWeekendViolationRoute
   '/api/public/cron/reconcile-payments': typeof ApiPublicCronReconcilePaymentsRoute
+  '/api/public/cron/refresh-leaderboard': typeof ApiPublicCronRefreshLeaderboardRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -537,6 +546,7 @@ export interface FileRoutesById {
   '/api/public/cron/handle-scalping': typeof ApiPublicCronHandleScalpingRoute
   '/api/public/cron/handle-weekend-violation': typeof ApiPublicCronHandleWeekendViolationRoute
   '/api/public/cron/reconcile-payments': typeof ApiPublicCronReconcilePaymentsRoute
+  '/api/public/cron/refresh-leaderboard': typeof ApiPublicCronRefreshLeaderboardRoute
   '/api/public/cron/sync-equity': typeof ApiPublicCronSyncEquityRoute
   '/api/public/cron/sync-equity-v2': typeof ApiPublicCronSyncEquityV2Route
 }
@@ -597,6 +607,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/handle-scalping'
     | '/api/public/cron/handle-weekend-violation'
     | '/api/public/cron/reconcile-payments'
+    | '/api/public/cron/refresh-leaderboard'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   fileRoutesByTo: FileRoutesByTo
@@ -653,6 +664,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/handle-scalping'
     | '/api/public/cron/handle-weekend-violation'
     | '/api/public/cron/reconcile-payments'
+    | '/api/public/cron/refresh-leaderboard'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   id:
@@ -713,6 +725,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/handle-scalping'
     | '/api/public/cron/handle-weekend-violation'
     | '/api/public/cron/reconcile-payments'
+    | '/api/public/cron/refresh-leaderboard'
     | '/api/public/cron/sync-equity'
     | '/api/public/cron/sync-equity-v2'
   fileRoutesById: FileRoutesById
@@ -752,6 +765,7 @@ export interface RootRouteChildren {
   ApiPublicCronHandleScalpingRoute: typeof ApiPublicCronHandleScalpingRoute
   ApiPublicCronHandleWeekendViolationRoute: typeof ApiPublicCronHandleWeekendViolationRoute
   ApiPublicCronReconcilePaymentsRoute: typeof ApiPublicCronReconcilePaymentsRoute
+  ApiPublicCronRefreshLeaderboardRoute: typeof ApiPublicCronRefreshLeaderboardRoute
   ApiPublicCronSyncEquityRoute: typeof ApiPublicCronSyncEquityRoute
   ApiPublicCronSyncEquityV2Route: typeof ApiPublicCronSyncEquityV2Route
 }
@@ -1129,6 +1143,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronSyncEquityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/refresh-leaderboard': {
+      id: '/api/public/cron/refresh-leaderboard'
+      path: '/api/public/cron/refresh-leaderboard'
+      fullPath: '/api/public/cron/refresh-leaderboard'
+      preLoaderRoute: typeof ApiPublicCronRefreshLeaderboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/reconcile-payments': {
       id: '/api/public/cron/reconcile-payments'
       path: '/api/public/cron/reconcile-payments'
@@ -1287,6 +1308,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronHandleWeekendViolationRoute:
     ApiPublicCronHandleWeekendViolationRoute,
   ApiPublicCronReconcilePaymentsRoute: ApiPublicCronReconcilePaymentsRoute,
+  ApiPublicCronRefreshLeaderboardRoute: ApiPublicCronRefreshLeaderboardRoute,
   ApiPublicCronSyncEquityRoute: ApiPublicCronSyncEquityRoute,
   ApiPublicCronSyncEquityV2Route: ApiPublicCronSyncEquityV2Route,
 }
