@@ -14,6 +14,7 @@ interface LeaderboardEntry {
   starting_balance: number;
   monthly_profit: number;
   monthly_profit_percent: number;
+  total_payouts: number;
   payout_count: number;
 }
 
@@ -68,7 +69,7 @@ function LeaderboardPage() {
 
     Promise.all([
       supabase.from("leaderboard_cache")
-        .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, payout_count")
+        .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count")
         .order("monthly_profit", { ascending: false })
         .limit(10),
       supabase.from("live_activity")
@@ -88,7 +89,7 @@ function LeaderboardPage() {
         table: "leaderboard_cache",
       }, () => {
         supabase.from("leaderboard_cache")
-          .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, payout_count")
+          .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count")
           .order("monthly_profit", { ascending: false })
           .limit(10)
           .then(({ data }) => { if (data) setLeaderboard(data); });
@@ -199,6 +200,13 @@ function LeaderboardPage() {
                     <div className="shrink-0">
                       <span className="text-xs bg-primary/20 text-primary rounded-full px-2 py-0.5 font-medium">
                         {trader.payout_count} payout{trader.payout_count !== 1 ? "s" : ""}
+                        {trader.total_payouts > 0 && (
+                          <span className="ml-1 text-muted-foreground">
+                            · {trader.currency === "USD"
+                              ? `$${Number(trader.total_payouts).toLocaleString()}`
+                              : `₦${Number(trader.total_payouts).toLocaleString()}`} paid
+                          </span>
+                        )}
                       </span>
                     </div>
                   )}

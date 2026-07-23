@@ -25,9 +25,8 @@ async function refreshLeaderboard() {
     return Response.json({ ok: true, updated: 0 });
   }
 
-  const monthStart = new Date(
-    new Date().getFullYear(), new Date().getMonth(), 1
-  ).toISOString();
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
   let updated = 0;
 
@@ -45,7 +44,9 @@ async function refreshLeaderboard() {
       .gte("close_time", monthStart);
 
     const monthlyProfit = (monthlyTrades ?? [])
-      .reduce((sum, t) => sum + Number(t.profit), 0);
+      .reduce((sum, t) => sum + Number(t.profit ?? 0), 0);
+
+    console.log(`[leaderboard] ${acct.id} monthly trades: ${monthlyTrades?.length ?? 0}, profit: ${monthlyProfit}`);
 
     const monthlyProfitPercent = startingBalance > 0
       ? (monthlyProfit / startingBalance) * 100 : 0;

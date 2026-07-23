@@ -133,8 +133,8 @@ export const requestPayoutServer = createServerFn({ method: "POST" })
         `Account Name: ${data.bankDetails.account_name}`,
         [
           [
-            { text: "Approve", callback_data: `approve_payout:${(payoutInsert as any).id}` },
-            { text: "Reject", callback_data: `reject_payout:${(payoutInsert as any).id}` },
+            { text: "✅ Approve", callback_data: `approve_payout:${(payoutInsert as any).id}` },
+            { text: "❌ Reject", callback_data: `reject_payout:${(payoutInsert as any).id}` },
           ],
         ],
       ).catch((e) => console.error("[requestPayoutServer] telegram failed", e));

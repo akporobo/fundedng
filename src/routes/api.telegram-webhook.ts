@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { answerCallbackQuery, editTelegramMessage } from "@/lib/telegram.server";
+import { answerCallbackQuery, editTelegramMessage, editTelegramMessageWithButtons } from "@/lib/telegram.server";
 import { sendEventEmail } from "@/lib/email.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
 
@@ -38,6 +38,21 @@ export const Route = createFileRoute("/api/telegram-webhook")({
             // ── PAYOUT APPROVALS ─────────────────────────────────────────
 
             case "approve_payout": {
+              const { data: payout } = await supabaseAdmin
+                .from("payouts")
+                .select("id, status, amount_naira, trader_account_id, profiles(full_name)")
+                .eq("id", id)
+                .maybeSingle();
+
+              if (!payout) {
+                await answerCallbackQuery(callbackQueryId, "Payout not found", true);
+                break;
+              }
+              if ((payout as any).status !== "pending") {
+                await answerCallbackQuery(callbackQueryId, `Already ${(payout as any).status}`, true);
+                break;
+              }
+
               const { error } = await supabaseAdmin
                 .from("payouts")
                 .update({ status: "approved", processed_at: new Date().toISOString() })
@@ -50,13 +65,184 @@ export const Route = createFileRoute("/api/telegram-webhook")({
               }
 
               await sendEventEmail({ type: "payout_approved", payoutId: id }).catch(() => {});
-              await answerCallbackQuery(callbackQueryId, "Payout approved!", false);
+              await answerCallbackQuery(callbackQueryId, "✅ Payout approved!", false);
 
               if (chatId && messageId) {
-                await editTelegramMessage(
+                await editTelegramMessageWithButtons(
                   chatId,
                   messageId,
-                  cq.message.text + "\n\n<b>APPROVED</b> by Emperor",
+                  cq.message.text + "\n\n✅ <b>APPROVED</b> by Emperor\n⏳ Now send the payment on your bank app, then tap Mark as Paid.",
+                  [
+                    [
+                      { text: "💳 Mark as Paid", callback_data: `mark_paid:${id}` },
+                      { text: "↩️ Undo Approve", callback_data: `undo_approve:${id}` },
+                    ]
+                  ]
+                );
+              }
+              break;
+            }
+
+            case "mark_paid": {
+              const { data: payout } = await supabaseAdmin
+                .from("payouts")
+                .select(`
+                  id, status, amount_naira, profit_percent, trader_account_id,
+                  trader_accounts(
+                    id, user_id, mt5_login, mt5_server, currency,
+                    starting_balance, current_equity, peak_equity,
+                    profiles(full_name)
+                  )
+                `)
+                .eq("id", id)
+                .maybeSingle();
+
+              if (!payout) {
+                await answerCallbackQuery(callbackQueryId, "Payout not found", true);
+                break;
+              }
+              if ((payout as any).status !== "approved") {
+                await answerCallbackQuery(callbackQueryId, "Payout must be approved first", true);
+                break;
+              }
+
+              const account = (payout as any).trader_accounts;
+              const currency = account?.currency ?? "NGN";
+              const startingBalance = Number(account?.starting_balance ?? 0);
+              const mt5Login = account?.mt5_login ?? "?";
+              const mt5Server = account?.mt5_server ?? "Exness-MT5Trial9";
+              const traderName = account?.profiles?.full_name ?? "Trader";
+              const balanceDisplay = currency === "USD"
+                ? `$${startingBalance.toLocaleString()}`
+                : `₦${startingBalance.toLocaleString()}`;
+
+              const { error } = await supabaseAdmin
+                .from("payouts")
+                .update({ status: "paid", paid_at: new Date().toISOString() })
+                .eq("id", id)
+                .eq("status", "approved");
+
+              if (error) {
+                await answerCallbackQuery(callbackQueryId, "Error: " + error.message, true);
+                break;
+              }
+
+              await supabaseAdmin
+                .from("trader_accounts")
+                .update({
+                  current_equity: startingBalance,
+                  peak_equity: startingBalance,
+                  daily_peak_equity: startingBalance,
+                  trading_days: 0,
+                  monitor_paused: true,
+                  monitor_paused_at: new Date().toISOString(),
+                  monitor_paused_reason: `Payout paid — awaiting MT5 balance reset`,
+                } as never)
+                .eq("id", account?.id);
+
+              await supabaseAdmin.from("account_snapshots").insert({
+                trader_account_id: account?.id,
+                equity: startingBalance,
+                balance: startingBalance,
+                profit: 0,
+                drawdown_percent: 0,
+                snapshot_time: new Date().toISOString(),
+              } as never);
+
+              await sendEventEmail({ type: "payout_paid", payoutId: id }).catch(() => {});
+
+              await answerCallbackQuery(callbackQueryId, "💳 Marked as paid!", false);
+
+              if (chatId && messageId) {
+                await editTelegramMessageWithButtons(
+                  chatId,
+                  messageId,
+                  cq.message.text.split("\n\n✅")[0] +
+                    "\n\n✅ <b>APPROVED</b> → 💳 <b>PAID</b> by Emperor\n\n" +
+                    `🔴 <b>ACTION REQUIRED</b>\n` +
+                    `Go to Exness Partner Portal and reset MT5 login <code>${mt5Login}</code> balance to <b>${balanceDisplay}</b>\n` +
+                    `Server: ${mt5Server}\n\n` +
+                    `Tap the button below ONLY after completing the reset.`,
+                  [
+                    [
+                      { text: "🔄 MT5 Reset Done", callback_data: `mt5_reset:${account?.id}` },
+                    ]
+                  ]
+                );
+              }
+              break;
+            }
+
+            case "mt5_reset": {
+              const { data: account } = await supabaseAdmin
+                .from("trader_accounts")
+                .select("id, mt5_login, monitor_paused, profiles(full_name)")
+                .eq("id", id)
+                .maybeSingle();
+
+              if (!account) {
+                await answerCallbackQuery(callbackQueryId, "Account not found", true);
+                break;
+              }
+              if (!(account as any).monitor_paused) {
+                await answerCallbackQuery(callbackQueryId, "Monitor not paused — already reset?", true);
+                break;
+              }
+
+              await supabaseAdmin
+                .from("trader_accounts")
+                .update({
+                  monitor_paused: false,
+                  monitor_paused_at: null,
+                  monitor_paused_reason: null,
+                } as never)
+                .eq("id", id);
+
+              const traderName = (account as any).profiles?.full_name ?? "Trader";
+              const mt5Login = (account as any).mt5_login ?? "?";
+
+              await answerCallbackQuery(callbackQueryId, "✅ MT5 reset confirmed — monitoring resumed!", false);
+
+              if (chatId && messageId) {
+                await editTelegramMessageWithButtons(
+                  chatId,
+                  messageId,
+                  cq.message.text.split("\n\n✅")[0] +
+                    "\n\n✅ <b>APPROVED</b> → 💳 <b>PAID</b> → 🔄 <b>MT5 RESET ✓</b>\n\n" +
+                    `Trader: ${traderName} (<code>${mt5Login}</code>)\n` +
+                    `Monitor resumed. Payout complete. ✓`,
+                  []
+                );
+              }
+              break;
+            }
+
+            case "undo_approve": {
+              const { error } = await supabaseAdmin
+                .from("payouts")
+                .update({ status: "pending", processed_at: null })
+                .eq("id", id)
+                .eq("status", "approved");
+
+              if (error) {
+                await answerCallbackQuery(callbackQueryId, "Error: " + error.message, true);
+                break;
+              }
+
+              await answerCallbackQuery(callbackQueryId, "↩️ Approval undone", false);
+
+              if (chatId && messageId) {
+                await editTelegramMessageWithButtons(
+                  chatId,
+                  messageId,
+                  cq.message.text.split("\n\n✅")[0] +
+                    "\n\n↩️ <b>APPROVAL UNDONE</b> — back to pending",
+                  [
+                    [
+                      { text: "✅ Approve", callback_data: `approve_payout:${id}` },
+                      { text: "❌ Reject", callback_data: `reject_payout:${id}` },
+                    ]
+                  ]
                 );
               }
               break;

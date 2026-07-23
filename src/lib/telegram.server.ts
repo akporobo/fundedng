@@ -105,3 +105,32 @@ export async function editTelegramMessage(
     }),
   }).catch(() => {});
 }
+
+export async function editTelegramMessageWithButtons(
+  chatId: string | number,
+  messageId: number,
+  newText: string,
+  buttons: InlineButton[][],
+): Promise<void> {
+  const { token } = await getTelegramConfig();
+  if (!token) return;
+
+  await fetch(`${TELEGRAM_API}/bot${token}/editMessageText`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      message_id: messageId,
+      text: newText,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: buttons.map(row =>
+          row.map(btn => ({
+            text: btn.text,
+            callback_data: btn.callback_data,
+          }))
+        ),
+      },
+    }),
+  }).catch(e => console.error("[telegram] editMessageWithButtons error:", e));
+}
