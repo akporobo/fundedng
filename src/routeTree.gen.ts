@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as PartnersRouteImport } from './routes/partners'
 import { Route as PartnerApplyRouteImport } from './routes/partner-apply'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as DiscordRouteImport } from './routes/discord'
 import { Route as BuyRouteImport } from './routes/buy'
 import { Route as AgreementRouteImport } from './routes/agreement'
@@ -82,6 +83,11 @@ const PartnersRoute = PartnersRouteImport.update({
 const PartnerApplyRoute = PartnerApplyRouteImport.update({
   id: '/partner-apply',
   path: '/partner-apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiscordRoute = DiscordRouteImport.update({
@@ -377,6 +383,7 @@ export interface FileRoutesByFullPath {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/partner-apply': typeof PartnerApplyRoute
   '/partners': typeof PartnersRoute
   '/rules': typeof RulesRoute
@@ -436,6 +443,7 @@ export interface FileRoutesByTo {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/partner-apply': typeof PartnerApplyRoute
   '/partners': typeof PartnersRoute
   '/rules': typeof RulesRoute
@@ -496,6 +504,7 @@ export interface FileRoutesById {
   '/agreement': typeof AgreementRoute
   '/buy': typeof BuyRoute
   '/discord': typeof DiscordRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/partner-apply': typeof PartnerApplyRoute
   '/partners': typeof PartnersRoute
   '/rules': typeof RulesRoute
@@ -557,6 +566,7 @@ export interface FileRouteTypes {
     | '/agreement'
     | '/buy'
     | '/discord'
+    | '/leaderboard'
     | '/partner-apply'
     | '/partners'
     | '/rules'
@@ -616,6 +626,7 @@ export interface FileRouteTypes {
     | '/agreement'
     | '/buy'
     | '/discord'
+    | '/leaderboard'
     | '/partner-apply'
     | '/partners'
     | '/rules'
@@ -675,6 +686,7 @@ export interface FileRouteTypes {
     | '/agreement'
     | '/buy'
     | '/discord'
+    | '/leaderboard'
     | '/partner-apply'
     | '/partners'
     | '/rules'
@@ -737,6 +749,7 @@ export interface RootRouteChildren {
   AgreementRoute: typeof AgreementRoute
   BuyRoute: typeof BuyRoute
   DiscordRoute: typeof DiscordRoute
+  LeaderboardRoute: typeof LeaderboardRoute
   PartnerApplyRoute: typeof PartnerApplyRoute
   PartnersRoute: typeof PartnersRoute
   RulesRoute: typeof RulesRoute
@@ -791,6 +804,13 @@ declare module '@tanstack/react-router' {
       path: '/partner-apply'
       fullPath: '/partner-apply'
       preLoaderRoute: typeof PartnerApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/discord': {
@@ -1279,6 +1299,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgreementRoute: AgreementRoute,
   BuyRoute: BuyRoute,
   DiscordRoute: DiscordRoute,
+  LeaderboardRoute: LeaderboardRoute,
   PartnerApplyRoute: PartnerApplyRoute,
   PartnersRoute: PartnersRoute,
   RulesRoute: RulesRoute,

@@ -217,34 +217,24 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
               .eq("id", data.payoutId)
               .maybeSingle();
 
-            // Post to live activity feed (only for leaderboard-opted-in traders)
-            const { data: profile } = await supabaseAdmin
-              .from("profiles")
-              .select("full_name, leaderboard_opt_in")
-              .eq("id", (account as any).user_id)
-              .maybeSingle();
-
-            if ((profile as any)?.leaderboard_opt_in) {
-              const fullName = (profile as any)?.full_name ?? "Trader";
-              const firstName = fullName.split(" ")[0] ?? fullName;
-              const anonymized = firstName.length <= 2
-                ? firstName[0] + "***"
-                : firstName[0] + "***" + firstName[firstName.length - 1];
+            // Post to live activity feed
+            {
+              const fullName = (fullAccount as any)?.profiles?.full_name ?? "Trader";
               const avatarInitials = fullName.split(" ").slice(0, 2)
                 .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
 
-              const cur = (account as any).currency ?? "NGN";
+              const cur = (fullAccount as any)?.currency ?? "NGN";
               const amountNaira = Number(payoutDetails?.amount_naira ?? 0);
               const displayAmount = cur === "USD" ? amountNaira / 1550 : amountNaira;
 
               await supabaseAdmin.from("live_activity").insert({
                 event_type: "payout_paid",
-                anonymized_name: anonymized,
+                anonymized_name: fullName,
                 avatar_initials: avatarInitials,
                 challenge_name: "",
                 currency: cur,
                 amount: Math.round(displayAmount * 100) / 100,
-                account_size: Number((account as any).starting_balance),
+                account_size: Number((fullAccount as any)?.starting_balance ?? 0),
               } as never);
             }
 
@@ -438,18 +428,14 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
       } as never);
 
       // 7. Post to live activity feed
-      const { data: phase2Profile } = await supabaseAdmin
-        .from("profiles")
-        .select("full_name, leaderboard_opt_in")
-        .eq("id", (acc as any).user_id)
-        .maybeSingle();
+      {
+        const { data: profileData } = await supabaseAdmin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", (acc as any).user_id)
+          .maybeSingle();
 
-      if ((phase2Profile as any)?.leaderboard_opt_in) {
-        const fullName = (phase2Profile as any)?.full_name ?? "Trader";
-        const firstName = fullName.split(" ")[0] ?? fullName;
-        const anonymized = firstName.length <= 2
-          ? firstName[0] + "***"
-          : firstName[0] + "***" + firstName[firstName.length - 1];
+        const fullName = (profileData as any)?.full_name ?? "Trader";
         const avatarInitials = fullName.split(" ").slice(0, 2)
           .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
 
@@ -461,7 +447,7 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
 
         await supabaseAdmin.from("live_activity").insert({
           event_type: "phase2_approved",
-          anonymized_name: anonymized,
+          anonymized_name: fullName,
           avatar_initials: avatarInitials,
           challenge_name: (challengeData as any)?.name ?? "",
           currency: (acc as any).currency ?? "NGN",
@@ -566,18 +552,14 @@ export const approveFundedServer = createServerFn({ method: "POST" })
       } as never);
 
       // 7. Post to live activity feed
-      const { data: fundedProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("full_name, leaderboard_opt_in")
-        .eq("id", (acc as any).user_id)
-        .maybeSingle();
+      {
+        const { data: profileData } = await supabaseAdmin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", (acc as any).user_id)
+          .maybeSingle();
 
-      if ((fundedProfile as any)?.leaderboard_opt_in) {
-        const fullName = (fundedProfile as any)?.full_name ?? "Trader";
-        const firstName = fullName.split(" ")[0] ?? fullName;
-        const anonymized = firstName.length <= 2
-          ? firstName[0] + "***"
-          : firstName[0] + "***" + firstName[firstName.length - 1];
+        const fullName = (profileData as any)?.full_name ?? "Trader";
         const avatarInitials = fullName.split(" ").slice(0, 2)
           .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
 
@@ -589,7 +571,7 @@ export const approveFundedServer = createServerFn({ method: "POST" })
 
         await supabaseAdmin.from("live_activity").insert({
           event_type: "funded_approved",
-          anonymized_name: anonymized,
+          anonymized_name: fullName,
           avatar_initials: avatarInitials,
           challenge_name: (challengeData as any)?.name ?? "",
           currency: (acc as any).currency ?? "NGN",

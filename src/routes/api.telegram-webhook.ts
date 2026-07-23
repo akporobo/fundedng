@@ -147,34 +147,28 @@ export const Route = createFileRoute("/api/telegram-webhook")({
               {
                 const { data: profile } = await supabaseAdmin
                   .from("profiles")
-                  .select("full_name, leaderboard_opt_in")
+                  .select("full_name")
                   .eq("id", (acc as any).user_id)
                   .maybeSingle();
 
-                if ((profile as any)?.leaderboard_opt_in) {
-                  const fullName = (profile as any)?.full_name ?? "Trader";
-                  const firstName = fullName.split(" ")[0] ?? fullName;
-                  const anonymized = firstName.length <= 2
-                    ? firstName[0] + "***"
-                    : firstName[0] + "***" + firstName[firstName.length - 1];
-                  const avatarInitials = fullName.split(" ").slice(0, 2)
-                    .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
+                const fullName = (profile as any)?.full_name ?? "Trader";
+                const avatarInitials = fullName.split(" ").slice(0, 2)
+                  .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
 
-                  const { data: chData } = await supabaseAdmin
-                    .from("challenges")
-                    .select("name")
-                    .eq("id", (acc as any).challenge_id)
-                    .maybeSingle();
+                const { data: chData } = await supabaseAdmin
+                  .from("challenges")
+                  .select("name")
+                  .eq("id", (acc as any).challenge_id)
+                  .maybeSingle();
 
-                  await supabaseAdmin.from("live_activity").insert({
-                    event_type: "phase2_approved",
-                    anonymized_name: anonymized,
-                    avatar_initials: avatarInitials,
-                    challenge_name: (chData as any)?.name ?? "",
-                    currency: (acc as any).currency ?? "NGN",
-                    account_size: startingBalance,
-                  } as never);
-                }
+                await supabaseAdmin.from("live_activity").insert({
+                  event_type: "phase2_approved",
+                  anonymized_name: fullName,
+                  avatar_initials: avatarInitials,
+                  challenge_name: (chData as any)?.name ?? "",
+                  currency: (acc as any).currency ?? "NGN",
+                  account_size: startingBalance,
+                } as never);
               }
 
               await answerCallbackQuery(callbackQueryId, "Phase 2 provisioned!", false);
@@ -286,34 +280,28 @@ export const Route = createFileRoute("/api/telegram-webhook")({
               {
                 const { data: profile } = await supabaseAdmin
                   .from("profiles")
-                  .select("full_name, leaderboard_opt_in")
+                  .select("full_name")
                   .eq("id", (acc as any).user_id)
                   .maybeSingle();
 
-                if ((profile as any)?.leaderboard_opt_in) {
-                  const fullName = (profile as any)?.full_name ?? "Trader";
-                  const firstName = fullName.split(" ")[0] ?? fullName;
-                  const anonymized = firstName.length <= 2
-                    ? firstName[0] + "***"
-                    : firstName[0] + "***" + firstName[firstName.length - 1];
-                  const avatarInitials = fullName.split(" ").slice(0, 2)
-                    .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
+                const fullName = (profile as any)?.full_name ?? "Trader";
+                const avatarInitials = fullName.split(" ").slice(0, 2)
+                  .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
 
-                  const { data: chData } = await supabaseAdmin
-                    .from("challenges")
-                    .select("name")
-                    .eq("id", (acc as any).challenge_id)
-                    .maybeSingle();
+                const { data: chData } = await supabaseAdmin
+                  .from("challenges")
+                  .select("name")
+                  .eq("id", (acc as any).challenge_id)
+                  .maybeSingle();
 
-                  await supabaseAdmin.from("live_activity").insert({
-                    event_type: "funded_approved",
-                    anonymized_name: anonymized,
-                    avatar_initials: avatarInitials,
-                    challenge_name: (chData as any)?.name ?? "",
-                    currency: (acc as any).currency ?? "NGN",
-                    account_size: startingBalance,
-                  } as never);
-                }
+                await supabaseAdmin.from("live_activity").insert({
+                  event_type: "funded_approved",
+                  anonymized_name: fullName,
+                  avatar_initials: avatarInitials,
+                  challenge_name: (chData as any)?.name ?? "",
+                  currency: (acc as any).currency ?? "NGN",
+                  account_size: startingBalance,
+                } as never);
               }
 
               await answerCallbackQuery(callbackQueryId, "Funded!", false);

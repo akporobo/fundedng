@@ -48,8 +48,24 @@ function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [newActivityId, setNewActivityId] = useState<string | null>(null);
+  const [totalPayouts, setTotalPayouts] = useState<number>(0);
 
   useEffect(() => {
+    async function fetchTotalPayouts() {
+      const { data } = await supabase
+        .from("payouts")
+        .select("amount_naira, currency")
+        .eq("status", "paid");
+      if (!data) return;
+      let total = 0;
+      for (const p of data) {
+        total += p.currency === "USD" ? Number(p.amount_naira) / 1550 : Number(p.amount_naira);
+      }
+      setTotalPayouts(total);
+    }
+
+    fetchTotalPayouts();
+
     Promise.all([
       supabase.from("leaderboard_cache")
         .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, payout_count")
@@ -92,9 +108,27 @@ function LeaderboardPage() {
       })
       .subscribe();
 
+    const payoutChannel = supabase
+      .channel("payout-total-public")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "payouts",
+      }, (payload) => {
+        const payout = payload.new as any;
+        if (payout.status === "paid") {
+          const amt = payout.currency === "USD"
+            ? Number(payout.amount_naira) / 1550
+            : Number(payout.amount_naira);
+          setTotalPayouts(prev => prev + amt);
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(lbChannel);
       supabase.removeChannel(actChannel);
+      supabase.removeChannel(payoutChannel);
     };
   }, []);
 
@@ -184,6 +218,15 @@ function LeaderboardPage() {
               LIVE
             </span>
             <h2 className="font-display text-2xl font-bold">Recent Activity</h2>
+          </div>
+
+          {/* Total Payouts Card */}
+          <div className="mb-8 rounded-xl border border-green-400/20 bg-green-400/5 p-6">
+            <p className="text-sm text-muted-foreground mb-1">Total Payouts</p>
+            <p className="font-display text-3xl font-bold text-green-400">
+              ₦{totalPayouts.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Paid out to funded traders</p>
           </div>
 
           {activity.length === 0 ? (
