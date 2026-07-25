@@ -20,7 +20,7 @@ interface LeaderboardEntry {
 
 interface ActivityEvent {
   id: string;
-  event_type: "payout_paid" | "phase2_approved" | "funded_approved";
+  event_type: "payout_paid" | "phase2_approved" | "funded_approved" | "phase1_to_phase2" | "phase2_to_funded" | "payout_approved";
   anonymized_name: string;
   avatar_initials: string;
   challenge_name: string;
@@ -274,6 +274,27 @@ function LeaderboardPage() {
                     value: event.currency === "USD"
                       ? `$${Number(event.account_size).toLocaleString()} account`
                       : `₦${Number(event.account_size).toLocaleString()} account`,
+                  },
+                  phase1_to_phase2: {
+                    emoji: "🎯",
+                    color: "text-blue-400",
+                    bgColor: "bg-blue-400/10 border-blue-400/20",
+                    label: "Phase 1 → Phase 2 approved",
+                    value: `₦${Number(event.account_size).toLocaleString()} account`,
+                  },
+                  phase2_to_funded: {
+                    emoji: "🏆",
+                    color: "text-yellow-400",
+                    bgColor: "bg-yellow-400/10 border-yellow-400/20",
+                    label: "Phase 2 → Funded approved",
+                    value: `₦${Number(event.account_size).toLocaleString()} account`,
+                  },
+                  payout_approved: {
+                    emoji: "💰",
+                    color: "text-green-400",
+                    bgColor: "bg-green-400/10 border-green-400/20",
+                    label: "received a payout",
+                    value: `₦${Number(event.amount).toLocaleString()}`,
                   },
                 }[event.event_type] ?? null;
 

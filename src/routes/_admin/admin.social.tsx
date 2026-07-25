@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer } from "@/server/admin.functions";
+import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer, addManualActivityServer } from "@/server/admin.functions";
+import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 
 export const Route = createFileRoute("/_admin/admin/social")({
   component: SocialPage,
@@ -23,11 +25,107 @@ function SocialPage() {
     setUploading, loadSocialItems,
   } = useAdminData();
 
+  const [mtTraderName, setMtTraderName] = useState("");
+  const [mtAccountSize, setMtAccountSize] = useState("");
+  const [mtChallengeName, setMtChallengeName] = useState("Standard");
+  const [mtEventType, setMtEventType] = useState<string>("phase1_to_phase2");
+  const [mtPayoutAmount, setMtPayoutAmount] = useState("");
+  const [mtSaving, setMtSaving] = useState(false);
+  const [generatedCert, setGeneratedCert] = useState<Certificate | null>(null);
+
+  const handleLogActivity = async () => {
+    if (!mtTraderName.trim()) return toast.error("Enter trader name");
+    if (!mtAccountSize || Number(mtAccountSize) <= 0) return toast.error("Enter a valid account size");
+    if (mtEventType === "payout_approved" && (!mtPayoutAmount || Number(mtPayoutAmount) <= 0)) {
+      return toast.error("Enter payout amount");
+    }
+    setMtSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return toast.error("Please sign in again");
+      const result = await addManualActivityServer({
+        data: {
+          accessToken: session.access_token,
+          traderName: mtTraderName.trim(),
+          accountSize: Number(mtAccountSize),
+          challengeName: mtChallengeName.trim() || "Standard",
+          eventType: mtEventType as "phase1_to_phase2" | "phase2_to_funded" | "payout_approved",
+          payoutAmount: mtEventType === "payout_approved" ? Number(mtPayoutAmount) : undefined,
+        },
+      });
+      if (!result?.ok) return toast.error(result?.error ?? "Failed");
+      toast.success("Activity logged — certificate generated");
+      setGeneratedCert(result.certificate as Certificate);
+      setMtTraderName("");
+      setMtAccountSize("");
+      setMtPayoutAmount("");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed");
+    } finally {
+      setMtSaving(false);
+    }
+  };
+
   return (
     <div className="mt-6 space-y-6">
-      <h2 className="font-display text-xl font-bold">Social Proof Gallery</h2>
+      <h2 className="font-display text-xl font-bold">Social Proof & Activity</h2>
 
-      {/* Upload Form */}
+      {/* ── Manual Activity Logger ──────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="font-display text-base font-bold">Log Trader Activity</div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Manually log a trader milestone. This appears on the leaderboard &amp; generates a downloadable certificate.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="mt-name">Trader Name</Label>
+            <Input id="mt-name" value={mtTraderName} onChange={(e) => setMtTraderName(e.target.value)} placeholder="e.g. Adebayo O." />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="mt-size">Account Size (₦)</Label>
+            <Input id="mt-size" type="number" min={0} value={mtAccountSize} onChange={(e) => setMtAccountSize(e.target.value)} placeholder="e.g. 200000" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="mt-challenge">Challenge Name</Label>
+            <Input id="mt-challenge" value={mtChallengeName} onChange={(e) => setMtChallengeName(e.target.value)} placeholder="Standard" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="mt-event">Event Type</Label>
+            <Select value={mtEventType} onValueChange={setMtEventType}>
+              <SelectTrigger id="mt-event"><SelectValue placeholder="Select event" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="phase1_to_phase2">Phase 1 → Phase 2 Approval</SelectItem>
+                <SelectItem value="phase2_to_funded">Phase 2 → Funded Approval</SelectItem>
+                <SelectItem value="payout_approved">Payout Approval</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {mtEventType === "payout_approved" && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="mt-payout">Payout Amount (₦)</Label>
+              <Input id="mt-payout" type="number" min={0} value={mtPayoutAmount} onChange={(e) => setMtPayoutAmount(e.target.value)} placeholder="e.g. 42000" />
+            </div>
+          )}
+        </div>
+        <Button className="mt-4" onClick={handleLogActivity} disabled={mtSaving}>
+          {mtSaving ? "Saving…" : "Log Activity & Generate Certificate"}
+        </Button>
+      </div>
+
+      {/* ── Generated Certificate Preview ───────────────────────── */}
+      {generatedCert && (
+        <div className="rounded-xl border border-primary/30 bg-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-display text-base font-bold">Certificate Generated</div>
+            <Button size="sm" variant="ghost" onClick={() => setGeneratedCert(null)}>Dismiss</Button>
+          </div>
+          <div className="max-w-[400px] mx-auto">
+            <CertificateCard cert={generatedCert} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Existing Image Upload Form ──────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="font-display text-base font-bold">Add New Image</div>
         <p className="mt-1 text-xs text-muted-foreground">Upload social proof images for the homepage gallery.</p>
@@ -80,7 +178,7 @@ function SocialPage() {
         }} disabled={uploading}>{uploading ? "Uploading…" : "Upload & Add to Gallery"}</Button>
       </div>
 
-      {/* Management Table */}
+      {/* ── Gallery Management Table ─────────────────────────────── */}
       <div>
         <h3 className="font-display text-lg font-bold">Gallery Items</h3>
         <div className="mt-3 overflow-x-auto rounded-xl border border-border bg-card">

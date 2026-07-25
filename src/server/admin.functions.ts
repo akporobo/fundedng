@@ -767,3 +767,73 @@ export const sendPhaseRequestNotificationServer = createServerFn({ method: "POST
       return { ok: false as const, error: msg };
     }
   });
+
+// ---------------------------------------------------------------------------
+// Manual activity logging — admin logs trader milestones + generates cert
+// ---------------------------------------------------------------------------
+const AddManualActivityInput = z.object({
+  accessToken: z.string().min(1),
+  traderName: z.string().min(1),
+  accountSize: z.number().positive(),
+  challengeName: z.string().default("Standard"),
+  eventType: z.enum(["phase1_to_phase2", "phase2_to_funded", "payout_approved"]),
+  payoutAmount: z.number().positive().optional(),
+});
+
+export const addManualActivityServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => AddManualActivityInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      const initials = data.traderName
+        .split(" ")
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() ?? "")
+        .join("");
+
+      const eventLabel =
+        data.eventType === "phase1_to_phase2"
+          ? "Phase 1 → Phase 2"
+          : data.eventType === "phase2_to_funded"
+            ? "Phase 2 → Funded"
+            : "Payout Approved";
+
+      const certNumber =
+        data.eventType === "payout_approved"
+          ? `FNG-PAY-MANUAL-${Date.now().toString(36).toUpperCase()}`
+          : `FNG-FND-MANUAL-${Date.now().toString(36).toUpperCase()}`;
+
+      const certMeta = {
+        certificate_number: certNumber,
+        full_name: data.traderName,
+        account_size: data.accountSize,
+        challenge_name: data.challengeName,
+        mt5_login: "N/A",
+        kind: data.eventType === "payout_approved" ? "payout" : "funded",
+        payout_amount: data.eventType === "payout_approved" ? (data.payoutAmount ?? 0) : null,
+        issued_at: new Date().toISOString(),
+      };
+
+      // Insert into live_activity
+      const { error: actErr } = await supabaseAdmin.from("live_activity").insert({
+        event_type: data.eventType,
+        anonymized_name: data.traderName,
+        avatar_initials: initials,
+        challenge_name: data.challengeName,
+        currency: "NGN",
+        amount: data.eventType === "payout_approved" ? (data.payoutAmount ?? 0) : null,
+        account_size: data.accountSize,
+        metadata: certMeta,
+      } as never);
+
+      if (actErr) return { ok: false as const, error: actErr.message };
+
+      return { ok: true as const, certificate: certMeta };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      console.error("[addManualActivityServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
