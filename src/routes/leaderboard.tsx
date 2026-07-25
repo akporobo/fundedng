@@ -252,6 +252,7 @@ function LeaderboardPage() {
                     emoji: "💰",
                     color: "text-green-400",
                     bgColor: "bg-green-400/10 border-green-400/20",
+                    glowRgb: "52,211,153",
                     label: "received a payout",
                     value: event.currency === "USD"
                       ? `$${Number(event.amount).toFixed(2)}`
@@ -261,6 +262,7 @@ function LeaderboardPage() {
                     emoji: "🎯",
                     color: "text-blue-400",
                     bgColor: "bg-blue-400/10 border-blue-400/20",
+                    glowRgb: "96,165,250",
                     label: "advanced to Phase 2",
                     value: event.currency === "USD"
                       ? `$${Number(event.account_size).toLocaleString()} account`
@@ -270,6 +272,7 @@ function LeaderboardPage() {
                     emoji: "🏆",
                     color: "text-yellow-400",
                     bgColor: "bg-yellow-400/10 border-yellow-400/20",
+                    glowRgb: "250,204,21",
                     label: "became a funded trader",
                     value: event.currency === "USD"
                       ? `$${Number(event.account_size).toLocaleString()} account`
@@ -279,20 +282,23 @@ function LeaderboardPage() {
                     emoji: "🎯",
                     color: "text-blue-400",
                     bgColor: "bg-blue-400/10 border-blue-400/20",
-                    label: "Phase 1 → Phase 2 approved",
+                    glowRgb: "96,165,250",
+                    label: "advanced to Phase 2",
                     value: `₦${Number(event.account_size).toLocaleString()} account`,
                   },
                   phase2_to_funded: {
                     emoji: "🏆",
                     color: "text-yellow-400",
                     bgColor: "bg-yellow-400/10 border-yellow-400/20",
-                    label: "Phase 2 → Funded approved",
+                    glowRgb: "250,204,21",
+                    label: "became a funded trader",
                     value: `₦${Number(event.account_size).toLocaleString()} account`,
                   },
                   payout_approved: {
                     emoji: "💰",
                     color: "text-green-400",
                     bgColor: "bg-green-400/10 border-green-400/20",
+                    glowRgb: "52,211,153",
                     label: "received a payout",
                     value: `₦${Number(event.amount).toLocaleString()}`,
                   },
@@ -303,14 +309,25 @@ function LeaderboardPage() {
                 return (
                   <div
                     key={event.id}
-                    className={`flex items-center gap-3 rounded-xl border p-3 transition-all duration-500 ${
-                      isNew
-                        ? "border-primary/40 bg-primary/10 scale-[1.01]"
-                        : `${eventConfig.bgColor}`
-                    }`}
+                    className={`activity-card flex items-center gap-3 rounded-xl border p-3 ${
+                      isNew ? "activity-new" : ""
+                    } ${eventConfig.bgColor}`}
+                    style={{
+                      animation: isNew ? "slide-in-3d 0.6s cubic-bezier(0.23,1,0.32,1) forwards" : undefined,
+                      perspective: "800px",
+                    }}
                   >
-                    <div className="w-9 h-9 rounded-full bg-card flex items-center justify-center font-display font-bold text-sm shrink-0 border border-border">
-                      {event.avatar_initials}
+                    <div className="relative shrink-0">
+                      <div
+                        className="w-9 h-9 rounded-full bg-card flex items-center justify-center font-display font-bold text-sm border border-border"
+                        style={{
+                          animation: "glow-pulse 2.5s ease-in-out infinite",
+                          ["--glow-rgb" as string]: eventConfig.glowRgb,
+                        }}
+                      >
+                        {event.avatar_initials}
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 text-xs leading-none">{eventConfig.emoji}</span>
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -319,7 +336,7 @@ function LeaderboardPage() {
                         {" "}<span className="text-muted-foreground">{eventConfig.label}</span>
                       </p>
                       <p className={`text-xs font-medium ${eventConfig.color}`}>
-                        {eventConfig.emoji} {eventConfig.value}
+                        {eventConfig.value}
                       </p>
                     </div>
 
@@ -333,6 +350,38 @@ function LeaderboardPage() {
           )}
         </div>
       </section>
+
+      {/* Activity Animations */}
+      <style>{`
+        @keyframes slide-in-3d {
+          0% {
+            opacity: 0;
+            transform: perspective(800px) rotateY(-6deg) translateX(50px) scale(0.97);
+            box-shadow: 0 0 0 0 rgba(52,211,153,0);
+          }
+          50% {
+            opacity: 1;
+            transform: perspective(800px) rotateY(1.5deg) translateX(-4px) scale(1.01);
+          }
+          100% {
+            opacity: 1;
+            transform: perspective(800px) rotateY(0deg) translateX(0) scale(1);
+            box-shadow: 0 4px 20px -4px rgba(var(--glow-rgb, 52,211,153), 0.25);
+          }
+        }
+        @keyframes glow-pulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(var(--glow-rgb, 52,211,153), 0);
+          }
+          50% {
+            box-shadow: 0 0 10px 2px rgba(var(--glow-rgb, 52,211,153), 0.35);
+          }
+        }
+        .activity-new {
+          border-color: rgba(var(--glow-rgb, 52,211,153), 0.3) !important;
+          background: rgba(var(--glow-rgb, 52,211,153), 0.08) !important;
+        }
+      `}</style>
 
       {/* CTA */}
       <section className="border-b border-border bg-surface">
