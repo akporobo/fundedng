@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +10,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer, addManualActivityServer } from "@/server/admin.functions";
+import { Download, ChevronRight } from "lucide-react";
+import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer, addManualActivityServer, advanceManualPhaseServer } from "@/server/admin.functions";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_admin/admin/social")({
   component: SocialPage,
 });
+
+interface ManualTrader {
+  name: string;
+  challenge_name: string;
+  account_size: number;
+  current_phase: number;
+  latest_activity_id: string;
+  cert: Certificate | null;
+}
 
 function SocialPage() {
   const {
@@ -31,7 +44,64 @@ function SocialPage() {
   const [mtEventType, setMtEventType] = useState<string>("phase1_to_phase2");
   const [mtPayoutAmount, setMtPayoutAmount] = useState("");
   const [mtSaving, setMtSaving] = useState(false);
-  const [generatedCert, setGeneratedCert] = useState<Certificate | null>(null);
+
+  const [manualTraders, setManualTraders] = useState<ManualTrader[]>([]);
+  const [manualLoading, setManualLoading] = useState(true);
+  const [advancingId, setAdvancingId] = useState<string | null>(null);
+  const [certTarget, setCertTarget] = useState<Certificate | null>(null);
+
+  const loadManualTraders = async () => {
+    setManualLoading(true);
+    try {
+      const { data } = await supabase
+        .from("live_activity")
+        .select("*")
+        .in("event_type", ["phase1_to_phase2", "phase2_to_funded", "payout_approved"])
+        .order("created_at", { ascending: false });
+
+      if (!data) { setManualTraders([]); return; }
+
+      // Group by trader name, keep latest entry per trader
+      const byName = new Map<string, any>();
+      for (const row of data) {
+        const existing = byName.get(row.anonymized_name);
+        if (!existing || new Date(row.created_at) > new Date(existing.created_at)) {
+          byName.set(row.anonymized_name, row);
+        }
+      }
+
+      const traders: ManualTrader[] = Array.from(byName.values()).map((row: any) => {
+        const meta = row.metadata ?? {};
+        return {
+          name: row.anonymized_name,
+          challenge_name: row.challenge_name,
+          account_size: Number(row.account_size ?? 0),
+          current_phase: meta.current_phase ?? 1,
+          latest_activity_id: row.id,
+          cert: meta.certificate_number ? {
+            id: row.id,
+            kind: meta.kind ?? "funded",
+            certificate_number: meta.certificate_number,
+            full_name: meta.full_name ?? row.anonymized_name,
+            account_size: meta.account_size ?? Number(row.account_size ?? 0),
+            challenge_name: meta.challenge_name ?? row.challenge_name,
+            mt5_login: meta.mt5_login ?? "N/A",
+            payout_amount: meta.payout_amount ?? null,
+            issued_at: meta.issued_at ?? row.created_at,
+          } : null,
+        };
+      });
+
+      traders.sort((a, b) => b.account_size - a.account_size);
+      setManualTraders(traders);
+    } catch {
+      setManualTraders([]);
+    } finally {
+      setManualLoading(false);
+    }
+  };
+
+  useEffect(() => { loadManualTraders(); }, []);
 
   const handleLogActivity = async () => {
     if (!mtTraderName.trim()) return toast.error("Enter trader name");
@@ -54,15 +124,34 @@ function SocialPage() {
         },
       });
       if (!result?.ok) return toast.error(result?.error ?? "Failed");
-      toast.success("Activity logged — certificate generated");
-      setGeneratedCert(result.certificate as Certificate);
+      toast.success("Activity logged");
       setMtTraderName("");
       setMtAccountSize("");
       setMtPayoutAmount("");
+      loadManualTraders();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
     } finally {
       setMtSaving(false);
+    }
+  };
+
+  const handleAdvancePhase = async (trader: ManualTrader) => {
+    if (trader.current_phase >= 3) return;
+    setAdvancingId(trader.latest_activity_id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return toast.error("Please sign in again");
+      const result = await advanceManualPhaseServer({
+        data: { accessToken: session.access_token, activityId: trader.latest_activity_id },
+      });
+      if (!result?.ok) return toast.error(result?.error ?? "Failed");
+      toast.success("Phase advanced");
+      loadManualTraders();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed");
+    } finally {
+      setAdvancingId(null);
     }
   };
 
@@ -74,7 +163,7 @@ function SocialPage() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="font-display text-base font-bold">Log Trader Activity</div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Manually log a trader milestone. This appears on the leaderboard &amp; generates a downloadable certificate.
+          Log a trader milestone. Appears on the leaderboard. Use "Approve Next Phase" to advance them.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-1.5">
@@ -108,22 +197,92 @@ function SocialPage() {
           )}
         </div>
         <Button className="mt-4" onClick={handleLogActivity} disabled={mtSaving}>
-          {mtSaving ? "Saving…" : "Log Activity & Generate Certificate"}
+          {mtSaving ? "Saving…" : "Log Activity"}
         </Button>
       </div>
 
-      {/* ── Generated Certificate Preview ───────────────────────── */}
-      {generatedCert && (
-        <div className="rounded-xl border border-primary/30 bg-card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-display text-base font-bold">Certificate Generated</div>
-            <Button size="sm" variant="ghost" onClick={() => setGeneratedCert(null)}>Dismiss</Button>
-          </div>
-          <div className="max-w-[400px] mx-auto">
-            <CertificateCard cert={generatedCert} />
-          </div>
+      {/* ── Logged Traders List ──────────────────────────────────── */}
+      <div>
+        <h3 className="font-display text-lg font-bold">Logged Traders</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          All traders with manually logged activity. Approve next phase or download certificates.
+        </p>
+        <div className="mt-3 overflow-x-auto rounded-xl border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Trader Name</TableHead>
+                <TableHead>Challenge</TableHead>
+                <TableHead className="w-24">Account Size</TableHead>
+                <TableHead className="w-24">Phase</TableHead>
+                <TableHead className="w-32">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {manualLoading ? (
+                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+              ) : manualTraders.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No traders logged yet.</TableCell></TableRow>
+              ) : manualTraders.map((trader) => (
+                <TableRow key={trader.name}>
+                  <TableCell className="font-semibold">{trader.name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{trader.challenge_name}</TableCell>
+                  <TableCell className="font-display text-sm">
+                    ₦{trader.account_size.toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`font-display ${
+                      trader.current_phase === 3
+                        ? "border-green-500/50 text-green-500"
+                        : "border-blue-500/50 text-blue-500"
+                    }`}>
+                      {trader.current_phase === 3 ? "Funded" : `Phase ${trader.current_phase}`}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {trader.current_phase < 3 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          disabled={advancingId === trader.latest_activity_id}
+                          onClick={() => handleAdvancePhase(trader)}
+                        >
+                          {advancingId === trader.latest_activity_id ? "…" : (
+                            <>Approve <ChevronRight className="ml-0.5 h-3 w-3" /></>
+                          )}
+                        </Button>
+                      )}
+                      {trader.cert && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setCertTarget(trader.cert)}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-      )}
+      </div>
+
+      {/* ── Certificate Dialog ───────────────────────────────────── */}
+      <Dialog open={!!certTarget} onOpenChange={(o) => { if (!o) setCertTarget(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{certTarget?.kind === "payout" ? "Payout" : "Funded"} Certificate</DialogTitle>
+            <DialogDescription>Preview and download the certificate.</DialogDescription>
+          </DialogHeader>
+          {certTarget && <CertificateCard cert={certTarget} />}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Existing Image Upload Form ──────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-4">

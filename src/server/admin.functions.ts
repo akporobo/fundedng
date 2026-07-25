@@ -793,15 +793,16 @@ export const addManualActivityServer = createServerFn({ method: "POST" })
         .map((w) => w[0]?.toUpperCase() ?? "")
         .join("");
 
-      const eventLabel =
-        data.eventType === "phase1_to_phase2"
-          ? "Phase 1 → Phase 2"
-          : data.eventType === "phase2_to_funded"
-            ? "Phase 2 → Funded"
-            : "Payout Approved";
+      // Determine current phase from event type
+      const currentPhase =
+        data.eventType === "phase1_to_phase2" ? 2
+        : data.eventType === "phase2_to_funded" ? 3
+        : 3; // payout = already funded
 
+      // Certificate: only funded and payout types
+      const certKind = data.eventType === "payout_approved" ? "payout" : "funded";
       const certNumber =
-        data.eventType === "payout_approved"
+        certKind === "payout"
           ? `FNG-PAY-MANUAL-${Date.now().toString(36).toUpperCase()}`
           : `FNG-FND-MANUAL-${Date.now().toString(36).toUpperCase()}`;
 
@@ -811,9 +812,10 @@ export const addManualActivityServer = createServerFn({ method: "POST" })
         account_size: data.accountSize,
         challenge_name: data.challengeName,
         mt5_login: "N/A",
-        kind: data.eventType === "payout_approved" ? "payout" : "funded",
-        payout_amount: data.eventType === "payout_approved" ? (data.payoutAmount ?? 0) : null,
+        kind: certKind,
+        payout_amount: certKind === "payout" ? (data.payoutAmount ?? 0) : null,
         issued_at: new Date().toISOString(),
+        current_phase: currentPhase,
       };
 
       // Insert into live_activity
@@ -823,7 +825,7 @@ export const addManualActivityServer = createServerFn({ method: "POST" })
         avatar_initials: initials,
         challenge_name: data.challengeName,
         currency: "NGN",
-        amount: data.eventType === "payout_approved" ? (data.payoutAmount ?? 0) : null,
+        amount: certKind === "payout" ? (data.payoutAmount ?? 0) : null,
         account_size: data.accountSize,
         metadata: certMeta,
       } as never);
@@ -834,6 +836,79 @@ export const addManualActivityServer = createServerFn({ method: "POST" })
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed";
       console.error("[addManualActivityServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Advance manual phase — admin promotes trader to next phase
+// ---------------------------------------------------------------------------
+const AdvanceManualPhaseInput = z.object({
+  accessToken: z.string().min(1),
+  activityId: z.string().uuid(),
+});
+
+export const advanceManualPhaseServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => AdvanceManualPhaseInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      // Fetch current activity row
+      const { data: row, error: fetchErr } = await supabaseAdmin
+        .from("live_activity")
+        .select("*")
+        .eq("id", data.activityId)
+        .maybeSingle();
+
+      if (fetchErr || !row) return { ok: false as const, error: "Activity not found" };
+
+      const meta = (row as any).metadata ?? {};
+      const currentPhase = meta.current_phase ?? 1;
+
+      if (currentPhase >= 3) return { ok: false as const, error: "Already funded — cannot advance further" };
+
+      const initials = (row as any).anonymized_name
+        .split(" ")
+        .slice(0, 2)
+        .map((w: string) => w[0]?.toUpperCase() ?? "")
+        .join("");
+
+      const newPhase = currentPhase + 1;
+      const newEventType = newPhase === 3 ? "phase2_to_funded" : "phase1_to_phase2";
+      const certKind = newPhase === 3 ? "funded" : "funded";
+      const certNumber = `FNG-FND-MANUAL-${Date.now().toString(36).toUpperCase()}`;
+
+      const newCertMeta = {
+        certificate_number: certNumber,
+        full_name: (row as any).anonymized_name,
+        account_size: (row as any).account_size,
+        challenge_name: (row as any).challenge_name,
+        mt5_login: "N/A",
+        kind: certKind,
+        payout_amount: null,
+        issued_at: new Date().toISOString(),
+        current_phase: newPhase,
+      };
+
+      // Insert new activity entry for the advancement
+      const { error: insErr } = await supabaseAdmin.from("live_activity").insert({
+        event_type: newEventType,
+        anonymized_name: (row as any).anonymized_name,
+        avatar_initials: initials,
+        challenge_name: (row as any).challenge_name,
+        currency: (row as any).currency ?? "NGN",
+        account_size: (row as any).account_size,
+        metadata: newCertMeta,
+      } as never);
+
+      if (insErr) return { ok: false as const, error: insErr.message };
+
+      return { ok: true as const, certificate: newCertMeta };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      console.error("[advanceManualPhaseServer] unexpected", msg);
       return { ok: false as const, error: msg };
     }
   });
