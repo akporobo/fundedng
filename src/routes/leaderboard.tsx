@@ -24,6 +24,7 @@ interface ManualLeaderboardEntry {
   trader_name: string;
   avatar_initials: string;
   challenge_name: string;
+  account_size: number;
   profit_percent: number;
   profit_amount: number;
   total_profit: number;
@@ -106,6 +107,7 @@ function LeaderboardPage() {
       profitAmount: m.profit_amount,
       profitPercent: m.profit_percent,
       totalProfit: m.total_profit,
+      startingBalance: m.account_size,
     }));
     const combined = [...autoEntries, ...manualMapped];
     combined.sort((a, b) => b.profitAmount - a.profitAmount);
@@ -155,7 +157,7 @@ function LeaderboardPage() {
         .order("monthly_profit", { ascending: false })
         .limit(10),
       supabase.from("manual_leaderboard")
-        .select("*")
+        .select("id, trader_name, avatar_initials, challenge_name, account_size, profit_percent, profit_amount, total_profit, currency")
         .order("profit_amount", { ascending: false }),
       supabase.from("live_activity")
         .select("*")
@@ -186,7 +188,7 @@ function LeaderboardPage() {
         table: "manual_leaderboard",
       }, () => {
         supabase.from("manual_leaderboard")
-          .select("*")
+          .select("id, trader_name, avatar_initials, challenge_name, account_size, profit_percent, profit_amount, total_profit, currency")
           .order("profit_amount", { ascending: false })
           .then(({ data }) => { if (data) setManualEntries(data); });
       })
@@ -301,7 +303,7 @@ function LeaderboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-display font-semibold truncate">{entry.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {entry.challenge} · {entry.currency === "USD" ? "$" : "₦"}{Number(entry.profitAmount).toLocaleString()}
+                      {entry.challenge} · {entry.currency === "USD" ? "$" : "₦"}{Number(entry.startingBalance ?? entry.profitAmount).toLocaleString()} account
                     </p>
                   </div>
 
@@ -352,7 +354,7 @@ function LeaderboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-display font-semibold truncate">{userPosition.entry.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {userPosition.entry.challenge} · {userPosition.entry.currency === "USD" ? "$" : "₦"}{Number(userPosition.entry.profitAmount).toLocaleString()}
+                      {userPosition.entry.challenge} · {userPosition.entry.currency === "USD" ? "$" : "₦"}{Number(userPosition.entry.startingBalance ?? userPosition.entry.profitAmount).toLocaleString()} account
                     </p>
                   </div>
                   <div className="text-right shrink-0">

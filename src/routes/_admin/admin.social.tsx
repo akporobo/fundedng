@@ -54,9 +54,8 @@ function SocialPage() {
 
   const [lbTraderName, setLbTraderName] = useState("");
   const [lbChallengeName, setLbChallengeName] = useState("Standard");
+  const [lbAccountSize, setLbAccountSize] = useState("");
   const [lbProfitPercent, setLbProfitPercent] = useState("");
-  const [lbProfitAmount, setLbProfitAmount] = useState("");
-  const [lbTotalProfit, setLbTotalProfit] = useState("");
   const [lbSaving, setLbSaving] = useState(false);
   const [manualLeaderboard, setManualLeaderboard] = useState<any[]>([]);
   const [lbLoading, setLbLoading] = useState(true);
@@ -189,9 +188,8 @@ function SocialPage() {
 
   const handleAddLeaderboard = async () => {
     if (!lbTraderName.trim()) return toast.error("Enter trader name");
+    if (!lbAccountSize || Number(lbAccountSize) <= 0) return toast.error("Enter a valid account size");
     if (!lbProfitPercent && lbProfitPercent !== "0") return toast.error("Enter profit %");
-    if (!lbProfitAmount && lbProfitAmount !== "0") return toast.error("Enter profit amount");
-    if (!lbTotalProfit && lbTotalProfit !== "0") return toast.error("Enter total profit");
     setLbSaving(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -201,18 +199,16 @@ function SocialPage() {
           accessToken: session.access_token,
           traderName: lbTraderName.trim(),
           challengeName: lbChallengeName.trim() || "Standard",
+          accountSize: Number(lbAccountSize),
           profitPercent: Number(lbProfitPercent),
-          profitAmount: Number(lbProfitAmount),
-          totalProfit: Number(lbTotalProfit),
         },
       });
       if (!result?.ok) return toast.error(result?.error ?? "Failed");
       toast.success("Added to leaderboard");
       setLbTraderName("");
       setLbChallengeName("Standard");
+      setLbAccountSize("");
       setLbProfitPercent("");
-      setLbProfitAmount("");
-      setLbTotalProfit("");
       loadManualLeaderboard();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
@@ -367,7 +363,7 @@ function SocialPage() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="font-display text-base font-bold">Add to Leaderboard</div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Manually add a trader to the public leaderboard with their profit stats.
+          Enter the account size and profit % — profit amount and total are calculated automatically.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-1.5">
@@ -379,18 +375,29 @@ function SocialPage() {
             <Input id="lb-challenge" value={lbChallengeName} onChange={(e) => setLbChallengeName(e.target.value)} placeholder="Standard" />
           </div>
           <div className="grid gap-1.5">
+            <Label htmlFor="lb-account-size">Account Size (₦)</Label>
+            <Input id="lb-account-size" type="number" min={0} value={lbAccountSize} onChange={(e) => setLbAccountSize(e.target.value)} placeholder="e.g. 200000" />
+          </div>
+          <div className="grid gap-1.5">
             <Label htmlFor="lb-profit-percent">Profit %</Label>
-            <Input id="lb-profit-percent" type="number" step="0.1" value={lbProfitPercent} onChange={(e) => setLbProfitPercent(e.target.value)} placeholder="e.g. 25.5" />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="lb-profit-amount">Profit Amount (₦)</Label>
-            <Input id="lb-profit-amount" type="number" min={0} value={lbProfitAmount} onChange={(e) => setLbProfitAmount(e.target.value)} placeholder="e.g. 50000" />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="lb-total-profit">Total Profit (₦)</Label>
-            <Input id="lb-total-profit" type="number" min={0} value={lbTotalProfit} onChange={(e) => setLbTotalProfit(e.target.value)} placeholder="e.g. 250000" />
+            <Input id="lb-profit-percent" type="number" step="0.1" value={lbProfitPercent} onChange={(e) => setLbProfitPercent(e.target.value)} placeholder="e.g. 25" />
           </div>
         </div>
+        {lbAccountSize && lbProfitPercent && Number(lbAccountSize) > 0 && (
+          <div className="mt-4 rounded-lg border border-green-500/20 bg-green-500/5 p-3">
+            <p className="text-xs text-muted-foreground mb-1">Calculated values</p>
+            <div className="flex gap-6">
+              <div>
+                <p className="text-xs text-muted-foreground">Profit Amount</p>
+                <p className="font-display font-bold text-green-400">₦{Math.round(Number(lbAccountSize) * (Number(lbProfitPercent) / 100)).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Profit</p>
+                <p className="font-display font-bold text-green-400">₦{Math.round(Number(lbAccountSize) * (Number(lbProfitPercent) / 100)).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
         <Button className="mt-4" onClick={handleAddLeaderboard} disabled={lbSaving}>
           {lbSaving ? "Adding…" : "Add to Leaderboard"}
         </Button>
@@ -408,6 +415,7 @@ function SocialPage() {
               <TableRow>
                 <TableHead>Trader Name</TableHead>
                 <TableHead>Challenge</TableHead>
+                <TableHead className="w-28">Account Size</TableHead>
                 <TableHead className="w-24">Profit %</TableHead>
                 <TableHead className="w-32">Profit Amount</TableHead>
                 <TableHead className="w-32">Total Profit</TableHead>
@@ -416,15 +424,16 @@ function SocialPage() {
             </TableHeader>
             <TableBody>
               {lbLoading ? (
-                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
               ) : manualLeaderboard.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No manual entries yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No manual entries yet.</TableCell></TableRow>
               ) : manualLeaderboard.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="font-semibold">{entry.trader_name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{entry.challenge_name}</TableCell>
+                  <TableCell className="font-display text-sm">₦{Number(entry.account_size).toLocaleString()}</TableCell>
                   <TableCell className="font-display text-sm">{entry.profit_percent}%</TableCell>
-                  <TableCell className="font-display text-sm">₦{Number(entry.profit_amount).toLocaleString()}</TableCell>
+                  <TableCell className="font-display text-sm text-green-500">₦{Number(entry.profit_amount).toLocaleString()}</TableCell>
                   <TableCell className="font-display text-sm text-green-500">₦{Number(entry.total_profit).toLocaleString()}</TableCell>
                   <TableCell>
                     <Button

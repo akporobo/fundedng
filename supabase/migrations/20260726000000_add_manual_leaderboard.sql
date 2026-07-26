@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.manual_leaderboard (
   trader_name text NOT NULL,
   avatar_initials text NOT NULL,
   challenge_name text NOT NULL DEFAULT 'Standard',
+  account_size numeric NOT NULL DEFAULT 0,
   profit_percent numeric NOT NULL DEFAULT 0,
   profit_amount numeric NOT NULL DEFAULT 0,
   total_profit numeric NOT NULL DEFAULT 0,

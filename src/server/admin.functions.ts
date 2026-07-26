@@ -921,9 +921,8 @@ const AddManualLeaderboardInput = z.object({
   accessToken: z.string().min(1),
   traderName: z.string().min(1),
   challengeName: z.string().default("Standard"),
+  accountSize: z.number().positive(),
   profitPercent: z.number(),
-  profitAmount: z.number(),
-  totalProfit: z.number(),
 });
 
 export const addManualLeaderboardServer = createServerFn({ method: "POST" })
@@ -939,13 +938,17 @@ export const addManualLeaderboardServer = createServerFn({ method: "POST" })
         .map((w) => w[0]?.toUpperCase() ?? "")
         .join("");
 
+      const profitAmount = Math.round(data.accountSize * (data.profitPercent / 100) * 100) / 100;
+      const totalProfit = profitAmount;
+
       const { error } = await supabaseAdmin.from("manual_leaderboard").insert({
         trader_name: data.traderName,
         avatar_initials: initials,
         challenge_name: data.challengeName,
+        account_size: data.accountSize,
         profit_percent: data.profitPercent,
-        profit_amount: data.profitAmount,
-        total_profit: data.totalProfit,
+        profit_amount: profitAmount,
+        total_profit: totalProfit,
       } as never);
 
       if (error) return { ok: false as const, error: error.message };
