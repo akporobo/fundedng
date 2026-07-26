@@ -51,16 +51,29 @@ function LeaderboardPage() {
   const [newActivityId, setNewActivityId] = useState<string | null>(null);
   const [totalPayouts, setTotalPayouts] = useState<number>(0);
 
+  const BASE_PAYOUT_NGN = 27_890_350;
+
   useEffect(() => {
     async function fetchTotalPayouts() {
-      const { data } = await supabase
+      // Sum from real payouts table (status = paid)
+      const { data: payoutData } = await supabase
         .from("payouts")
         .select("amount_naira, currency")
         .eq("status", "paid");
-      if (!data) return;
-      let total = 0;
-      for (const p of data) {
+
+      // Sum from manual payout_approved entries in live_activity
+      const { data: manualData } = await supabase
+        .from("live_activity")
+        .select("amount, metadata")
+        .eq("event_type", "payout_approved");
+
+      let total = BASE_PAYOUT_NGN;
+      for (const p of payoutData ?? []) {
         total += p.currency === "USD" ? Number(p.amount_naira) / 1550 : Number(p.amount_naira);
+      }
+      for (const m of manualData ?? []) {
+        const metaAmt = (m.metadata as any)?.payout_amount;
+        total += Number(metaAmt ?? m.amount ?? 0);
       }
       setTotalPayouts(total);
     }
@@ -103,26 +116,53 @@ function LeaderboardPage() {
         schema: "public",
         table: "live_activity",
       }, (payload) => {
-        setActivity(prev => [payload.new as any, ...prev].slice(0, 20));
-        setNewActivityId((payload.new as any).id);
+        const newRow = payload.new as any;
+        setActivity(prev => [newRow, ...prev].slice(0, 20));
+        setNewActivityId(newRow.id);
         setTimeout(() => setNewActivityId(null), 3000);
+
+        // If it's a manual payout_approved, add to total
+        if (newRow.event_type === "payout_approved") {
+          const metaAmt = newRow.metadata?.payout_amount;
+          const amt = Number(metaAmt ?? newRow.amount ?? 0);
+          if (amt > 0) setTotalPayouts(prev => prev + amt);
+        }
       })
       .subscribe();
 
+    // Listen for payout status changes (pending → approved → paid)
     const payoutChannel = supabase
       .channel("payout-total-public")
       .on("postgres_changes", {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "payouts",
-      }, (payload) => {
-        const payout = payload.new as any;
-        if (payout.status === "paid") {
-          const amt = payout.currency === "USD"
-            ? Number(payout.amount_naira) / 1550
-            : Number(payout.amount_naira);
-          setTotalPayouts(prev => prev + amt);
-        }
+      }, () => {
+        // Refetch the full total whenever any payout changes
+        supabase
+          .from("payouts")
+          .select("amount_naira, currency")
+          .eq("status", "paid")
+          .then(({ data }) => {
+            if (!data) return;
+            let realTotal = 0;
+            for (const p of data) {
+              realTotal += p.currency === "USD" ? Number(p.amount_naira) / 1550 : Number(p.amount_naira);
+            }
+            // Also re-sum manual entries
+            supabase
+              .from("live_activity")
+              .select("amount, metadata")
+              .eq("event_type", "payout_approved")
+              .then(({ data: manualData }) => {
+                let manualTotal = 0;
+                for (const m of manualData ?? []) {
+                  const metaAmt = (m.metadata as any)?.payout_amount;
+                  manualTotal += Number(metaAmt ?? m.amount ?? 0);
+                }
+                setTotalPayouts(BASE_PAYOUT_NGN + realTotal + manualTotal);
+              });
+          });
       })
       .subscribe();
 

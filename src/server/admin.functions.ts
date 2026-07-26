@@ -771,11 +771,16 @@ export const sendPhaseRequestNotificationServer = createServerFn({ method: "POST
 // ---------------------------------------------------------------------------
 // Manual activity logging — admin logs trader milestones + generates cert
 // ---------------------------------------------------------------------------
+function randomHex6(): string {
+  return Array.from({ length: 6 }, () => Math.floor(Math.random() * 16).toString(16)).join("").toUpperCase();
+}
+
 const AddManualActivityInput = z.object({
   accessToken: z.string().min(1),
   traderName: z.string().min(1),
   accountSize: z.number().positive(),
   challengeName: z.string().default("Standard"),
+  mt5Login: z.string().default(""),
   eventType: z.enum(["phase1_to_phase2", "phase2_to_funded", "payout_approved"]),
   payoutAmount: z.number().positive().optional(),
 });
@@ -793,32 +798,29 @@ export const addManualActivityServer = createServerFn({ method: "POST" })
         .map((w) => w[0]?.toUpperCase() ?? "")
         .join("");
 
-      // Determine current phase from event type
       const currentPhase =
         data.eventType === "phase1_to_phase2" ? 2
         : data.eventType === "phase2_to_funded" ? 3
-        : 3; // payout = already funded
+        : 3;
 
-      // Certificate: only funded and payout types
       const certKind = data.eventType === "payout_approved" ? "payout" : "funded";
-      const certNumber =
-        certKind === "payout"
-          ? `FNG-PAY-MANUAL-${Date.now().toString(36).toUpperCase()}`
-          : `FNG-FND-MANUAL-${Date.now().toString(36).toUpperCase()}`;
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const certNumber = certKind === "payout"
+        ? `FNG-PAY-${dateStr}-${randomHex6()}`
+        : `FNG-FND-${dateStr}-${randomHex6()}`;
 
       const certMeta = {
         certificate_number: certNumber,
         full_name: data.traderName,
         account_size: data.accountSize,
         challenge_name: data.challengeName,
-        mt5_login: "N/A",
+        mt5_login: data.mt5Login || "N/A",
         kind: certKind,
         payout_amount: certKind === "payout" ? (data.payoutAmount ?? 0) : null,
         issued_at: new Date().toISOString(),
         current_phase: currentPhase,
       };
 
-      // Insert into live_activity
       const { error: actErr } = await supabaseAdmin.from("live_activity").insert({
         event_type: data.eventType,
         anonymized_name: data.traderName,
@@ -855,7 +857,6 @@ export const advanceManualPhaseServer = createServerFn({ method: "POST" })
       const auth = await assertAdmin(data.accessToken);
       if (!auth.ok) return auth;
 
-      // Fetch current activity row
       const { data: row, error: fetchErr } = await supabaseAdmin
         .from("live_activity")
         .select("*")
@@ -877,22 +878,22 @@ export const advanceManualPhaseServer = createServerFn({ method: "POST" })
 
       const newPhase = currentPhase + 1;
       const newEventType = newPhase === 3 ? "phase2_to_funded" : "phase1_to_phase2";
-      const certKind = newPhase === 3 ? "funded" : "funded";
-      const certNumber = `FNG-FND-MANUAL-${Date.now().toString(36).toUpperCase()}`;
+      const certKind = "funded";
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const certNumber = `FNG-FND-${dateStr}-${randomHex6()}`;
 
       const newCertMeta = {
         certificate_number: certNumber,
         full_name: (row as any).anonymized_name,
         account_size: (row as any).account_size,
         challenge_name: (row as any).challenge_name,
-        mt5_login: "N/A",
+        mt5_login: meta.mt5_login ?? "N/A",
         kind: certKind,
         payout_amount: null,
         issued_at: new Date().toISOString(),
         current_phase: newPhase,
       };
 
-      // Insert new activity entry for the advancement
       const { error: insErr } = await supabaseAdmin.from("live_activity").insert({
         event_type: newEventType,
         anonymized_name: (row as any).anonymized_name,

@@ -25,6 +25,7 @@ interface ManualTrader {
   name: string;
   challenge_name: string;
   account_size: number;
+  mt5_login: string;
   current_phase: number;
   latest_activity_id: string;
   cert: Certificate | null;
@@ -41,6 +42,7 @@ function SocialPage() {
   const [mtTraderName, setMtTraderName] = useState("");
   const [mtAccountSize, setMtAccountSize] = useState("");
   const [mtChallengeName, setMtChallengeName] = useState("Standard");
+  const [mtMt5Login, setMtMt5Login] = useState("");
   const [mtEventType, setMtEventType] = useState<string>("phase1_to_phase2");
   const [mtPayoutAmount, setMtPayoutAmount] = useState("");
   const [mtSaving, setMtSaving] = useState(false);
@@ -76,6 +78,7 @@ function SocialPage() {
           name: row.anonymized_name,
           challenge_name: row.challenge_name,
           account_size: Number(row.account_size ?? 0),
+          mt5_login: meta.mt5_login ?? "",
           current_phase: meta.current_phase ?? 1,
           latest_activity_id: row.id,
           cert: meta.certificate_number ? {
@@ -119,6 +122,7 @@ function SocialPage() {
           traderName: mtTraderName.trim(),
           accountSize: Number(mtAccountSize),
           challengeName: mtChallengeName.trim() || "Standard",
+          mt5Login: mtMt5Login.trim(),
           eventType: mtEventType as "phase1_to_phase2" | "phase2_to_funded" | "payout_approved",
           payoutAmount: mtEventType === "payout_approved" ? Number(mtPayoutAmount) : undefined,
         },
@@ -128,6 +132,7 @@ function SocialPage() {
       setMtTraderName("");
       setMtAccountSize("");
       setMtPayoutAmount("");
+      setMtMt5Login("");
       loadManualTraders();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
@@ -179,6 +184,10 @@ function SocialPage() {
             <Input id="mt-challenge" value={mtChallengeName} onChange={(e) => setMtChallengeName(e.target.value)} placeholder="Standard" />
           </div>
           <div className="grid gap-1.5">
+            <Label htmlFor="mt5-login">MT5 Login</Label>
+            <Input id="mt5-login" value={mtMt5Login} onChange={(e) => setMtMt5Login(e.target.value)} placeholder="e.g. 12345678" />
+          </div>
+          <div className="grid gap-1.5">
             <Label htmlFor="mt-event">Event Type</Label>
             <Select value={mtEventType} onValueChange={setMtEventType}>
               <SelectTrigger id="mt-event"><SelectValue placeholder="Select event" /></SelectTrigger>
@@ -213,6 +222,7 @@ function SocialPage() {
               <TableRow>
                 <TableHead>Trader Name</TableHead>
                 <TableHead>Challenge</TableHead>
+                <TableHead>MT5 Login</TableHead>
                 <TableHead className="w-24">Account Size</TableHead>
                 <TableHead className="w-24">Phase</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
@@ -220,13 +230,14 @@ function SocialPage() {
             </TableHeader>
             <TableBody>
               {manualLoading ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
               ) : manualTraders.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No traders logged yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No traders logged yet.</TableCell></TableRow>
               ) : manualTraders.map((trader) => (
                 <TableRow key={trader.name}>
                   <TableCell className="font-semibold">{trader.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{trader.challenge_name}</TableCell>
+                  <TableCell className="font-mono text-xs">{trader.mt5_login || "—"}</TableCell>
                   <TableCell className="font-display text-sm">
                     ₦{trader.account_size.toLocaleString()}
                   </TableCell>
