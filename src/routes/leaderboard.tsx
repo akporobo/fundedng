@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { PublicHeader } from "@/components/site/PublicHeader";
 import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,32 @@ interface LeaderboardEntry {
   monthly_profit_percent: number;
   total_payouts: number;
   payout_count: number;
+}
+
+interface ManualLeaderboardEntry {
+  id: string;
+  trader_name: string;
+  avatar_initials: string;
+  challenge_name: string;
+  profit_percent: number;
+  profit_amount: number;
+  total_profit: number;
+  currency: string;
+}
+
+interface MergedLeaderboardEntry {
+  source: "auto" | "manual";
+  name: string;
+  initials: string;
+  challenge: string;
+  currency: string;
+  profitAmount: number;
+  profitPercent: number;
+  totalProfit: number;
+  startingBalance?: number;
+  payoutCount?: number;
+  totalPayouts?: number;
+  userId?: string;
 }
 
 interface ActivityEvent {
@@ -46,12 +73,54 @@ export const Route = createFileRoute("/leaderboard")({
 });
 
 function LeaderboardPage() {
+  const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [manualEntries, setManualEntries] = useState<ManualLeaderboardEntry[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [newActivityId, setNewActivityId] = useState<string | null>(null);
   const [totalPayouts, setTotalPayouts] = useState<number>(0);
 
   const BASE_PAYOUT_NGN = 27_890_350;
+
+  const mergedLeaderboard = useMemo(() => {
+    const autoEntries: MergedLeaderboardEntry[] = leaderboard.map((t) => ({
+      source: "auto" as const,
+      name: t.anonymized_name,
+      initials: t.avatar_initials,
+      challenge: t.challenge_name,
+      currency: t.currency,
+      profitAmount: t.monthly_profit,
+      profitPercent: t.monthly_profit_percent,
+      totalProfit: t.total_payouts,
+      startingBalance: t.starting_balance,
+      payoutCount: t.payout_count,
+      totalPayouts: t.total_payouts,
+      userId: (t as any).user_id,
+    }));
+    const manualMapped: MergedLeaderboardEntry[] = manualEntries.map((m) => ({
+      source: "manual" as const,
+      name: m.trader_name,
+      initials: m.avatar_initials,
+      challenge: m.challenge_name,
+      currency: m.currency,
+      profitAmount: m.profit_amount,
+      profitPercent: m.profit_percent,
+      totalProfit: m.total_profit,
+    }));
+    const combined = [...autoEntries, ...manualMapped];
+    combined.sort((a, b) => b.profitAmount - a.profitAmount);
+    return combined;
+  }, [leaderboard, manualEntries]);
+
+  const topTen = mergedLeaderboard.slice(0, 10);
+
+  const userPosition = useMemo(() => {
+    if (!user) return null;
+    const idx = mergedLeaderboard.findIndex((e) => e.userId === user.id);
+    if (idx >= 0 && idx < 10) return null;
+    if (idx >= 0) return { rank: idx + 1, entry: mergedLeaderboard[idx] };
+    return { rank: mergedLeaderboard.length + 1, entry: null };
+  }, [user, mergedLeaderboard]);
 
   useEffect(() => {
     async function fetchTotalPayouts() {
@@ -82,15 +151,19 @@ function LeaderboardPage() {
 
     Promise.all([
       supabase.from("leaderboard_cache")
-        .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count")
+        .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count, user_id")
         .order("monthly_profit", { ascending: false })
         .limit(10),
+      supabase.from("manual_leaderboard")
+        .select("*")
+        .order("profit_amount", { ascending: false }),
       supabase.from("live_activity")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(20),
-    ]).then(([lbResult, actResult]) => {
+    ]).then(([lbResult, manualResult, actResult]) => {
       if (lbResult.data) setLeaderboard(lbResult.data);
+      if (manualResult.data) setManualEntries(manualResult.data);
       if (actResult.data) setActivity(actResult.data as ActivityEvent[]);
     });
 
@@ -102,10 +175,20 @@ function LeaderboardPage() {
         table: "leaderboard_cache",
       }, () => {
         supabase.from("leaderboard_cache")
-          .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count")
+          .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count, user_id")
           .order("monthly_profit", { ascending: false })
           .limit(10)
           .then(({ data }) => { if (data) setLeaderboard(data); });
+      })
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "manual_leaderboard",
+      }, () => {
+        supabase.from("manual_leaderboard")
+          .select("*")
+          .order("profit_amount", { ascending: false })
+          .then(({ data }) => { if (data) setManualEntries(data); });
       })
       .subscribe();
 
@@ -195,13 +278,13 @@ function LeaderboardPage() {
             <h1 className="font-display text-3xl font-bold md:text-4xl">Top 10 Traders This Month</h1>
           </div>
 
-          {leaderboard.length === 0 ? (
+          {topTen.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground text-sm">
               No traders on the leaderboard yet. Be the first to opt in from your dashboard.
             </div>
           ) : (
             <div className="space-y-2">
-              {leaderboard.map((trader, i) => (
+              {topTen.map((entry, i) => (
                 <div key={i} className={`flex items-center gap-4 rounded-xl border bg-card p-4 ${
                   i === 0 ? "border-yellow-500/30 bg-yellow-500/5" :
                   i === 1 ? "border-gray-400/30" :
@@ -212,39 +295,36 @@ function LeaderboardPage() {
                   </div>
 
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary text-sm shrink-0">
-                    {trader.avatar_initials}
+                    {entry.initials}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold truncate">{trader.anonymized_name}</p>
+                    <p className="font-display font-semibold truncate">{entry.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {trader.challenge_name} ·{" "}
-                      {trader.currency === "USD"
-                        ? `$${Number(trader.starting_balance).toLocaleString()}`
-                        : `₦${Number(trader.starting_balance).toLocaleString()}`}
+                      {entry.challenge} · {entry.currency === "USD" ? "$" : "₦"}{Number(entry.profitAmount).toLocaleString()}
                     </p>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className={`font-display font-bold ${trader.monthly_profit >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {trader.currency === "USD"
-                        ? `$${Math.abs(trader.monthly_profit).toLocaleString()}`
-                        : `₦${Math.abs(trader.monthly_profit).toLocaleString()}`}
+                    <p className={`font-display font-bold ${entry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {entry.currency === "USD"
+                        ? `$${Math.abs(entry.profitAmount).toLocaleString()}`
+                        : `₦${Math.abs(entry.profitAmount).toLocaleString()}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {trader.monthly_profit_percent >= 0 ? "+" : ""}{trader.monthly_profit_percent.toFixed(1)}% this month
+                      {entry.profitPercent >= 0 ? "+" : ""}{Number(entry.profitPercent).toFixed(1)}% this month
                     </p>
                   </div>
 
-                  {trader.payout_count > 0 && (
+                  {entry.payoutCount && entry.payoutCount > 0 && (
                     <div className="shrink-0">
                       <span className="text-xs bg-primary/20 text-primary rounded-full px-2 py-0.5 font-medium">
-                        {trader.payout_count} payout{trader.payout_count !== 1 ? "s" : ""}
-                        {trader.total_payouts > 0 && (
+                        {entry.payoutCount} payout{entry.payoutCount !== 1 ? "s" : ""}
+                        {(entry.totalPayouts ?? 0) > 0 && (
                           <span className="ml-1 text-muted-foreground">
-                            · {trader.currency === "USD"
-                              ? `$${Number(trader.total_payouts).toLocaleString()}`
-                              : `₦${Number(trader.total_payouts).toLocaleString()}`} paid
+                            · {entry.currency === "USD"
+                              ? `$${Number(entry.totalPayouts).toLocaleString()}`
+                              : `₦${Number(entry.totalPayouts).toLocaleString()}`} paid
                           </span>
                         )}
                       </span>
@@ -252,6 +332,61 @@ function LeaderboardPage() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── Your Position (logged-in users not in top 10) ────── */}
+          {user && userPosition && (
+            <div className="mt-8">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-medium text-primary">YOUR RANK</span>
+              </div>
+              {userPosition.entry ? (
+                <div className="flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                  <div className="w-8 text-center font-display font-bold text-lg text-primary shrink-0">
+                    #{userPosition.rank}
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary text-sm shrink-0">
+                    {userPosition.entry.initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-semibold truncate">{userPosition.entry.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {userPosition.entry.challenge} · {userPosition.entry.currency === "USD" ? "$" : "₦"}{Number(userPosition.entry.profitAmount).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`font-display font-bold ${userPosition.entry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {userPosition.entry.currency === "USD"
+                        ? `$${Math.abs(userPosition.entry.profitAmount).toLocaleString()}`
+                        : `₦${Math.abs(userPosition.entry.profitAmount).toLocaleString()}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {userPosition.entry.profitPercent >= 0 ? "+" : ""}{Number(userPosition.entry.profitPercent).toFixed(1)}% this month
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">Total Profit</p>
+                    <p className="font-display font-bold text-green-400">
+                      {userPosition.entry.currency === "USD"
+                        ? `$${Math.abs(userPosition.entry.totalProfit).toLocaleString()}`
+                        : `₦${Math.abs(userPosition.entry.totalProfit).toLocaleString()}`}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
+                  <div className="w-8 text-center font-display font-bold text-lg text-muted-foreground shrink-0">
+                    #{userPosition.rank}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-semibold">Your rank on the leaderboard</p>
+                    <p className="text-xs text-muted-foreground">
+                      Opt in from your dashboard to appear on the leaderboard.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

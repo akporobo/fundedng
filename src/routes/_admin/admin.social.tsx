@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Download, ChevronRight } from "lucide-react";
-import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer, addManualActivityServer, advanceManualPhaseServer } from "@/server/admin.functions";
+import { addSocialProofServer, updateSocialProofServer, deleteSocialProofServer, addManualActivityServer, advanceManualPhaseServer, addManualLeaderboardServer, deleteManualLeaderboardServer } from "@/server/admin.functions";
 import { CertificateCard, type Certificate } from "@/components/certificates/CertificateCard";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -51,6 +51,16 @@ function SocialPage() {
   const [manualLoading, setManualLoading] = useState(true);
   const [advancingId, setAdvancingId] = useState<string | null>(null);
   const [certTarget, setCertTarget] = useState<Certificate | null>(null);
+
+  const [lbTraderName, setLbTraderName] = useState("");
+  const [lbChallengeName, setLbChallengeName] = useState("Standard");
+  const [lbProfitPercent, setLbProfitPercent] = useState("");
+  const [lbProfitAmount, setLbProfitAmount] = useState("");
+  const [lbTotalProfit, setLbTotalProfit] = useState("");
+  const [lbSaving, setLbSaving] = useState(false);
+  const [manualLeaderboard, setManualLeaderboard] = useState<any[]>([]);
+  const [lbLoading, setLbLoading] = useState(true);
+  const [lbDeleting, setLbDeleting] = useState<string | null>(null);
 
   const loadManualTraders = async () => {
     setManualLoading(true);
@@ -106,6 +116,23 @@ function SocialPage() {
 
   useEffect(() => { loadManualTraders(); }, []);
 
+  const loadManualLeaderboard = async () => {
+    setLbLoading(true);
+    try {
+      const { data } = await supabase
+        .from("manual_leaderboard")
+        .select("*")
+        .order("profit_amount", { ascending: false });
+      setManualLeaderboard(data ?? []);
+    } catch {
+      setManualLeaderboard([]);
+    } finally {
+      setLbLoading(false);
+    }
+  };
+
+  useEffect(() => { loadManualLeaderboard(); }, []);
+
   const handleLogActivity = async () => {
     if (!mtTraderName.trim()) return toast.error("Enter trader name");
     if (!mtAccountSize || Number(mtAccountSize) <= 0) return toast.error("Enter a valid account size");
@@ -157,6 +184,58 @@ function SocialPage() {
       toast.error(e?.message ?? "Failed");
     } finally {
       setAdvancingId(null);
+    }
+  };
+
+  const handleAddLeaderboard = async () => {
+    if (!lbTraderName.trim()) return toast.error("Enter trader name");
+    if (!lbProfitPercent && lbProfitPercent !== "0") return toast.error("Enter profit %");
+    if (!lbProfitAmount && lbProfitAmount !== "0") return toast.error("Enter profit amount");
+    if (!lbTotalProfit && lbTotalProfit !== "0") return toast.error("Enter total profit");
+    setLbSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return toast.error("Please sign in again");
+      const result = await addManualLeaderboardServer({
+        data: {
+          accessToken: session.access_token,
+          traderName: lbTraderName.trim(),
+          challengeName: lbChallengeName.trim() || "Standard",
+          profitPercent: Number(lbProfitPercent),
+          profitAmount: Number(lbProfitAmount),
+          totalProfit: Number(lbTotalProfit),
+        },
+      });
+      if (!result?.ok) return toast.error(result?.error ?? "Failed");
+      toast.success("Added to leaderboard");
+      setLbTraderName("");
+      setLbChallengeName("Standard");
+      setLbProfitPercent("");
+      setLbProfitAmount("");
+      setLbTotalProfit("");
+      loadManualLeaderboard();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed");
+    } finally {
+      setLbSaving(false);
+    }
+  };
+
+  const handleDeleteLeaderboard = async (id: string) => {
+    setLbDeleting(id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return toast.error("Please sign in again");
+      const result = await deleteManualLeaderboardServer({
+        data: { accessToken: session.access_token, id },
+      });
+      if (!result?.ok) return toast.error(result?.error ?? "Failed");
+      toast.success("Removed from leaderboard");
+      loadManualLeaderboard();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed");
+    } finally {
+      setLbDeleting(null);
     }
   };
 
@@ -276,6 +355,87 @@ function SocialPage() {
                         </Button>
                       )}
                     </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* ── Manual Leaderboard Entries ───────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="font-display text-base font-bold">Add to Leaderboard</div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Manually add a trader to the public leaderboard with their profit stats.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="lb-name">Trader Name</Label>
+            <Input id="lb-name" value={lbTraderName} onChange={(e) => setLbTraderName(e.target.value)} placeholder="e.g. Adebayo O." />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="lb-challenge">Challenge Name</Label>
+            <Input id="lb-challenge" value={lbChallengeName} onChange={(e) => setLbChallengeName(e.target.value)} placeholder="Standard" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="lb-profit-percent">Profit %</Label>
+            <Input id="lb-profit-percent" type="number" step="0.1" value={lbProfitPercent} onChange={(e) => setLbProfitPercent(e.target.value)} placeholder="e.g. 25.5" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="lb-profit-amount">Profit Amount (₦)</Label>
+            <Input id="lb-profit-amount" type="number" min={0} value={lbProfitAmount} onChange={(e) => setLbProfitAmount(e.target.value)} placeholder="e.g. 50000" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="lb-total-profit">Total Profit (₦)</Label>
+            <Input id="lb-total-profit" type="number" min={0} value={lbTotalProfit} onChange={(e) => setLbTotalProfit(e.target.value)} placeholder="e.g. 250000" />
+          </div>
+        </div>
+        <Button className="mt-4" onClick={handleAddLeaderboard} disabled={lbSaving}>
+          {lbSaving ? "Adding…" : "Add to Leaderboard"}
+        </Button>
+      </div>
+
+      {/* ── Manual Leaderboard Table ─────────────────────────────── */}
+      <div>
+        <h3 className="font-display text-lg font-bold">Leaderboard Entries</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Manually added leaderboard entries. These appear alongside automatic entries on the public leaderboard.
+        </p>
+        <div className="mt-3 overflow-x-auto rounded-xl border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Trader Name</TableHead>
+                <TableHead>Challenge</TableHead>
+                <TableHead className="w-24">Profit %</TableHead>
+                <TableHead className="w-32">Profit Amount</TableHead>
+                <TableHead className="w-32">Total Profit</TableHead>
+                <TableHead className="w-20">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {lbLoading ? (
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+              ) : manualLeaderboard.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No manual entries yet.</TableCell></TableRow>
+              ) : manualLeaderboard.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell className="font-semibold">{entry.trader_name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{entry.challenge_name}</TableCell>
+                  <TableCell className="font-display text-sm">{entry.profit_percent}%</TableCell>
+                  <TableCell className="font-display text-sm">₦{Number(entry.profit_amount).toLocaleString()}</TableCell>
+                  <TableCell className="font-display text-sm text-green-500">₦{Number(entry.total_profit).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                      disabled={lbDeleting === entry.id}
+                      onClick={() => handleDeleteLeaderboard(entry.id)}
+                    >
+                      {lbDeleting === entry.id ? "…" : "Delete"}
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

@@ -913,3 +913,72 @@ export const advanceManualPhaseServer = createServerFn({ method: "POST" })
       return { ok: false as const, error: msg };
     }
   });
+
+// ---------------------------------------------------------------------------
+// Manual leaderboard — admin adds curated leaderboard entries
+// ---------------------------------------------------------------------------
+const AddManualLeaderboardInput = z.object({
+  accessToken: z.string().min(1),
+  traderName: z.string().min(1),
+  challengeName: z.string().default("Standard"),
+  profitPercent: z.number(),
+  profitAmount: z.number(),
+  totalProfit: z.number(),
+});
+
+export const addManualLeaderboardServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => AddManualLeaderboardInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      const initials = data.traderName
+        .split(" ")
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() ?? "")
+        .join("");
+
+      const { error } = await supabaseAdmin.from("manual_leaderboard").insert({
+        trader_name: data.traderName,
+        avatar_initials: initials,
+        challenge_name: data.challengeName,
+        profit_percent: data.profitPercent,
+        profit_amount: data.profitAmount,
+        total_profit: data.totalProfit,
+      } as never);
+
+      if (error) return { ok: false as const, error: error.message };
+      return { ok: true as const };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      console.error("[addManualLeaderboardServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
+const DeleteManualLeaderboardInput = z.object({
+  accessToken: z.string().min(1),
+  id: z.string().uuid(),
+});
+
+export const deleteManualLeaderboardServer = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => DeleteManualLeaderboardInput.parse(input))
+  .handler(async ({ data }) => {
+    try {
+      const auth = await assertAdmin(data.accessToken);
+      if (!auth.ok) return auth;
+
+      const { error } = await supabaseAdmin
+        .from("manual_leaderboard")
+        .delete()
+        .eq("id", data.id);
+
+      if (error) return { ok: false as const, error: error.message };
+      return { ok: true as const };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      console.error("[deleteManualLeaderboardServer] unexpected", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
