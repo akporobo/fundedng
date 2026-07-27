@@ -114,13 +114,12 @@ function LeaderboardPage() {
     return combined;
   }, [leaderboard, manualEntries]);
 
-  const topTen = mergedLeaderboard.slice(0, 10);
+  const topTen = mergedLeaderboard;
 
   const userPosition = useMemo(() => {
     if (!user) return null;
     const idx = mergedLeaderboard.findIndex((e) => e.userId === user.id);
-    if (idx >= 0 && idx < 10) return null;
-    if (idx >= 0) return { rank: idx + 1, entry: mergedLeaderboard[idx] };
+    if (idx >= 0) return null;
     return { rank: mergedLeaderboard.length + 1, entry: null };
   }, [user, mergedLeaderboard]);
 
@@ -154,8 +153,7 @@ function LeaderboardPage() {
     Promise.all([
       supabase.from("leaderboard_cache")
         .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count, user_id")
-        .order("monthly_profit", { ascending: false })
-        .limit(10),
+        .order("monthly_profit", { ascending: false }),
       supabase.from("manual_leaderboard")
         .select("id, trader_name, avatar_initials, challenge_name, account_size, profit_percent, profit_amount, total_profit, currency")
         .order("profit_amount", { ascending: false }),
@@ -176,10 +174,9 @@ function LeaderboardPage() {
         schema: "public",
         table: "leaderboard_cache",
       }, () => {
-        supabase.from("leaderboard_cache")
+          supabase.from("leaderboard_cache")
           .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count, user_id")
           .order("monthly_profit", { ascending: false })
-          .limit(10)
           .then(({ data }) => { if (data) setLeaderboard(data); });
       })
       .on("postgres_changes", {
@@ -277,7 +274,7 @@ function LeaderboardPage() {
               </span>
               <span className="text-xs text-muted-foreground">Updated every 15 min</span>
             </div>
-            <h1 className="font-display text-3xl font-bold md:text-4xl">Top 10 Traders This Month</h1>
+            <h1 className="font-display text-3xl font-bold md:text-4xl">Traders This Month</h1>
           </div>
 
           {topTen.length === 0 ? (

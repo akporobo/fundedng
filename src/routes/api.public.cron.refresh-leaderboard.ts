@@ -11,15 +11,32 @@ export const Route = createFileRoute("/api/public/cron/refresh-leaderboard")({
 });
 
 async function refreshLeaderboard() {
-  const { data: accounts } = await supabaseAdmin
-    .from("trader_accounts")
-    .select(`
-      id, user_id, starting_balance, currency, status,
-      current_phase, trading_days,
-      challenges(name),
-      profiles!inner(full_name)
-    `)
-    .in("status", ["active", "funded"]);
+  const { data: payoutAccountIds } = await supabaseAdmin
+    .from("payouts")
+    .select("trader_account_id")
+    .eq("status", "paid");
+
+  const paidIds = [...new Set((payoutAccountIds ?? []).map((p) => p.trader_account_id))];
+
+  const { data: accounts } = paidIds.length > 0
+    ? await supabaseAdmin
+        .from("trader_accounts")
+        .select(`
+          id, user_id, starting_balance, currency, status,
+          current_phase, trading_days,
+          challenges(name),
+          profiles!inner(full_name)
+        `)
+        .or(`status.in.(active,funded),id.in.(${paidIds.join(",")})`)
+    : await supabaseAdmin
+        .from("trader_accounts")
+        .select(`
+          id, user_id, starting_balance, currency, status,
+          current_phase, trading_days,
+          challenges(name),
+          profiles!inner(full_name)
+        `)
+        .in("status", ["active", "funded"]);
 
   if (!accounts?.length) {
     return Response.json({ ok: true, updated: 0 });
