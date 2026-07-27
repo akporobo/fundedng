@@ -19,6 +19,7 @@ import { subscribeToPush } from "@/lib/push";
 import { NewUserInstallPrompt } from "@/components/NewUserInstallPrompt";
 import { PendingAccounts } from "@/components/dashboard/PendingAccounts";
 import { TradingAnalytics } from "@/components/dashboard/TradingAnalytics";
+import { LeaderboardActivityBanner } from "@/components/dashboard/LeaderboardActivityBanner";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { listNigerianBanks, verifyKycPaystack } from "@/server/kyc.functions";
 import { requestPayoutServer, sendPhaseRequestNotificationServer } from "@/server/admin.functions";
@@ -706,6 +707,10 @@ function DashboardPage() {
         </div>
 
         {user && <PendingAccounts userId={user.id} />}
+
+        <div className="mt-4">
+          <LeaderboardActivityBanner />
+        </div>
 
         {accounts.length === 0 ? (
           <div className="mt-10 overflow-hidden rounded-2xl border border-primary/40 bg-card p-8 md:p-12">

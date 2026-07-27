@@ -5,9 +5,10 @@ import { useAuth } from "@/lib/auth";
 import { PublicHeader } from "@/components/site/PublicHeader";
 import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Crown, Medal, Trophy, ArrowRight } from "lucide-react";
 
 interface LeaderboardEntry {
+  user_id: string;
   anonymized_name: string;
   avatar_initials: string;
   challenge_name: string;
@@ -69,6 +70,9 @@ function formatTimeAgo(date: Date): string {
   return `${days}d ago`;
 }
 
+function currSym(c: string) { return c === "USD" ? "$" : "₦"; }
+function fmtAmt(c: string, v: number) { return `${currSym(c)}${Math.abs(v).toLocaleString()}`; }
+
 export const Route = createFileRoute("/leaderboard")({
   component: LeaderboardPage,
 });
@@ -96,7 +100,7 @@ function LeaderboardPage() {
       startingBalance: t.starting_balance,
       payoutCount: t.payout_count,
       totalPayouts: t.total_payouts,
-      userId: (t as any).user_id,
+      userId: t.user_id,
     }));
     const manualMapped: MergedLeaderboardEntry[] = manualEntries.map((m) => ({
       source: "manual" as const,
@@ -114,29 +118,33 @@ function LeaderboardPage() {
     return combined;
   }, [leaderboard, manualEntries]);
 
-  const topTen = mergedLeaderboard;
+  const topTen = mergedLeaderboard.slice(0, 10);
+  const podium = topTen.slice(0, 3);
 
-  const userPosition = useMemo(() => {
+  const userRank = useMemo(() => {
     if (!user) return null;
     const idx = mergedLeaderboard.findIndex((e) => e.userId === user.id);
-    if (idx >= 0) return null;
-    return { rank: mergedLeaderboard.length + 1, entry: null };
+    if (idx < 0) return null;
+    return idx + 1;
   }, [user, mergedLeaderboard]);
+
+  const userEntry = useMemo(() => {
+    if (!user) return null;
+    return mergedLeaderboard.find((e) => e.userId === user.id) ?? null;
+  }, [user, mergedLeaderboard]);
+
+  const userInTopTen = userRank !== null && userRank <= 10;
 
   useEffect(() => {
     async function fetchTotalPayouts() {
-      // Sum from real payouts table (status = paid)
       const { data: payoutData } = await supabase
         .from("payouts")
         .select("amount_naira, currency")
         .eq("status", "paid");
-
-      // Sum from manual payout_approved entries in live_activity
       const { data: manualData } = await supabase
         .from("live_activity")
         .select("amount, metadata")
         .eq("event_type", "payout_approved");
-
       let total = BASE_PAYOUT_NGN;
       for (const p of payoutData ?? []) {
         total += p.currency === "USD" ? Number(p.amount_naira) / 1550 : Number(p.amount_naira);
@@ -174,7 +182,7 @@ function LeaderboardPage() {
         schema: "public",
         table: "leaderboard_cache",
       }, () => {
-          supabase.from("leaderboard_cache")
+        supabase.from("leaderboard_cache")
           .select("anonymized_name, avatar_initials, challenge_name, currency, starting_balance, monthly_profit, monthly_profit_percent, total_payouts, payout_count, user_id")
           .order("monthly_profit", { ascending: false })
           .then(({ data }) => { if (data) setLeaderboard(data); });
@@ -202,8 +210,6 @@ function LeaderboardPage() {
         setActivity(prev => [newRow, ...prev].slice(0, 20));
         setNewActivityId(newRow.id);
         setTimeout(() => setNewActivityId(null), 3000);
-
-        // If it's a manual payout_approved, add to total
         if (newRow.event_type === "payout_approved") {
           const metaAmt = newRow.metadata?.payout_amount;
           const amt = Number(metaAmt ?? newRow.amount ?? 0);
@@ -212,7 +218,6 @@ function LeaderboardPage() {
       })
       .subscribe();
 
-    // Listen for payout status changes (pending → approved → paid)
     const payoutChannel = supabase
       .channel("payout-total-public")
       .on("postgres_changes", {
@@ -220,7 +225,6 @@ function LeaderboardPage() {
         schema: "public",
         table: "payouts",
       }, () => {
-        // Refetch the full total whenever any payout changes
         supabase
           .from("payouts")
           .select("amount_naira, currency")
@@ -231,7 +235,6 @@ function LeaderboardPage() {
             for (const p of data) {
               realTotal += p.currency === "USD" ? Number(p.amount_naira) / 1550 : Number(p.amount_naira);
             }
-            // Also re-sum manual entries
             supabase
               .from("live_activity")
               .select("amount, metadata")
@@ -259,7 +262,7 @@ function LeaderboardPage() {
     <div className="min-h-screen">
       <PublicHeader />
 
-      {/* Top 10 Leaderboard */}
+      {/* ── Leaderboard Section ─────────────────────────────────────── */}
       <section className="border-b border-border">
         <div className="mx-auto max-w-5xl px-4 pt-12 pb-16 md:px-6">
           <div className="mb-8">
@@ -277,121 +280,161 @@ function LeaderboardPage() {
             <h1 className="font-display text-3xl font-bold md:text-4xl">Traders This Month</h1>
           </div>
 
+          {/* ── Your Ranking Card ──────────────────────────────────── */}
+          {user && (
+            <div className="mb-8 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary text-sm shrink-0">
+                    {userEntry?.initials ?? user.email?.[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-primary uppercase tracking-wider">Your Ranking</p>
+                    {userEntry ? (
+                      <p className="font-display text-lg font-bold">
+                        #{userRank} · {userEntry.name}
+                      </p>
+                    ) : (
+                      <p className="font-display text-lg font-bold text-muted-foreground">Not ranked yet</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 sm:gap-6">
+                  {userEntry && (
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">This Month</p>
+                      <p className={`font-display font-bold ${userEntry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {userEntry.profitAmount >= 0 ? "+" : "-"}{fmtAmt(userEntry.currency, userEntry.profitAmount)}
+                      </p>
+                    </div>
+                  )}
+                  {!userEntry && (
+                    <Link to="/dashboard">
+                      <Button size="sm" className="font-display">
+                        Opt in from dashboard <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {topTen.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground text-sm">
               No traders on the leaderboard yet. Be the first to opt in from your dashboard.
             </div>
           ) : (
-            <div className="space-y-2">
-              {topTen.map((entry, i) => (
-                <div key={i} className={`flex items-center gap-4 rounded-xl border bg-card p-4 ${
-                  i === 0 ? "border-yellow-500/30 bg-yellow-500/5" :
-                  i === 1 ? "border-gray-400/30" :
-                  i === 2 ? "border-amber-700/30" : "border-border"
-                }`}>
-                  <div className="w-8 text-center font-display font-bold text-lg text-muted-foreground shrink-0">
-                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
-                  </div>
-
-                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary text-sm shrink-0">
-                    {entry.initials}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold truncate">{entry.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {entry.challenge} · {entry.currency === "USD" ? "$" : "₦"}{Number(entry.startingBalance ?? entry.profitAmount).toLocaleString()} account
-                    </p>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <p className={`font-display font-bold ${entry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {entry.currency === "USD"
-                        ? `$${Math.abs(entry.profitAmount).toLocaleString()}`
-                        : `₦${Math.abs(entry.profitAmount).toLocaleString()}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {entry.profitPercent >= 0 ? "+" : ""}{Number(entry.profitPercent).toFixed(1)}% this month
-                    </p>
-                  </div>
-
-                  {entry.payoutCount && entry.payoutCount > 0 && (
-                    <div className="shrink-0">
-                      <span className="text-xs bg-primary/20 text-primary rounded-full px-2 py-0.5 font-medium">
-                        {entry.payoutCount} payout{entry.payoutCount !== 1 ? "s" : ""}
-                        {(entry.totalPayouts ?? 0) > 0 && (
-                          <span className="ml-1 text-muted-foreground">
-                            · {entry.currency === "USD"
-                              ? `$${Number(entry.totalPayouts).toLocaleString()}`
-                              : `₦${Number(entry.totalPayouts).toLocaleString()}`} paid
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  )}
+            <>
+              {/* ── Podium (Top 3) ─────────────────────────────────── */}
+              {podium.length >= 3 && (
+                <div className="mb-10 flex flex-col sm:flex-row items-center sm:items-end justify-center gap-4 sm:gap-3">
+                  {/* #2 */}
+                  <PodiumCard entry={podium[1]} rank={2} />
+                  {/* #1 */}
+                  <PodiumCard entry={podium[0]} rank={1} />
+                  {/* #3 */}
+                  <PodiumCard entry={podium[2]} rank={3} />
                 </div>
-              ))}
-            </div>
-          )}
+              )}
 
-          {/* ── Your Position (logged-in users not in top 10) ────── */}
-          {user && userPosition && (
-            <div className="mt-8">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-medium text-primary">YOUR RANK</span>
+              {/* ── All Rankings ───────────────────────────────────── */}
+              <div className="mb-2">
+                <h2 className="font-display text-lg font-bold text-muted-foreground mb-4">All Rankings</h2>
+                <div className="space-y-2">
+                  {topTen.map((entry, i) => {
+                    const isUser = user && entry.userId === user.id;
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center gap-3 sm:gap-4 rounded-xl border p-3 sm:p-4 transition-colors ${
+                          isUser
+                            ? "border-primary/50 bg-primary/5"
+                            : i === 0 ? "border-yellow-500/30 bg-yellow-500/5"
+                            : i === 1 ? "border-gray-400/20 bg-gray-400/5"
+                            : i === 2 ? "border-amber-700/20 bg-amber-700/5"
+                            : "border-border bg-card"
+                        }`}
+                      >
+                        <div className="w-7 sm:w-8 text-center font-display font-bold text-sm sm:text-lg text-muted-foreground shrink-0">
+                          {i === 0 ? <Crown className="h-5 w-5 text-yellow-500 mx-auto" /> :
+                           i === 1 ? <Medal className="h-5 w-5 text-gray-400 mx-auto" /> :
+                           i === 2 ? <Medal className="h-5 w-5 text-amber-600 mx-auto" /> :
+                           `#${i + 1}`}
+                        </div>
+
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary text-xs sm:text-sm shrink-0">
+                          {entry.initials}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="font-display font-semibold truncate text-sm sm:text-base">
+                            {entry.name}{isUser && <span className="ml-1.5 text-xs text-primary font-normal">(You)</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {entry.challenge}
+                            {entry.payoutCount && entry.payoutCount > 0 && (
+                              <span className="ml-1">· {entry.payoutCount} payout{entry.payoutCount !== 1 ? "s" : ""}</span>
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className={`font-display font-bold text-sm sm:text-base ${entry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                            {entry.profitAmount >= 0 ? "+" : "-"}{fmtAmt(entry.currency, entry.profitAmount)}
+                          </p>
+                          {(entry.totalPayouts ?? 0) > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {fmtAmt(entry.currency, entry.totalPayouts!)} paid
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              {userPosition.entry ? (
-                <div className="flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
-                  <div className="w-8 text-center font-display font-bold text-lg text-primary shrink-0">
-                    #{userPosition.rank}
+
+              {/* ── Your Row (if not in top 10) ──────────────────────── */}
+              {user && !userInTopTen && userEntry && (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs text-muted-foreground">⋯</span>
+                    <div className="flex-1 h-px bg-border" />
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary text-sm shrink-0">
-                    {userPosition.entry.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold truncate">{userPosition.entry.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {userPosition.entry.challenge} · {userPosition.entry.currency === "USD" ? "$" : "₦"}{Number(userPosition.entry.startingBalance ?? userPosition.entry.profitAmount).toLocaleString()} account
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className={`font-display font-bold ${userPosition.entry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {userPosition.entry.currency === "USD"
-                        ? `$${Math.abs(userPosition.entry.profitAmount).toLocaleString()}`
-                        : `₦${Math.abs(userPosition.entry.profitAmount).toLocaleString()}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {userPosition.entry.profitPercent >= 0 ? "+" : ""}{Number(userPosition.entry.profitPercent).toFixed(1)}% this month
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-muted-foreground">Total Profit</p>
-                    <p className="font-display font-bold text-green-400">
-                      {userPosition.entry.currency === "USD"
-                        ? `$${Math.abs(userPosition.entry.totalProfit).toLocaleString()}`
-                        : `₦${Math.abs(userPosition.entry.totalProfit).toLocaleString()}`}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
-                  <div className="w-8 text-center font-display font-bold text-lg text-muted-foreground shrink-0">
-                    #{userPosition.rank}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold">Your rank on the leaderboard</p>
-                    <p className="text-xs text-muted-foreground">
-                      Opt in from your dashboard to appear on the leaderboard.
-                    </p>
+                  <div className="flex items-center gap-3 sm:gap-4 rounded-xl border-2 border-primary/40 bg-primary/5 p-3 sm:p-4">
+                    <div className="w-7 sm:w-8 text-center font-display font-bold text-sm sm:text-lg text-primary shrink-0">
+                      #{userRank}
+                    </div>
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary text-xs sm:text-sm shrink-0">
+                      {userEntry.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display font-semibold truncate text-sm sm:text-base">
+                        {userEntry.name}<span className="ml-1.5 text-xs text-primary font-normal">(You)</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{userEntry.challenge}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={`font-display font-bold text-sm sm:text-base ${userEntry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {userEntry.profitAmount >= 0 ? "+" : "-"}{fmtAmt(userEntry.currency, userEntry.profitAmount)}
+                      </p>
+                      {(userEntry.totalPayouts ?? 0) > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {fmtAmt(userEntry.currency, userEntry.totalPayouts!)} paid
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </section>
 
-      {/* Live Activity Feed */}
+      {/* ── Live Activity Feed ──────────────────────────────────────── */}
       <section className="border-b border-border bg-card/30">
         <div className="mx-auto max-w-5xl px-4 py-16 md:px-6">
           <div className="flex items-center gap-2 mb-8">
@@ -402,7 +445,6 @@ function LeaderboardPage() {
             <h2 className="font-display text-2xl font-bold">Recent Activity</h2>
           </div>
 
-          {/* Total Payouts Card */}
           <div className="mb-8 rounded-xl border border-green-400/20 bg-green-400/5 p-6">
             <p className="text-sm text-muted-foreground mb-1">Total Payouts</p>
             <p className="font-display text-3xl font-bold text-green-400">
@@ -585,6 +627,56 @@ function LeaderboardPage() {
           © {new Date().getFullYear()} FundedNG. All rights reserved.
         </div>
       </footer>
+    </div>
+  );
+}
+
+/* ── Podium Card ────────────────────────────────────────────────────────── */
+
+function PodiumCard({ entry, rank }: { entry: MergedLeaderboardEntry; rank: number }) {
+  const is1st = rank === 1;
+  return (
+    <div className={`flex flex-col items-center w-full sm:w-44 md:w-52 ${
+      is1st ? "sm:mb-4" : ""
+    }`}>
+      <div className={`w-full rounded-xl border p-3 sm:p-4 text-center transition-colors ${
+        is1st
+          ? "border-yellow-500/40 bg-yellow-500/10 shadow-lg shadow-yellow-500/10"
+          : rank === 2
+          ? "border-gray-400/30 bg-gray-400/5"
+          : "border-amber-600/30 bg-amber-600/5"
+      }`}>
+        <div className="mb-2">
+          {is1st ? (
+            <Crown className="h-7 w-7 sm:h-8 sm:w-8 text-yellow-500 mx-auto" />
+          ) : rank === 2 ? (
+            <Medal className="h-6 w-6 sm:h-7 sm:w-7 text-gray-400 mx-auto" />
+          ) : (
+            <Medal className="h-6 w-6 sm:h-7 sm:w-7 text-amber-600 mx-auto" />
+          )}
+        </div>
+
+        <div className={`mx-auto rounded-full bg-primary/20 flex items-center justify-center font-display font-bold text-primary shrink-0 mb-2 ${
+          is1st ? "w-14 h-14 text-lg" : "w-11 h-11 text-sm"
+        }`}>
+          {entry.initials}
+        </div>
+
+        <p className="font-display font-semibold text-sm truncate">{entry.name}</p>
+
+        <p className={`font-display font-bold mt-1 ${entry.profitAmount >= 0 ? "text-green-400" : "text-red-400"}`}>
+          {entry.profitAmount >= 0 ? "+" : "-"}{fmtAmt(entry.currency, entry.profitAmount)}
+        </p>
+
+        {(entry.totalPayouts ?? 0) > 0 && (
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {fmtAmt(entry.currency, entry.totalPayouts!)} paid
+          </p>
+        )}
+      </div>
+      <div className="mt-1 text-xs font-display font-bold text-muted-foreground">
+        #{rank}
+      </div>
     </div>
   );
 }

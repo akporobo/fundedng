@@ -18,24 +18,23 @@ async function refreshLeaderboard() {
 
   const paidIds = [...new Set((payoutAccountIds ?? []).map((p) => p.trader_account_id))];
 
+  const selectCols = `
+    id, user_id, starting_balance, currency, status,
+    current_phase, trading_days,
+    challenges(name),
+    profiles!inner(full_name, leaderboard_opt_in)
+  `;
+
   const { data: accounts } = paidIds.length > 0
     ? await supabaseAdmin
         .from("trader_accounts")
-        .select(`
-          id, user_id, starting_balance, currency, status,
-          current_phase, trading_days,
-          challenges(name),
-          profiles!inner(full_name)
-        `)
+        .select(selectCols)
+        .eq("profiles.leaderboard_opt_in", true)
         .or(`status.in.(active,funded),id.in.(${paidIds.join(",")})`)
     : await supabaseAdmin
         .from("trader_accounts")
-        .select(`
-          id, user_id, starting_balance, currency, status,
-          current_phase, trading_days,
-          challenges(name),
-          profiles!inner(full_name)
-        `)
+        .select(selectCols)
+        .eq("profiles.leaderboard_opt_in", true)
         .in("status", ["active", "funded"]);
 
   if (!accounts?.length) {
@@ -123,6 +122,16 @@ async function refreshLeaderboard() {
     } as never, { onConflict: "account_id" });
 
     updated++;
+  }
+
+  const updatedAccountIds = accounts.map((a) => a.id);
+  if (updatedAccountIds.length > 0) {
+    await supabaseAdmin
+      .from("leaderboard_cache")
+      .delete()
+      .not("account_id", "in", `(${updatedAccountIds.join(",")})`);
+  } else {
+    await supabaseAdmin.from("leaderboard_cache").delete().neq("account_id", "00000000-0000-0000-0000-000000000000");
   }
 
   return Response.json({ ok: true, updated });
