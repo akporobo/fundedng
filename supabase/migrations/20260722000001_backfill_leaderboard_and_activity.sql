@@ -97,7 +97,7 @@ SELECT
   COALESCE((
     SELECT SUM(p.amount_naira)
     FROM public.payouts p
-    WHERE p.trader_account_id = ta.id AND p.status = 'paid'
+    WHERE p.trader_account_id = ta.id AND p.status = 'paid' 
   ), 0),
   COALESCE((
     SELECT COUNT(*)

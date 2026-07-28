@@ -210,6 +210,19 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
                 timestamp: new Date().toISOString(),
               }],
             ).catch((e) => console.error("[updatePayoutServer] discord payout_approved failed", e));
+
+            const avatarInitials = fullName.split(" ").slice(0, 2)
+              .map((w: string) => w[0]?.toUpperCase() ?? "").join("");
+
+            await supabaseAdmin.from("live_activity").insert({
+              event_type: "payout_approved",
+              anonymized_name: fullName,
+              avatar_initials: avatarInitials,
+              challenge_name: "",
+              currency: cur,
+              amount: Math.round(amountNaira * 100) / 100,
+              account_size: balance,
+            } as never);
           }
         }
       } else if (data.status === "paid") {
@@ -923,6 +936,30 @@ export const addManualActivityServer = createServerFn({ method: "POST" })
       } as never);
 
       if (actErr) return { ok: false as const, error: actErr.message };
+
+      const eventLabels: Record<string, { emoji: string; title: string; color: number }> = {
+        phase1_to_phase2: { emoji: "🎯", title: "Phase 2 Approved", color: 0x3498db },
+        phase2_to_funded: { emoji: "🏆", title: "New Funded Trader", color: 0x1ec97e },
+        payout_approved: { emoji: "💵", title: "Payout Approved", color: 0xf1c40f },
+      };
+      const cfg = eventLabels[data.eventType] ?? { emoji: "📌", title: "Milestone", color: 0x95a5a6 };
+      const payoutAmt = data.payoutAmount ? `₦${data.payoutAmount.toLocaleString()}` : null;
+
+      await sendDiscordNotification(
+        `${cfg.emoji} **${cfg.title}**`,
+        [{
+          title: `${cfg.emoji} ${cfg.title} — ${data.traderName}`,
+          color: cfg.color,
+          fields: [
+            { name: "Trader", value: data.traderName, inline: true },
+            { name: "Account Size", value: `₦${data.accountSize.toLocaleString()}`, inline: true },
+            { name: "Challenge", value: data.challengeName || "Standard", inline: true },
+            ...(data.mt5Login ? [{ name: "MT5", value: `\`${data.mt5Login}\``, inline: true } as const] : []),
+            ...(payoutAmt ? [{ name: "Payout", value: payoutAmt, inline: true } as const] : []),
+          ],
+          timestamp: new Date().toISOString(),
+        }],
+      ).catch((e) => console.error("[addManualActivityServer] discord failed", e));
 
       return { ok: true as const, certificate: certMeta };
     } catch (e) {
