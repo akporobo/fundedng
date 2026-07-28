@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { PublicHeader } from "@/components/site/PublicHeader";
 import { Brand } from "@/components/site/Brand";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Crown, Medal, Trophy, ArrowRight } from "lucide-react";
+import { ArrowLeft, Crown, Medal, ArrowRight } from "lucide-react";
 
 interface LeaderboardEntry {
   user_id: string;

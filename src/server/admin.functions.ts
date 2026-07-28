@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendEventEmail } from "@/lib/email.server";
 import { claimPoolAccount } from "@/lib/account-pool.server";
 import { sendTelegramWithButtons } from "@/lib/telegram.server";
+import { sendDiscordNotification } from "@/lib/discord.server";
 
 const AddSocialProofInput = z.object({
   accessToken: z.string().min(1),
@@ -173,6 +174,44 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
         await sendEventEmail({ type: "payout_approved", payoutId: data.payoutId }).catch((e) =>
           console.error("[updatePayoutServer] payout_approved email failed", e),
         );
+
+        const { data: payoutApproved } = await supabaseAdmin
+          .from("payouts")
+          .select("amount_naira, trader_account_id")
+          .eq("id", data.payoutId)
+          .maybeSingle();
+
+        if (payoutApproved) {
+          const { data: accApproved } = await supabaseAdmin
+            .from("trader_accounts")
+            .select("mt5_login, currency, starting_balance, profiles(full_name)")
+            .eq("id", payoutApproved.trader_account_id)
+            .maybeSingle();
+
+          if (accApproved) {
+            const fullName = (accApproved as any)?.profiles?.full_name ?? "Trader";
+            const cur = (accApproved as any)?.currency ?? "NGN";
+            const amountNaira = Number(payoutApproved.amount_naira ?? 0);
+            const balance = Number((accApproved as any)?.starting_balance ?? 0);
+            const payoutDisplay = cur === "USD" ? `$${(amountNaira / 1550).toFixed(2)}` : `₦${amountNaira.toLocaleString()}`;
+            const balanceDisplay = cur === "USD" ? `$${balance.toLocaleString()}` : `₦${balance.toLocaleString()}`;
+
+            await sendDiscordNotification(
+              `💵 **Payout Approved**`,
+              [{
+                title: `💵 Payout Approved — ${fullName}`,
+                color: 0xf1c40f,
+                fields: [
+                  { name: "Trader", value: fullName, inline: true },
+                  { name: "Amount", value: payoutDisplay, inline: true },
+                  { name: "Account", value: balanceDisplay, inline: true },
+                  { name: "MT5", value: `\`${(accApproved as any)?.mt5_login ?? "?"}\``, inline: true },
+                ],
+                timestamp: new Date().toISOString(),
+              }],
+            ).catch((e) => console.error("[updatePayoutServer] discord payout_approved failed", e));
+          }
+        }
       } else if (data.status === "paid") {
         const { data: payout } = await supabaseAdmin
           .from("payouts")
@@ -269,6 +308,21 @@ export const updatePayoutServer = createServerFn({ method: "POST" })
             } catch (e) {
               console.error("[updatePayoutServer] telegram reminder failed", e);
             }
+
+            await sendDiscordNotification(
+              `✅ **Payout Completed**`,
+              [{
+                title: `✅ Payout Completed — ${traderName}`,
+                color: 0x1ec97e,
+                fields: [
+                  { name: "Trader", value: traderName, inline: true },
+                  { name: "Amount", value: payoutDisplay, inline: true },
+                  { name: "Account", value: balanceDisplay, inline: true },
+                  { name: "MT5", value: `\`${mt5Login}\``, inline: true },
+                ],
+                timestamp: new Date().toISOString(),
+              }],
+            ).catch((e) => console.error("[updatePayoutServer] discord payout_paid failed", e));
           }
         }
         await sendEventEmail({ type: "payout_paid", payoutId: data.payoutId }).catch((e) =>
@@ -453,6 +507,24 @@ export const approvePhase2Server = createServerFn({ method: "POST" })
           currency: (acc as any).currency ?? "NGN",
           account_size: startingBalance,
         } as never);
+
+        const isUsdCurrency = (acc as any).currency === "USD";
+        const sizeDisplay = isUsdCurrency ? `$${startingBalance.toLocaleString()}` : `₦${startingBalance.toLocaleString()}`;
+
+        await sendDiscordNotification(
+          `🎯 **Phase 2 Approved**`,
+          [{
+            title: `🎯 Phase 2 Approved — ${fullName}`,
+            color: 0x3498db,
+            fields: [
+              { name: "Trader", value: fullName, inline: true },
+              { name: "Account", value: `${sizeDisplay}`, inline: true },
+              { name: "Challenge", value: (challengeData as any)?.name ?? "Standard", inline: true },
+              { name: "MT5", value: `\`${poolResult.mt5Login}\``, inline: true },
+            ],
+            timestamp: new Date().toISOString(),
+          }],
+        ).catch((e) => console.error("[approvePhase2Server] discord failed", e));
       }
 
       return { ok: true as const, newAccountId: poolResult.accountId };
@@ -577,6 +649,24 @@ export const approveFundedServer = createServerFn({ method: "POST" })
           currency: (acc as any).currency ?? "NGN",
           account_size: startingBalance,
         } as never);
+
+        const isUsdCurrency = (acc as any).currency === "USD";
+        const sizeDisplay = isUsdCurrency ? `$${startingBalance.toLocaleString()}` : `₦${startingBalance.toLocaleString()}`;
+
+        await sendDiscordNotification(
+          `🏆 **New Funded Trader**`,
+          [{
+            title: `🏆 New Funded Trader — ${fullName}`,
+            color: 0x1ec97e,
+            fields: [
+              { name: "Trader", value: fullName, inline: true },
+              { name: "Account Size", value: `${sizeDisplay}`, inline: true },
+              { name: "Challenge", value: (challengeData as any)?.name ?? "Standard", inline: true },
+              { name: "MT5", value: `\`${poolResult.mt5Login}\``, inline: true },
+            ],
+            timestamp: new Date().toISOString(),
+          }],
+        ).catch((e) => console.error("[approveFundedServer] discord failed", e));
       }
 
       return { ok: true as const, newAccountId: poolResult.accountId };
